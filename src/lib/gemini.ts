@@ -182,7 +182,7 @@ export async function generateVisualPrompt(
   lastPrompt?: string,
   externalApiConfig?: { useExternalApi: boolean, apiBaseUrl: string }
 ): Promise<string> {
-  const lastExchange = history.slice(-2).map(m => `${m.role === 'user' ? 'User' : 'Character'}: ${m.text}`).join("\n");
+  const lastExchange = history.slice(-2).map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join("\n");
   
   const prompt = `You are a visual director for a hyper-realistic cinematic matured roleplay.
   
