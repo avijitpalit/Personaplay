@@ -51,7 +51,7 @@ export default function App() {
       {/* Subtle footer */}
       {!scenario && (
         <footer className="relative z-10 py-8 text-center text-white/20 text-[10px] uppercase tracking-[0.2em]">
-          Powered by Gemini AI • PersonaPlay Mature xxx yyy
+          Powered by Gemini AI • PersonaPlay Mature xxx
         </footer>
       )}
     </div>
