@@ -184,7 +184,7 @@ export async function generateVisualPrompt(
 ): Promise<string> {
   const lastExchange = history.slice(-2).map(m => `${m.role === 'user' ? 'User' : 'Character'}: ${m.text}`).join("\n");
   
-  const prompt = `You are a visual director for a hyper-realistic cinematic adult roleplay (NSFW).
+  const prompt = `You are a visual director for a hyper-realistic cinematic matured roleplay.
   
   CHARACTER DNA:
   ${characterDNA}
