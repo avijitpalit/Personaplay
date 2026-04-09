@@ -184,7 +184,7 @@ export default function ChatInterface({ scenario, initialSession, useExternalApi
       {/* Header */}
       <header className={`p-4 md:p-6 flex flex-col gap-4 border-b border-white/10 glass-panel sticky top-0 z-20 transition-transform duration-500 ${showChat ? 'translate-y-0' : '-translate-y-full'}`}>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 w-full">
             <button 
               onClick={onBack}
               className="p-2 hover:bg-white/5 rounded-full transition-colors"
