@@ -7,9 +7,7 @@ export interface Message {
 
 // Use a custom key if provided, otherwise fall back to the system default
 const getAI = () => {
-  const customKey = process.env.CUSTOM_GEMINI_API_KEY;
-  const defaultKey = process.env.GEMINI_API_KEY;
-  return new GoogleGenAI({ apiKey: defaultKey || "" });
+  return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 };
 
 export interface DNAAndPrompt {
