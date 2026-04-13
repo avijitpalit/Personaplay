@@ -24,14 +24,17 @@ export async function generateCharacterDNA(
   scenario: string, 
   externalApiConfig?: { useExternalApi: boolean, apiBaseUrl: string }
 ): Promise<DNAAndPrompt> {
-  const prompt = `Based on this matured roleplay scenario: "${scenario}", create a highly detailed "Character DNA" for the main character(s). 
-  Include specific details that would help an image generator maintain perfect consistency:
+  const prompt = `Based on this matured roleplay scenario: "${scenario}", create a highly detailed "Character DNA" for the characters involved. 
+  Include specific details that would help an image generator maintain perfect consistency for both the AI character and the User character (if applicable to the scene):
   - Precise facial features (eye shape, nose, lips, jawline)
   - Exact hair style, color, and texture
   - Specific physical build and skin tone
   - Any unique identifiers (scars, tattoos, piercings)
-  - A signature outfit style
-  Format this as a concise but extremely descriptive paragraph.`;
+  - Signature outfit styles
+  - CORE EMOTIONAL STATE: Describe the character's typical emotional baseline and how they express intense feelings.
+  - SIGNATURE ACTIONS: Describe specific gestures, postures, or habits unique to the character.
+  - RELATIONSHIP DYNAMICS: If both an AI character and a User character are present, describe their relative physical heights, common proximity, and how they interact visually.
+  Format this as a concise but extremely descriptive paragraph that serves as a master reference for visual consistency.`;
 
   if (externalApiConfig?.useExternalApi && externalApiConfig.apiBaseUrl) {
     try {
@@ -199,6 +202,7 @@ export async function generateVisualPrompt(
   REQUIREMENTS:
   - Maintain absolute character consistency using the DNA.
   - Describe the current pose, expression, and environment based on the latest exchange.
+  - If the scene involves both the AI character and the User character, describe their interaction, relative positioning, and shared emotional tension.
   - Keep the outfit consistent unless a change was explicitly mentioned.
   - Use photorealistic, cinematic language (8k, realistic skin textures, moody lighting, 9:16 aspect ratio).
   - Focus on evocative, intimate realism.

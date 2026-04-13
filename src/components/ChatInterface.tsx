@@ -286,20 +286,43 @@ export default function ChatInterface({ scenario, initialSession, useExternalApi
                     />
                   </div>
                 </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Initial Scenario</label>
+                  <textarea 
+                    readOnly
+                    value={scenario}
+                    className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-xs text-white/60 focus:outline-none min-h-[80px] resize-none"
+                  />
+                </div>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </header>
 
-      {/* Toggle Visibility Button (Floating when chat hidden) */}
-      <button 
-        onClick={() => setShowChat(!showChat)}
-        className={`fixed bottom-24 right-8 z-30 p-4 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full text-white hover:bg-white/20 transition-all shadow-2xl ${!showChat ? 'scale-110 bg-accent/20 border-accent/40' : ''}`}
-        title={showChat ? "Hide Chat" : "Show Chat"}
-      >
-        {showChat ? <EyeOff size={24} /> : <Eye size={24} />}
-      </button>
+      {/* Floating Action Buttons */}
+      <div className="fixed bottom-24 right-6 md:right-8 z-30 flex flex-col gap-4">
+        <button 
+          onClick={handleGenerateImage}
+          disabled={isGeneratingImage || isGeneratingPrompt || !currentVisualPrompt}
+          className={`p-4 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full text-white hover:bg-white/20 transition-all shadow-2xl ${isGeneratingImage || isGeneratingPrompt ? 'bg-accent/20 border-accent/40 animate-pulse' : ''}`}
+          title={isGeneratingImage ? "Visualizing..." : isGeneratingPrompt ? "Updating Prompt..." : "Visualize Scene"}
+        >
+          {isGeneratingImage || isGeneratingPrompt ? (
+            <Loader2 size={24} className="animate-spin text-accent" />
+          ) : (
+            <ImageIcon size={24} />
+          )}
+        </button>
+        <button 
+          onClick={() => setShowChat(!showChat)}
+          className={`p-4 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full text-white hover:bg-white/20 transition-all shadow-2xl ${!showChat ? 'scale-110 bg-accent/20 border-accent/40' : ''}`}
+          title={showChat ? "Hide Chat" : "Show Chat"}
+        >
+          {showChat ? <EyeOff size={24} /> : <Eye size={24} />}
+        </button>
+      </div>
 
       {/* Messages */}
       <div 
@@ -362,41 +385,26 @@ export default function ChatInterface({ scenario, initialSession, useExternalApi
       </div>
 
       {/* Input */}
-      <footer className={`p-4 md:p-6 z-10 transition-transform duration-500 ${showChat ? 'translate-y-0' : 'translate-y-[200%]'}`}>
-        <div className="flex gap-2 md:gap-4 items-center max-w-4xl mx-auto">
-          <button
-            type="button"
-            onClick={handleGenerateImage}
-            disabled={isGeneratingImage || isGeneratingPrompt || !currentVisualPrompt}
-            className={`p-3 md:p-4 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl text-white/60 hover:bg-white/10 hover:text-white transition-all shadow-lg flex-shrink-0 ${isGeneratingImage || isGeneratingPrompt ? 'text-accent animate-pulse' : ''}`}
-            title="Visualize Scene"
+      <footer className={`p-6 z-10 transition-transform duration-500 ${showChat ? 'translate-y-0' : 'translate-y-[200%]'}`}>
+        <form 
+          onSubmit={handleSend}
+          className="relative flex items-center"
+        >
+          <input 
+            type="text"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            placeholder="Type your action or dialogue..."
+            className="w-full bg-white/5 border border-white/10 rounded-[2rem] px-8 py-5 pr-20 focus:outline-none focus:border-accent/50 transition-all glass-panel text-lg"
+          />
+          <button 
+            type="submit"
+            disabled={!input.trim() || isLoading}
+            className="absolute right-4 p-4 bg-accent text-white rounded-2xl hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-accent/20"
           >
-            {isGeneratingImage || isGeneratingPrompt ? (
-              <Loader2 size={20} className="animate-spin md:w-6 md:h-6" />
-            ) : (
-              <ImageIcon size={20} className="md:w-6 md:h-6" />
-            )}
+            <Send size={24} />
           </button>
-          <form 
-            onSubmit={handleSend}
-            className="relative flex-1 flex items-center"
-          >
-            <input 
-              type="text"
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              placeholder="Type your action or dialogue..."
-              className="w-full bg-white/5 border border-white/10 rounded-[2rem] px-6 md:px-8 py-4 md:py-5 pr-16 md:pr-20 focus:outline-none focus:border-accent/50 transition-all glass-panel text-base md:text-lg"
-            />
-            <button 
-              type="submit"
-              disabled={!input.trim() || isLoading}
-              className="absolute right-2 md:right-4 p-3 md:p-4 bg-accent text-white rounded-2xl hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-accent/20"
-            >
-              <Send size={20} className="md:w-6 md:h-6" />
-            </button>
-          </form>
-        </div>
+        </form>
       </footer>
     </div>
   );
