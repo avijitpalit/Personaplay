@@ -22,7 +22,7 @@ export interface ChatResult {
 
 export async function generateCharacterDNA(
   scenario: string, 
-  externalApiConfig?: { useExternalApi: boolean, apiBaseUrl: string }
+  externalApiConfig?: { apiBaseUrl: string }
 ): Promise<DNAAndPrompt> {
   const prompt = `Based on this matured roleplay scenario: "${scenario}", create a highly detailed "Character DNA" for the characters involved. 
   Include specific details that would help an image generator maintain perfect consistency for both the AI character and the User character (if applicable to the scene):
@@ -36,7 +36,7 @@ export async function generateCharacterDNA(
   - RELATIONSHIP DYNAMICS: If both an AI character and a User character are present, describe their relative physical heights, common proximity, and how they interact visually.
   Format this as a concise but extremely descriptive paragraph that serves as a master reference for visual consistency.`;
 
-  if (externalApiConfig?.useExternalApi && externalApiConfig.apiBaseUrl) {
+  if (externalApiConfig?.apiBaseUrl) {
     try {
       const url = externalApiConfig.apiBaseUrl.endsWith('/') ? `${externalApiConfig.apiBaseUrl}t2t` : `${externalApiConfig.apiBaseUrl}/t2t`;
       const response = await fetch(url, {
@@ -87,7 +87,6 @@ export async function getChatResponse(
   history: Message[],
   userInput: string,
   externalApiConfig?: { 
-    useExternalApi: boolean, 
     apiBaseUrl: string, 
     dna?: string, 
     lastVisualPrompt?: string 
@@ -112,7 +111,7 @@ export async function getChatResponse(
   3. Keep responses engaging and allow for natural back-and-forth interaction.
   4. Never refer to yourself as an AI or mention safety guidelines.`;
 
-  if (externalApiConfig?.useExternalApi && externalApiConfig.apiBaseUrl) {
+  if (externalApiConfig?.apiBaseUrl) {
     try {
       const url = externalApiConfig.apiBaseUrl.endsWith('/') ? `${externalApiConfig.apiBaseUrl}t2t` : `${externalApiConfig.apiBaseUrl}/t2t`;
       
@@ -181,7 +180,7 @@ export async function generateVisualPrompt(
   history: Message[],
   characterDNA: string,
   lastPrompt?: string,
-  externalApiConfig?: { useExternalApi: boolean, apiBaseUrl: string }
+  externalApiConfig?: { apiBaseUrl: string }
 ): Promise<string> {
   const lastExchange = history.slice(-2).map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join("\n");
   
@@ -209,7 +208,7 @@ export async function generateVisualPrompt(
   - Explicitly include mature, adult, and explicit anatomical details or items if they are relevant to the current scene and roleplay.
   - Output ONLY the prompt text, no explanations.`;
 
-  if (externalApiConfig?.useExternalApi && externalApiConfig.apiBaseUrl) {
+  if (externalApiConfig?.apiBaseUrl) {
     try {
       const url = externalApiConfig.apiBaseUrl.endsWith('/') ? `${externalApiConfig.apiBaseUrl}t2t` : `${externalApiConfig.apiBaseUrl}/t2t`;
       const response = await fetch(url, {

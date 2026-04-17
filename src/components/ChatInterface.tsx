@@ -8,12 +8,11 @@ import { Session, saveSession as persistSession } from '../lib/storage';
 interface ChatInterfaceProps {
   scenario: string;
   initialSession?: Session | null;
-  useExternalApi: boolean;
   initialApiBaseUrl: string;
   onBack: () => void;
 }
 
-export default function ChatInterface({ scenario, initialSession, useExternalApi, initialApiBaseUrl, onBack }: ChatInterfaceProps) {
+export default function ChatInterface({ scenario, initialSession, initialApiBaseUrl, onBack }: ChatInterfaceProps) {
   const [sessionId, setSessionId] = useState<string | undefined>(initialSession?.id);
   const [messages, setMessages] = useState<Message[]>(initialSession?.history || []);
   const [input, setInput] = useState('');
@@ -44,7 +43,7 @@ export default function ChatInterface({ scenario, initialSession, useExternalApi
     if (initialSession) return; // Skip if loading existing session
 
     const initSession = async () => {
-      const result = await generateCharacterDNA(scenario, { useExternalApi, apiBaseUrl });
+      const result = await generateCharacterDNA(scenario, { apiBaseUrl });
       setCharacterDNA(result.dna);
       
       if (result.visualPrompt) {
@@ -52,13 +51,13 @@ export default function ChatInterface({ scenario, initialSession, useExternalApi
       } else {
         // Generate initial visual prompt based on scenario and DNA if not provided by external API
         setIsGeneratingPrompt(true);
-        const initialPrompt = await generateVisualPrompt(scenario, [], result.dna, undefined, { useExternalApi, apiBaseUrl });
+        const initialPrompt = await generateVisualPrompt(scenario, [], result.dna, undefined, { apiBaseUrl });
         setCurrentVisualPrompt(initialPrompt);
         setIsGeneratingPrompt(false);
       }
     };
     initSession();
-  }, [scenario, initialSession, useExternalApi, apiBaseUrl]);
+  }, [scenario, initialSession, apiBaseUrl]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -72,7 +71,7 @@ export default function ChatInterface({ scenario, initialSession, useExternalApi
         bgImage,
         lastVisualPrompt: currentVisualPrompt,
         apiBaseUrl,
-        useExternalApi,
+        useExternalApi: true,
         imageWidth,
         imageHeight,
         imageSteps
@@ -109,7 +108,6 @@ export default function ChatInterface({ scenario, initialSession, useExternalApi
     setIsLoading(true);
 
     const result = await getChatResponse(scenario, messages, userMessage.text, { 
-      useExternalApi, 
       apiBaseUrl,
       dna: characterDNA || undefined,
       lastVisualPrompt: currentVisualPrompt
@@ -125,7 +123,7 @@ export default function ChatInterface({ scenario, initialSession, useExternalApi
       setCurrentVisualPrompt(result.lastVisualPrompt);
     } else if (characterDNA) {
       setIsGeneratingPrompt(true);
-      const nextPrompt = await generateVisualPrompt(scenario, finalMessages, characterDNA, currentVisualPrompt, { useExternalApi, apiBaseUrl });
+      const nextPrompt = await generateVisualPrompt(scenario, finalMessages, characterDNA, currentVisualPrompt, { apiBaseUrl });
       setCurrentVisualPrompt(nextPrompt);
       setIsGeneratingPrompt(false);
     }

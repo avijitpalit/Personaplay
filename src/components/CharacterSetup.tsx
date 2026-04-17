@@ -9,10 +9,9 @@ interface CharacterSetupProps {
   initialApiBaseUrl?: string;
 }
 
-export default function CharacterSetup({ onStart, onLoadSession, initialApiBaseUrl = '' }: CharacterSetupProps) {
+export default function CharacterSetup({ onStart, onLoadSession, initialApiBaseUrl = 'https://odorful-hsiu-unmaledictory.ngrok-free.dev' }: CharacterSetupProps) {
   const [scenario, setScenario] = useState('');
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [useExternalApi, setUseExternalApi] = useState(false);
   const [apiBaseUrl, setApiBaseUrl] = useState(initialApiBaseUrl);
 
   useEffect(() => {
@@ -59,39 +58,17 @@ export default function CharacterSetup({ onStart, onLoadSession, initialApiBaseU
           </div>
 
           <div className="space-y-4 pt-2 border-t border-white/5">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-2 p-4 bg-white/5 rounded-2xl border border-white/10">
+              <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">API Base URL</label>
               <input 
-                type="checkbox"
-                id="externalApi"
-                checked={useExternalApi}
-                onChange={e => setUseExternalApi(e.target.checked)}
-                className="w-4 h-4 rounded border-white/10 bg-white/5 text-accent focus:ring-accent"
+                type="text"
+                value={apiBaseUrl}
+                onChange={e => setApiBaseUrl(e.target.value)}
+                placeholder="http://your-api-base-url"
+                className="bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50"
               />
-              <label htmlFor="externalApi" className="text-sm text-white/60 cursor-pointer select-none">Use External API for Chat & Logic</label>
+              <p className="text-[9px] text-white/30 italic">Endpoints used: /t2t and /generate</p>
             </div>
-
-            <AnimatePresence>
-              {useExternalApi && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="overflow-hidden"
-                >
-                  <div className="flex flex-col gap-2 p-4 bg-white/5 rounded-2xl border border-white/10">
-                    <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">API Base URL</label>
-                    <input 
-                      type="text"
-                      value={apiBaseUrl}
-                      onChange={e => setApiBaseUrl(e.target.value)}
-                      placeholder="http://your-api-base-url"
-                      className="bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50"
-                    />
-                    <p className="text-[9px] text-white/30 italic">Endpoints used: /chat and /generate</p>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
           
           <div className="flex items-center gap-3 text-xs text-white/30 italic px-2">
@@ -100,8 +77,8 @@ export default function CharacterSetup({ onStart, onLoadSession, initialApiBaseU
           </div>
 
           <button 
-            disabled={!scenario.trim() || scenario.length < 10 || (useExternalApi && !apiBaseUrl.trim())}
-            onClick={() => onStart(scenario, useExternalApi, apiBaseUrl)}
+            disabled={!scenario.trim() || scenario.length < 10 || !apiBaseUrl.trim()}
+            onClick={() => onStart(scenario, true, apiBaseUrl)}
             className="w-full bg-accent text-white py-5 rounded-2xl font-bold text-lg hover:bg-accent/90 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg shadow-accent/20 flex items-center justify-center gap-3 group"
           >
             Enter the Story

@@ -6,20 +6,17 @@ import { Session } from './lib/storage';
 export default function App() {
   const [scenario, setScenario] = useState<string | null>(null);
   const [loadedSession, setLoadedSession] = useState<Session | null>(null);
-  const [useExternalApi, setUseExternalApi] = useState(false);
-  const [apiBaseUrl, setApiBaseUrl] = useState('');
+  const [apiBaseUrl, setApiBaseUrl] = useState('https://odorful-hsiu-unmaledictory.ngrok-free.dev');
 
-  const handleStart = (newScenario: string, external: boolean, baseUrl: string) => {
+  const handleStart = (newScenario: string, _external: boolean, baseUrl: string) => {
     setScenario(newScenario);
-    setUseExternalApi(external);
     setApiBaseUrl(baseUrl);
     setLoadedSession(null);
   };
 
   const handleLoadSession = (session: Session) => {
     setScenario(session.scenario);
-    setUseExternalApi(!!session.useExternalApi);
-    setApiBaseUrl(session.apiBaseUrl || '');
+    setApiBaseUrl(session.apiBaseUrl || 'https://odorful-hsiu-unmaledictory.ngrok-free.dev');
     setLoadedSession(session);
   };
 
@@ -38,7 +35,6 @@ export default function App() {
           <ChatInterface 
             scenario={scenario} 
             initialSession={loadedSession}
-            useExternalApi={useExternalApi}
             initialApiBaseUrl={apiBaseUrl}
             onBack={() => {
               setScenario(null);
