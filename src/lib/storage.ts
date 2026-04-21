@@ -6,6 +6,7 @@ export interface Session {
   scenario: string;
   history: Message[];
   characterDNA: string | null;
+  masterStory: string | null;
   bgImage: string | null;
   lastVisualPrompt: string | undefined;
   apiBaseUrl: string;

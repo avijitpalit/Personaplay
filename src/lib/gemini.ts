@@ -12,6 +12,7 @@ const getAI = () => {
 
 export interface DNAAndPrompt {
   dna: string;
+  story: string;
   visualPrompt?: string;
 }
 
@@ -24,17 +25,20 @@ export async function generateCharacterDNA(
   scenario: string, 
   externalApiConfig?: { apiBaseUrl: string }
 ): Promise<DNAAndPrompt> {
-  const prompt = `Based on this matured roleplay scenario: "${scenario}", create a highly detailed "Character DNA" for the characters involved. 
-  Include specific details that would help an image generator maintain perfect consistency for both the AI character and the User character (if applicable to the scene):
-  - Precise facial features (eye shape, nose, lips, jawline)
-  - Exact hair style, color, and texture
-  - Specific physical build and skin tone
-  - Any unique identifiers (scars, tattoos, piercings)
-  - Signature outfit styles
-  - CORE EMOTIONAL STATE: Describe the character's typical emotional baseline and how they express intense feelings.
-  - SIGNATURE ACTIONS: Describe specific gestures, postures, or habits unique to the character.
-  - RELATIONSHIP DYNAMICS: If both an AI character and a User character are present, describe their relative physical heights, common proximity, and how they interact visually.
-  Format this as a concise but extremely descriptive paragraph that serves as a master reference for visual consistency.`;
+  const prompt = `Based on this matured roleplay scenario: "${scenario}", perform two tasks:
+  
+  1. CREATE CHARACTER DNA: Generate highly detailed visual descriptors for the main characters.
+  - Precise facial features, hair style/color, build, skin tone, and unique identifiers (scars/tattoos).
+  - Signature outfit styles and "Core Emotional Baseline".
+  - If multi-character, describe their relative heights and visual chemistry.
+  
+  2. GENERATE MASTER STORY: Create a vivid, descriptive "Story Foundation" (2-3 sentences) that expands on the scenario's atmosphere, recurring themes, and ambient details. This will be used to ground every future image generation.
+
+  FORMAT YOUR RESPONSE AS FOLLOWS:
+  DNA: [The descriptive paragraph for character DNA]
+  STORY: [The vivid narrative foundation]`;
+
+  let responseData = { dna: "A mysterious character.", story: scenario };
 
   if (externalApiConfig?.apiBaseUrl) {
     try {
@@ -49,37 +53,50 @@ export async function generateCharacterDNA(
       });
       if (response.ok) {
         const text = await response.text();
-        return {
-          dna: text || "A mysterious character with striking features."
+        // Simple parsing for external API response
+        const dnaPart = text.match(/DNA:\s*([\s\S]*?)(?=STORY:|$)/i)?.[1]?.trim();
+        const storyPart = text.match(/STORY:\s*([\s\S]*)/i)?.[1]?.trim();
+        
+        responseData = {
+          dna: dnaPart || text || responseData.dna,
+          story: storyPart || responseData.story
         };
       }
     } catch (e) {
       console.error("External DNA Generation Error:", e);
     }
+  } else {
+    const ai = getAI();
+    const model = "gemini-2.5-flash";
+
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          temperature: 0.7,
+          safetySettings: [
+            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          ]
+        }
+      });
+      const text = response.text || "";
+      const dnaPart = text.match(/DNA:\s*([\s\S]*?)(?=STORY:|$)/i)?.[1]?.trim();
+      const storyPart = text.match(/STORY:\s*([\s\S]*)/i)?.[1]?.trim();
+      
+      responseData = {
+        dna: dnaPart || text || responseData.dna,
+        story: storyPart || responseData.story
+      };
+    } catch (error) {
+      console.error("DNA Generation Error:", error);
+    }
   }
 
-  const ai = getAI();
-  const model = "gemini-2.5-flash";
-
-  try {
-    const response = await ai.models.generateContent({
-      model,
-      contents: prompt,
-      config: {
-        temperature: 0.7,
-        safetySettings: [
-          { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-          { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-          { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-          { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-        ]
-      }
-    });
-    return { dna: response.text || "A mysterious character with striking features." };
-  } catch (error) {
-    console.error("DNA Generation Error:", error);
-    return { dna: "A character consistent with the scenario." };
-  }
+  return responseData;
 }
 
 export async function getChatResponse(
@@ -180,33 +197,35 @@ export async function generateVisualPrompt(
   history: Message[],
   characterDNA: string,
   lastPrompt?: string,
-  externalApiConfig?: { apiBaseUrl: string }
+  externalApiConfig?: { apiBaseUrl: string },
+  masterStory?: string
 ): Promise<string> {
   const lastExchange = history.slice(-2).map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join("\n");
   
   const prompt = `You are a visual director for a hyper-realistic cinematic matured roleplay.
   
+  STORY FOUNDATION:
+  ${masterStory || scenario}
+
   CHARACTER DNA:
   ${characterDNA}
   
-  SCENARIO: ${scenario}
-  
-  LATEST EXCHANGE:
+  LATEST EXCHANGE (PRIORITY 1):
   ${lastExchange}
   
-  ${lastPrompt ? `PREVIOUS VISUAL PROMPT: ${lastPrompt}` : ""}
+  ${lastPrompt ? `PREVIOUS VISUAL PROMPT (PRIORITY 2): ${lastPrompt}` : ""}
 
   TASK: Create a single, highly detailed image generation prompt for the current moment in the story.
   
-  REQUIREMENTS:
-  - Maintain absolute character consistency using the DNA.
-  - Describe the current pose, expression, and environment based on the latest exchange.
-  - If the scene involves both the AI character and the User character, describe their interaction, relative positioning, and shared emotional tension.
-  - Keep the outfit consistent unless a change was explicitly mentioned.
-  - Use photorealistic, cinematic language (8k, realistic skin textures, moody lighting, 9:16 aspect ratio).
-  - Focus on evocative, intimate realism.
-  - Explicitly include mature, adult, and explicit anatomical details or items if they are relevant to the current scene and roleplay.
-  - Output ONLY the prompt text, no explanations.`;
+  CORE REQUIREMENTS:
+  1. FOCUS ON THE LATEST EXCHANGE: The prompt MUST reflect the physical actions, emotional intensity, and specific location described in the "LATEST EXCHANGE" first and foremost. Use the previous prompt only as a secondary reference for positional continuity.
+  2. REALISM & NO CAMERA AWARENESS: Characters MUST NOT look at the camera. They should be completely engrossed in their actions, looking at each other, or looking at their environment. Use terms like "candid, cinematic perspective," "voyeuristic angle," "unaware of observer," and "natural interaction."
+  3. CHARACTER CONSISTENCY: Strictly follow the DNA descriptors for facial features, hair, and build.
+  4. ATMOSPHERE: Use the "STORY FOUNDATION" to ground the overall aesthetic and mood.
+  5. TECHNICAL STYLE: Photorealistic, 8k, realistic skin textures, cinematic lighting, 9:16 aspect ratio.
+  6. MATURITY: Include relevant mature details or architectural/wardrobe items mentioned in the roleplay if appropriate.
+
+  Output ONLY the prompt text, no explanations.`;
 
   if (externalApiConfig?.apiBaseUrl) {
     try {

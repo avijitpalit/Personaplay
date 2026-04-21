@@ -22,6 +22,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
   const [bgImage, setBgImage] = useState<string | null>(initialSession?.bgImage || null);
   const [currentVisualPrompt, setCurrentVisualPrompt] = useState<string | undefined>(initialSession?.lastVisualPrompt);
   const [characterDNA, setCharacterDNA] = useState<string | null>(initialSession?.characterDNA || null);
+  const [masterStory, setMasterStory] = useState<string | null>(initialSession?.masterStory || null);
   const [apiBaseUrl, setApiBaseUrl] = useState<string>(initialSession?.apiBaseUrl || initialApiBaseUrl);
   const [imageWidth, setImageWidth] = useState<number>(initialSession?.imageWidth || 720);
   const [imageHeight, setImageHeight] = useState<number>(initialSession?.imageHeight || 1280);
@@ -45,13 +46,14 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
     const initSession = async () => {
       const result = await generateCharacterDNA(scenario, { apiBaseUrl });
       setCharacterDNA(result.dna);
+      setMasterStory(result.story);
       
       if (result.visualPrompt) {
         setCurrentVisualPrompt(result.visualPrompt);
       } else {
-        // Generate initial visual prompt based on scenario and DNA if not provided by external API
+        // Generate initial visual prompt based on scenario, DNA, and the fresh story outline
         setIsGeneratingPrompt(true);
-        const initialPrompt = await generateVisualPrompt(scenario, [], result.dna, undefined, { apiBaseUrl });
+        const initialPrompt = await generateVisualPrompt(scenario, [], result.dna, undefined, { apiBaseUrl }, result.story);
         setCurrentVisualPrompt(initialPrompt);
         setIsGeneratingPrompt(false);
       }
@@ -68,6 +70,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
         scenario,
         history: messages,
         characterDNA,
+        masterStory,
         bgImage,
         lastVisualPrompt: currentVisualPrompt,
         apiBaseUrl,
@@ -123,7 +126,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
       setCurrentVisualPrompt(result.lastVisualPrompt);
     } else if (characterDNA) {
       setIsGeneratingPrompt(true);
-      const nextPrompt = await generateVisualPrompt(scenario, finalMessages, characterDNA, currentVisualPrompt, { apiBaseUrl });
+      const nextPrompt = await generateVisualPrompt(scenario, finalMessages, characterDNA, currentVisualPrompt, { apiBaseUrl }, masterStory || undefined);
       setCurrentVisualPrompt(nextPrompt);
       setIsGeneratingPrompt(false);
     }
