@@ -56,6 +56,9 @@ export async function generateCharacterDNA(
         // Simple parsing for external API response
         const dnaPart = text.match(/DNA:\s*([\s\S]*?)(?=STORY:|$)/i)?.[1]?.trim();
         const storyPart = text.match(/STORY:\s*([\s\S]*)/i)?.[1]?.trim();
+
+        console.log("dnaPart", dnaPart);
+        console.log("storyPart", storyPart);
         
         responseData = {
           dna: dnaPart || text || responseData.dna,
@@ -215,7 +218,7 @@ export async function generateVisualPrompt(
   
   ${lastPrompt ? `PREVIOUS VISUAL PROMPT (PRIORITY 2): ${lastPrompt}` : ""}
 
-  TASK: Create a single, highly detailed image generation prompt for the current moment in the story.
+  TASK: Create a single, highly detailed image generation prompt for z-image turbo model for the current moment in the story.
   
   CORE REQUIREMENTS:
   1. FOCUS ON THE LATEST EXCHANGE: The prompt MUST reflect the physical actions, emotional intensity, and specific location described in the "LATEST EXCHANGE" first and foremost. Use the previous prompt only as a secondary reference for positional continuity.
@@ -319,5 +322,80 @@ export async function generateImage(
   } catch (error) {
     console.error("Custom API Image Generation Error:", error);
     throw error; 
+  }
+}
+
+export async function getQuickReplies(
+  scenario: string,
+  history: Message[],
+  externalApiConfig?: { apiBaseUrl: string }
+): Promise<string[]> {
+  const prompt = `Based on the following mature roleplay scenario and conversation history, suggest 4 potential short replies for the user. 
+  The suggestions should:
+  - Match the tone and mood of the story.
+  - Include a variety of responses: one standard, one inquisitive, and TWO "spicy" or provocative replies that push the chemistry further.
+  - Be direct dialogue or actions.
+  - Be concise (under 10 words).
+
+  SCENARIO: ${scenario}
+  HISTORY:
+  ${history.slice(-4).map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join('\n')}
+
+  Format your response as a simple JSON array of strings: ["suggestion 1", "suggestion 2", "suggestion 3", "suggestion 4"]
+  Return ONLY the JSON.`;
+
+  if (externalApiConfig?.apiBaseUrl) {
+    try {
+      const url = externalApiConfig.apiBaseUrl.endsWith('/') ? `${externalApiConfig.apiBaseUrl}t2t` : `${externalApiConfig.apiBaseUrl}/t2t`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Bypass-Tunnel-Reminder': 'true'
+        },
+        body: JSON.stringify({ input: prompt }),
+      });
+      if (response.ok) {
+        const text = await response.text();
+        try {
+          const cleaned = text.replace(/```json|```/g, '').trim();
+          return JSON.parse(cleaned);
+        } catch (e) {
+          return ["Tell me more.", "I'm listening.", "What's next?", "Come closer."];
+        }
+      }
+    } catch (e) {
+      console.error("External Quick Replies Error:", e);
+    }
+  }
+
+  const ai = getAI();
+  const model = "gemini-2.5-flash";
+
+  try {
+    const response = await ai.models.generateContent({
+      model,
+      contents: prompt,
+      config: {
+        temperature: 0.9,
+        safetySettings: [
+          { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        ]
+      }
+    });
+
+    const text = response.text || "";
+    try {
+      const cleaned = text.replace(/```json|```/g, '').trim();
+      return JSON.parse(cleaned);
+    } catch (e) {
+      return ["Tell me more.", "I'm listening.", "What's next?", "Come closer."];
+    }
+  } catch (error) {
+    console.error("Quick Replies Error:", error);
+    return ["Go on...", "Stay here with me.", "What happens now?", "Touch me."];
   }
 }

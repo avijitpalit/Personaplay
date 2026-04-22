@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Message, getChatResponse, generateImage, generateCharacterDNA, generateVisualPrompt } from '../lib/gemini';
-import { Send, ArrowLeft, Loader2, User, Sparkles, Image as ImageIcon, Eye, EyeOff, Save, CheckCircle2, Settings } from 'lucide-react';
+import { Message, getChatResponse, generateImage, generateCharacterDNA, generateVisualPrompt, getQuickReplies } from '../lib/gemini';
+import { Send, ArrowLeft, Loader2, User, Sparkles, Image as ImageIcon, Eye, EyeOff, Save, CheckCircle2, Settings, Info, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
 import { Session, saveSession as persistSession } from '../lib/storage';
@@ -31,6 +31,10 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
   const [showSettings, setShowSettings] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [statusBarMessage, setStatusBarMessage] = useState<string | null>(null);
+  const [quickReplies, setQuickReplies] = useState<string[]>([]);
+  const [isGeneratingQuickReplies, setIsGeneratingQuickReplies] = useState(false);
+  const [imageProgress, setImageProgress] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -44,22 +48,36 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
     if (initialSession) return; // Skip if loading existing session
 
     const initSession = async () => {
+      setStatusBarMessage("Initializing character DNA...");
       const result = await generateCharacterDNA(scenario, { apiBaseUrl });
       setCharacterDNA(result.dna);
       setMasterStory(result.story);
       
       if (result.visualPrompt) {
         setCurrentVisualPrompt(result.visualPrompt);
+        setStatusBarMessage(null);
       } else {
         // Generate initial visual prompt based on scenario, DNA, and the fresh story outline
+        setStatusBarMessage("Creating initial visual prompt...");
         setIsGeneratingPrompt(true);
         const initialPrompt = await generateVisualPrompt(scenario, [], result.dna, undefined, { apiBaseUrl }, result.story);
         setCurrentVisualPrompt(initialPrompt);
         setIsGeneratingPrompt(false);
+        setStatusBarMessage(null);
       }
+
+      // Initial quick replies
+      fetchQuickReplies(scenario, []);
     };
     initSession();
   }, [scenario, initialSession, apiBaseUrl]);
+
+  const fetchQuickReplies = async (sc: string, hist: Message[]) => {
+    setIsGeneratingQuickReplies(true);
+    const replies = await getQuickReplies(sc, hist, { apiBaseUrl });
+    setQuickReplies(replies);
+    setIsGeneratingQuickReplies(false);
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -107,8 +125,10 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
     const userMessage: Message = { role: 'user', text: input.trim() };
     const updatedMessages: Message[] = [...messages, userMessage];
     setMessages(updatedMessages);
+    setQuickReplies([]);
     setInput('');
     setIsLoading(true);
+    setStatusBarMessage("AI is replying...");
 
     const result = await getChatResponse(scenario, messages, userMessage.text, { 
       apiBaseUrl,
@@ -120,16 +140,22 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
     
     setMessages(finalMessages);
     setIsLoading(false);
+    setStatusBarMessage(null);
 
     // Update visual prompt
     if (result.lastVisualPrompt) {
       setCurrentVisualPrompt(result.lastVisualPrompt);
     } else if (characterDNA) {
+      setStatusBarMessage("Creating visual prompt...");
       setIsGeneratingPrompt(true);
       const nextPrompt = await generateVisualPrompt(scenario, finalMessages, characterDNA, currentVisualPrompt, { apiBaseUrl }, masterStory || undefined);
       setCurrentVisualPrompt(nextPrompt);
       setIsGeneratingPrompt(false);
+      setStatusBarMessage(null);
     }
+
+    // New quick replies
+    fetchQuickReplies(scenario, finalMessages);
   };
 
   const [error, setError] = useState<string | null>(null);
@@ -144,7 +170,19 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
     }
 
     setIsGeneratingImage(true);
+    setStatusBarMessage("Creating image...");
     setError(null);
+    setImageProgress(0);
+
+    const startTime = Date.now();
+    const maxTime = 30000;
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min((elapsed / maxTime) * 100, 99);
+      setImageProgress(progress);
+      if (elapsed >= maxTime) clearInterval(interval);
+    }, 100);
+
     try {
       const result = await generateImage(apiBaseUrl, currentVisualPrompt, imageWidth, imageHeight, imageSteps);
       if (result) {
@@ -155,6 +193,10 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
       setError("Image generation failed. Check console and API URL.");
     } finally {
       setIsGeneratingImage(false);
+      setStatusBarMessage(null);
+      setImageProgress(100);
+      clearInterval(interval);
+      setTimeout(() => setImageProgress(0), 1000);
     }
   };
 
@@ -207,6 +249,21 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
             </div>
           </div>
         </div>
+
+        {/* Status Bar */}
+        <AnimatePresence>
+          {statusBarMessage && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="bg-accent/10 border-t border-white/5 px-6 py-2 flex items-center gap-3"
+            >
+              <Loader2 size={12} className="animate-spin text-accent" />
+              <span className="text-[10px] uppercase tracking-wider text-white/60 font-bold">{statusBarMessage}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Error Message */}
         <AnimatePresence>
@@ -304,18 +361,33 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
 
       {/* Floating Action Buttons */}
       <div className="fixed bottom-24 right-6 md:right-8 z-30 flex flex-col gap-4">
-        <button 
-          onClick={handleGenerateImage}
-          disabled={isGeneratingImage || isGeneratingPrompt || !currentVisualPrompt}
-          className={`p-4 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full text-white hover:bg-white/20 transition-all shadow-2xl ${isGeneratingImage || isGeneratingPrompt ? 'bg-accent/20 border-accent/40 animate-pulse' : ''}`}
-          title={isGeneratingImage ? "Visualizing..." : isGeneratingPrompt ? "Updating Prompt..." : "Visualize Scene"}
-        >
-          {isGeneratingImage || isGeneratingPrompt ? (
-            <Loader2 size={24} className="animate-spin text-accent" />
-          ) : (
-            <ImageIcon size={24} />
+        <div className="relative group">
+          {isGeneratingImage && (
+            <div className="absolute inset-0 -m-1 rounded-full border-2 border-white/10 overflow-hidden">
+               <div 
+                className="h-full bg-accent transition-all duration-300 ease-linear rounded-full opacity-30" 
+                style={{ width: `${imageProgress}%` }} 
+              />
+            </div>
           )}
-        </button>
+          <button 
+            onClick={handleGenerateImage}
+            disabled={isGeneratingImage || isGeneratingPrompt || !currentVisualPrompt}
+            className={`p-4 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full text-white hover:bg-white/20 transition-all shadow-2xl relative z-10 ${isGeneratingImage || isGeneratingPrompt ? 'bg-accent/20 border-accent/40 animate-pulse' : ''}`}
+            title={isGeneratingImage ? "Visualizing..." : isGeneratingPrompt ? "Updating Prompt..." : "Visualize Scene"}
+          >
+            {isGeneratingImage || isGeneratingPrompt ? (
+              <div className="relative flex items-center justify-center">
+                <Loader2 size={24} className="animate-spin text-accent" />
+                {isGeneratingImage && (
+                  <span className="absolute text-[8px] font-bold text-white/50">{Math.round(imageProgress / 3.33)}s</span>
+                )}
+              </div>
+            ) : (
+              <ImageIcon size={24} />
+            )}
+          </button>
+        </div>
         <button 
           onClick={() => setShowChat(!showChat)}
           className={`p-4 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full text-white hover:bg-white/20 transition-all shadow-2xl ${!showChat ? 'scale-110 bg-accent/20 border-accent/40' : ''}`}
@@ -330,7 +402,24 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
         ref={scrollRef}
         className={`flex-1 overflow-y-auto p-6 space-y-8 scroll-smooth z-10 transition-opacity duration-500 ${showChat ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
       >
-        {messages.length === 0 && (
+        {/* Master Story Display */}
+        {masterStory && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-12 p-8 glass-panel border border-accent/30 rounded-[2rem] relative bg-accent/5"
+          >
+             <div className="absolute -top-3 left-8 bg-accent text-white px-3 py-1 rounded-full text-[10px] uppercase font-bold tracking-widest flex items-center gap-2">
+              <Sparkles size={10} />
+              Story Foundation
+            </div>
+            <p className="text-white/80 font-serif italic text-lg leading-relaxed first-letter:text-4xl first-letter:font-bold first-letter:mr-1 first-letter:float-left">
+              {masterStory}
+            </p>
+          </motion.div>
+        )}
+
+        {messages.length === 0 && !masterStory && (
           <div className="h-full flex flex-col items-center justify-center text-center opacity-40">
             <Sparkles size={48} className="mb-4 text-accent" />
             <p className="text-xl font-serif italic mb-2">The stage is set.</p>
@@ -387,6 +476,39 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
 
       {/* Input */}
       <footer className={`p-6 z-10 transition-transform duration-500 ${showChat ? 'translate-y-0' : 'translate-y-[200%]'}`}>
+        
+        {/* Quick Replies Panel */}
+        <AnimatePresence>
+          {showChat && (quickReplies.length > 0 || isGeneratingQuickReplies) && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="flex flex-wrap gap-2 mb-4 justify-center"
+            >
+              {isGeneratingQuickReplies && quickReplies.length === 0 ? (
+                <div className="flex items-center gap-2 text-[10px] text-white/30 uppercase tracking-widest py-2">
+                  <Loader2 size={10} className="animate-spin" />
+                  Gleaning suggestions...
+                </div>
+              ) : (
+                quickReplies.map((reply, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      setInput(reply);
+                      handleSend();
+                    }}
+                    className="px-4 py-2 bg-white/5 border border-white/10 hover:border-accent shadow-lg rounded-full text-xs text-white/80 hover:text-white transition-all backdrop-blur-md"
+                  >
+                    {reply}
+                  </button>
+                ))
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <form 
           onSubmit={handleSend}
           className="relative flex items-center"
