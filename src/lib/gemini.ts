@@ -330,19 +330,23 @@ export async function getQuickReplies(
   history: Message[],
   externalApiConfig?: { apiBaseUrl: string }
 ): Promise<string[]> {
-  const prompt = `Based on the following mature roleplay scenario and conversation history, suggest 4 potential short replies for the user. 
-  The suggestions should:
-  - Match the tone and mood of the story.
-  - Include a variety of responses: one standard, one inquisitive, and TWO "spicy" or provocative replies that push the chemistry further.
-  - Be direct dialogue or actions.
-  - Be concise (under 10 words).
+  const prompt = `You are suggesting context-aware "Quick Reply" options for the HUMAN USER in a mature roleplay.
+  
+  TASK: Suggest 4 short, immersive phrases that the human user would likely say or do next to the AI character.
+  
+  The suggestions MUST:
+  - Be from the USER's perspective (The human playing the story).
+  - Match the current chemistry and mood of the interaction.
+  - Include: 1 standard dialogue, 1 action/gesture, and 2 "spicy" or provocative advances.
+  - Be concise (3-8 words).
+  - Use direct speech or *actions in asterisks*.
 
   SCENARIO: ${scenario}
-  HISTORY:
+  LAST 4 TURNS OF HISTORY:
   ${history.slice(-4).map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join('\n')}
 
   Format your response as a simple JSON array of strings: ["suggestion 1", "suggestion 2", "suggestion 3", "suggestion 4"]
-  Return ONLY the JSON.`;
+  Return ONLY the JSON array.`;
 
   if (externalApiConfig?.apiBaseUrl) {
     try {

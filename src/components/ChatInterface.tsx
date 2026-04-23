@@ -34,7 +34,6 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
   const [statusBarMessage, setStatusBarMessage] = useState<string | null>(null);
   const [quickReplies, setQuickReplies] = useState<string[]>([]);
   const [isGeneratingQuickReplies, setIsGeneratingQuickReplies] = useState(false);
-  const [imageProgress, setImageProgress] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -172,16 +171,6 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
     setIsGeneratingImage(true);
     setStatusBarMessage("Creating image...");
     setError(null);
-    setImageProgress(0);
-
-    const startTime = Date.now();
-    const maxTime = 30000;
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      const progress = Math.min((elapsed / maxTime) * 100, 99);
-      setImageProgress(progress);
-      if (elapsed >= maxTime) clearInterval(interval);
-    }, 100);
 
     try {
       const result = await generateImage(apiBaseUrl, currentVisualPrompt, imageWidth, imageHeight, imageSteps);
@@ -194,9 +183,6 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
     } finally {
       setIsGeneratingImage(false);
       setStatusBarMessage(null);
-      setImageProgress(100);
-      clearInterval(interval);
-      setTimeout(() => setImageProgress(0), 1000);
     }
   };
 
@@ -250,20 +236,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
           </div>
         </div>
 
-        {/* Status Bar */}
-        <AnimatePresence>
-          {statusBarMessage && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="bg-accent/10 border-t border-white/5 px-6 py-2 flex items-center gap-3"
-            >
-              <Loader2 size={12} className="animate-spin text-accent" />
-              <span className="text-[10px] uppercase tracking-wider text-white/60 font-bold">{statusBarMessage}</span>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        
 
         {/* Error Message */}
         <AnimatePresence>
@@ -359,35 +332,35 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
         </AnimatePresence>
       </header>
 
+      {/* Status Bar */}
+      <AnimatePresence>
+        {statusBarMessage && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="bg-accent/10 border-t border-white/5 px-6 py-2 flex items-center gap-3"
+          >
+            <Loader2 size={12} className="animate-spin text-accent" />
+            <span className="text-[8px] uppercase tracking-wider text-white/60 font-bold">{statusBarMessage}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Floating Action Buttons */}
       <div className="fixed bottom-24 right-6 md:right-8 z-30 flex flex-col gap-4">
-        <div className="relative group">
-          {isGeneratingImage && (
-            <div className="absolute inset-0 -m-1 rounded-full border-2 border-white/10 overflow-hidden">
-               <div 
-                className="h-full bg-accent transition-all duration-300 ease-linear rounded-full opacity-30" 
-                style={{ width: `${imageProgress}%` }} 
-              />
-            </div>
+        <button 
+          onClick={handleGenerateImage}
+          disabled={isGeneratingImage || isGeneratingPrompt || !currentVisualPrompt}
+          className={`p-4 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full text-white hover:bg-white/20 transition-all shadow-2xl relative z-10 ${isGeneratingImage || isGeneratingPrompt ? 'bg-accent/20 border-accent/40' : ''}`}
+          title={isGeneratingImage ? "Visualizing..." : isGeneratingPrompt ? "Updating Prompt..." : "Visualize Scene"}
+        >
+          {isGeneratingImage || isGeneratingPrompt ? (
+            <Loader2 size={24} className="animate-spin text-accent" />
+          ) : (
+            <ImageIcon size={24} />
           )}
-          <button 
-            onClick={handleGenerateImage}
-            disabled={isGeneratingImage || isGeneratingPrompt || !currentVisualPrompt}
-            className={`p-4 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full text-white hover:bg-white/20 transition-all shadow-2xl relative z-10 ${isGeneratingImage || isGeneratingPrompt ? 'bg-accent/20 border-accent/40 animate-pulse' : ''}`}
-            title={isGeneratingImage ? "Visualizing..." : isGeneratingPrompt ? "Updating Prompt..." : "Visualize Scene"}
-          >
-            {isGeneratingImage || isGeneratingPrompt ? (
-              <div className="relative flex items-center justify-center">
-                <Loader2 size={24} className="animate-spin text-accent" />
-                {isGeneratingImage && (
-                  <span className="absolute text-[8px] font-bold text-white/50">{Math.round(imageProgress / 3.33)}s</span>
-                )}
-              </div>
-            ) : (
-              <ImageIcon size={24} />
-            )}
-          </button>
-        </div>
+        </button>
         <button 
           onClick={() => setShowChat(!showChat)}
           className={`p-4 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full text-white hover:bg-white/20 transition-all shadow-2xl ${!showChat ? 'scale-110 bg-accent/20 border-accent/40' : ''}`}
