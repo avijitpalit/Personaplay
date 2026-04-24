@@ -29,16 +29,15 @@ export async function generateCharacterDNA(
   
   1. CREATE CHARACTER DNA: Generate highly detailed visual descriptors for the main characters.
   - Precise facial features, hair style/color, build, skin tone, and unique identifiers (scars/tattoos).
-  - Signature outfit styles and "Core Emotional Baseline".
-  - If multi-character, describe their relative heights and visual chemistry.
+  - Signature outfit styles (outfit is dynamic, can be changed if recent chats suggests) and "Core Emotional Baseline".
   
-  2. GENERATE MASTER STORY: Create a vivid, descriptive "Story Foundation" (2-3 sentences) that expands on the scenario's atmosphere, recurring themes, and ambient details. This will be used to ground every future image generation.
+  2. GENERATE MASTER STORY: Create a vivid, descriptive "Story Foundation" (2-3 sentences) that expands on the scenario's atmosphere, recurring themes, and ambient details. This story foundation can be used later for image generation.
 
   FORMAT YOUR RESPONSE AS FOLLOWS:
   DNA: [The descriptive paragraph for character DNA]
   STORY: [The vivid narrative foundation]`;
 
-  let responseData = { dna: "A mysterious character.", story: scenario };
+  let responseData: { dna: string; story: string | null } = { dna: "A mysterious character.", story: null };
 
   if (externalApiConfig?.apiBaseUrl) {
     try {
@@ -54,21 +53,18 @@ export async function generateCharacterDNA(
       if (response.ok) {
         const text = await response.text();
         // Simple parsing for external API response
-        const dnaPart = text.match(/DNA:\s*([\s\S]*?)(?=STORY:|$)/i)?.[1]?.trim();
-        const storyPart = text.match(/STORY:\s*([\s\S]*)/i)?.[1]?.trim();
-
-        console.log("dnaPart", dnaPart);
-        console.log("storyPart", storyPart);
+        const dnaPart = text.match(/DNA:\s*([\s\S]*?)(?=\n[A-Z]+:|$)/i)?.[1]?.trim() || text.match(/DNA:\s*([\s\S]*?)(?=STORY:|$)/i)?.[1]?.trim();
+        const storyPart = text.match(/STORY:\s*([\s\S]*?)(?=\n[A-Z]+:|$)/i)?.[1]?.trim() || text.match(/STORY:\s*([\s\S]*)/i)?.[1]?.trim();
         
         responseData = {
           dna: dnaPart || text || responseData.dna,
-          story: storyPart || responseData.story
+          story: storyPart || null
         };
       }
     } catch (e) {
       console.error("External DNA Generation Error:", e);
     }
-  } else {
+  } /*else {
     const ai = getAI();
     const model = "gemini-2.5-flash";
 
@@ -87,23 +83,25 @@ export async function generateCharacterDNA(
         }
       });
       const text = response.text || "";
-      const dnaPart = text.match(/DNA:\s*([\s\S]*?)(?=STORY:|$)/i)?.[1]?.trim();
-      const storyPart = text.match(/STORY:\s*([\s\S]*)/i)?.[1]?.trim();
+      const dnaPart = text.match(/DNA:\s*([\s\S]*?)(?=\n[A-Z]+:|$)/i)?.[1]?.trim() || text.match(/DNA:\s*([\s\S]*?)(?=STORY:|$)/i)?.[1]?.trim();
+      const storyPart = text.match(/STORY:\s*([\s\S]*?)(?=\n[A-Z]+:|$)/i)?.[1]?.trim() || text.match(/STORY:\s*([\s\S]*)/i)?.[1]?.trim();
       
       responseData = {
         dna: dnaPart || text || responseData.dna,
-        story: storyPart || responseData.story
+        story: storyPart || null
       };
     } catch (error) {
       console.error("DNA Generation Error:", error);
     }
-  }
+  }*/
 
   return responseData;
 }
 
 export async function getChatResponse(
   scenario: string,
+  masterStory: string,
+  dna: string,
   history: Message[],
   userInput: string,
   externalApiConfig?: { 
@@ -113,12 +111,15 @@ export async function getChatResponse(
   }
 ): Promise<ChatResult> {
   const systemInstruction = `You are an expert roleplayer. 
-  Scenario and Character Context:
-  ${scenario}
+  STORY FOUNDATION:
+  ${masterStory}
+
+  CHARACTER DNA:
+  ${dna}
 
   CORE DIRECTIVES FOR CHARACTER CONSISTENCY:
-  1. NEVER break character. You are the character(s) described in the scenario.
-  2. Maintain a consistent personality, voice, and set of motivations throughout the entire conversation.
+  1. You are the character(s) described in the scenario.
+  2. Maintain a consistent personality throughout the entire conversation.
   3. PHYSICAL CONSISTENCY: Keep the character's physical appearance, facial features, and hair style consistent.
   4. OUTFIT CONSISTENCY: Maintain the character's outfit as described. If they are wearing a "red silk dress" or "black leather jacket", they continue wearing it unless they explicitly change.
   5. Remember all previous interactions and details shared in the chat history.
@@ -157,7 +158,7 @@ export async function getChatResponse(
     }
   }
 
-  const ai = getAI();
+  /*const ai = getAI();
   const model = "gemini-2.5-flash";
 
   const contents = [
@@ -192,7 +193,7 @@ export async function getChatResponse(
   } catch (error) {
     console.error("Gemini API Error:", error);
     return { reply: "The connection seems to have flickered. Let's try that again." };
-  }
+  }*/
 }
 
 export async function generateVisualPrompt(
@@ -221,12 +222,13 @@ export async function generateVisualPrompt(
   TASK: Create a single, highly detailed image generation prompt for z-image turbo model for the current moment in the story.
   
   CORE REQUIREMENTS:
-  1. FOCUS ON THE LATEST EXCHANGE: The prompt MUST reflect the physical actions, emotional intensity, and specific location described in the "LATEST EXCHANGE" first and foremost. Use the previous prompt only as a secondary reference for positional continuity.
+  1. FOCUS ON THE LATEST EXCHANGE: The prompt MUST reflect the physical actions, emotional intensity, and specific location described in the "LATEST EXCHANGE" first and foremost. Use the previous visual prompt only as a secondary reference for positional continuity.
   2. REALISM & NO CAMERA AWARENESS: Characters MUST NOT look at the camera. They should be completely engrossed in their actions, looking at each other, or looking at their environment. Use terms like "candid, cinematic perspective," "voyeuristic angle," "unaware of observer," and "natural interaction."
   3. CHARACTER CONSISTENCY: Strictly follow the DNA descriptors for facial features, hair, and build.
   4. ATMOSPHERE: Use the "STORY FOUNDATION" to ground the overall aesthetic and mood.
   5. TECHNICAL STYLE: Photorealistic, 8k, realistic skin textures, cinematic lighting, 9:16 aspect ratio.
-  6. MATURITY: Include relevant mature details or architectural/wardrobe items mentioned in the roleplay if appropriate.
+  6. MATURITY: Must include relevant mature details like "wardrobe malfunctions" items if the story foundation suggests.
+  7. Third Person View: Image prompt can include User character's hands if the latest exchange suggests.
 
   Output ONLY the prompt text, no explanations.`;
 
@@ -250,7 +252,7 @@ export async function generateVisualPrompt(
     }
   }
 
-  const ai = getAI();
+  /*const ai = getAI();
   const model = "gemini-2.5-flash";
 
   try {
@@ -278,7 +280,7 @@ export async function generateVisualPrompt(
   } catch (error) {
     console.error("Visual Prompt Generation Error:", error);
     return lastPrompt || "A hyper-realistic cinematic shot of the scene.";
-  }
+  }*/
 }
 
 export async function generateImage(

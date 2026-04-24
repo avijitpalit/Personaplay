@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Message, getChatResponse, generateImage, generateCharacterDNA, generateVisualPrompt, getQuickReplies } from '../lib/gemini';
-import { Send, ArrowLeft, Loader2, User, Sparkles, Image as ImageIcon, Eye, EyeOff, Save, CheckCircle2, Settings, Info, Clock } from 'lucide-react';
+import { Send, ArrowLeft, Loader2, User, Sparkles, Image as ImageIcon, Eye, EyeOff, Save, CheckCircle2, Settings, Info, Clock, FileText, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
 import { Session, saveSession as persistSession } from '../lib/storage';
@@ -29,6 +29,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
   const [imageSteps, setImageSteps] = useState<number>(initialSession?.imageSteps || 9);
   const [showChat, setShowChat] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
+  const [showLog, setShowLog] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [statusBarMessage, setStatusBarMessage] = useState<string | null>(null);
@@ -129,7 +130,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
     setIsLoading(true);
     setStatusBarMessage("AI is replying...");
 
-    const result = await getChatResponse(scenario, messages, userMessage.text, { 
+    const result = await getChatResponse(scenario, masterStory, characterDNA, messages, userMessage.text, { 
       apiBaseUrl,
       dna: characterDNA || undefined,
       lastVisualPrompt: currentVisualPrompt
@@ -226,6 +227,13 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
             </div>
             <div className="flex items-center gap-1 ml-auto">
               <button
+                onClick={() => setShowLog(!showLog)}
+                className={`p-2 rounded-lg transition-colors ${showLog ? 'bg-accent text-white' : 'hover:bg-white/5 text-white/60'}`}
+                title="View Logs"
+              >
+                <FileText size={24} />
+              </button>
+              <button
                 onClick={() => setShowSettings(!showSettings)}
                 className={`p-2 rounded-lg transition-colors ${showSettings ? 'bg-accent text-white' : 'hover:bg-white/5 text-white/60'}`}
                 title="Settings"
@@ -249,6 +257,50 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
             >
               <span>{error}</span>
               <button onClick={() => setError(null)} className="hover:text-white">✕</button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Log Panel */}
+        <AnimatePresence>
+          {showLog && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="p-6 bg-black/40 backdrop-blur-2xl space-y-6 max-h-[70vh] overflow-y-auto border border-white/10 rounded-2xl mb-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-accent">System Logs</h3>
+                  <button onClick={() => setShowLog(false)} className="text-white/40 hover:text-white">
+                    <X size={16} />
+                  </button>
+                </div>
+
+                <div className="space-y-4 font-mono text-[10px]">
+                  <section className="space-y-2">
+                    <div className="text-white/40 uppercase tracking-widest font-bold">Master Story</div>
+                    <div className="bg-white/5 p-3 rounded-lg text-white/70 whitespace-pre-wrap border border-white/10 italic">
+                      {masterStory || "Not generated yet."}
+                    </div>
+                  </section>
+
+                  <section className="space-y-2">
+                    <div className="text-white/40 uppercase tracking-widest font-bold">Character DNA</div>
+                    <div className="bg-white/5 p-3 rounded-lg text-white/70 whitespace-pre-wrap border border-white/10">
+                      {characterDNA || "Not generated yet."}
+                    </div>
+                  </section>
+
+                  <section className="space-y-2">
+                    <div className="text-white/40 uppercase tracking-widest font-bold">Current Visual Prompt</div>
+                    <div className="bg-white/5 p-3 rounded-lg text-accent/70 whitespace-pre-wrap border border-accent/20">
+                      {currentVisualPrompt || "Not generated yet."}
+                    </div>
+                  </section>
+                </div>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -347,26 +399,26 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
         )}
       </AnimatePresence>
 
-      {/* Floating Action Buttons */}
-      <div className="fixed bottom-24 right-6 md:right-8 z-30 flex flex-col gap-4">
+      {/* Floating Action Buttons - Water Drop Style */}
+      <div className="fixed bottom-32 right-0 z-30 flex flex-col gap-2">
         <button 
           onClick={handleGenerateImage}
           disabled={isGeneratingImage || isGeneratingPrompt || !currentVisualPrompt}
-          className={`p-4 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full text-white hover:bg-white/20 transition-all shadow-2xl relative z-10 ${isGeneratingImage || isGeneratingPrompt ? 'bg-accent/20 border-accent/40' : ''}`}
+          className={`p-4 pl-6 bg-white/10 backdrop-blur-3xl border-y border-l border-white/20 rounded-l-full text-white hover:bg-white/20 transition-all shadow-2xl relative z-10 ${isGeneratingImage || isGeneratingPrompt ? 'bg-accent/30 border-accent/40 brightness-125' : ''}`}
           title={isGeneratingImage ? "Visualizing..." : isGeneratingPrompt ? "Updating Prompt..." : "Visualize Scene"}
         >
           {isGeneratingImage || isGeneratingPrompt ? (
-            <Loader2 size={24} className="animate-spin text-accent" />
+            <Loader2 size={22} className="animate-spin text-accent" />
           ) : (
-            <ImageIcon size={24} />
+            <ImageIcon size={22} />
           )}
         </button>
         <button 
           onClick={() => setShowChat(!showChat)}
-          className={`p-4 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full text-white hover:bg-white/20 transition-all shadow-2xl ${!showChat ? 'scale-110 bg-accent/20 border-accent/40' : ''}`}
+          className={`p-4 pl-6 bg-white/10 backdrop-blur-3xl border-y border-l border-white/20 rounded-l-full text-white hover:bg-white/20 transition-all shadow-2xl ${!showChat ? 'bg-accent/30 border-accent/40' : ''}`}
           title={showChat ? "Hide Chat" : "Show Chat"}
         >
-          {showChat ? <EyeOff size={24} /> : <Eye size={24} />}
+          {showChat ? <EyeOff size={22} /> : <Eye size={22} />}
         </button>
       </div>
 
@@ -376,7 +428,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
         className={`flex-1 overflow-y-auto p-6 space-y-8 scroll-smooth z-10 transition-opacity duration-500 ${showChat ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
       >
         {/* Master Story Display */}
-        {masterStory && (
+        {masterStory && masterStory.trim() !== scenario.trim() && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -392,7 +444,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
           </motion.div>
         )}
 
-        {messages.length === 0 && !masterStory && (
+        {messages.length === 0 && (!masterStory || masterStory.trim() === scenario.trim()) && (
           <div className="h-full flex flex-col items-center justify-center text-center opacity-40">
             <Sparkles size={48} className="mb-4 text-accent" />
             <p className="text-xl font-serif italic mb-2">The stage is set.</p>
@@ -450,34 +502,36 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
       {/* Input */}
       <footer className={`p-6 z-10 transition-transform duration-500 ${showChat ? 'translate-y-0' : 'translate-y-[200%]'}`}>
         
-        {/* Quick Replies Panel */}
+        {/* Quick Replies Panel - Horizontal Slider */}
         <AnimatePresence>
           {showChat && (quickReplies.length > 0 || isGeneratingQuickReplies) && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
-              className="flex flex-wrap gap-2 mb-4 justify-center"
+              className="mb-4"
             >
-              {isGeneratingQuickReplies && quickReplies.length === 0 ? (
-                <div className="flex items-center gap-2 text-[10px] text-white/30 uppercase tracking-widest py-2">
-                  <Loader2 size={10} className="animate-spin" />
-                  Gleaning suggestions...
-                </div>
-              ) : (
-                quickReplies.map((reply, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => {
-                      setInput(reply);
-                      handleSend();
-                    }}
-                    className="px-4 py-2 bg-white/5 border border-white/10 hover:border-accent shadow-lg rounded-full text-xs text-white/80 hover:text-white transition-all backdrop-blur-md"
-                  >
-                    {reply}
-                  </button>
-                ))
-              )}
+              <div className="flex overflow-x-auto no-scrollbar gap-2 px-2 pb-2 mask-linear">
+                {isGeneratingQuickReplies && quickReplies.length === 0 ? (
+                  <div className="flex items-center gap-2 text-[8px] text-white/30 uppercase tracking-widest py-2 px-4 whitespace-nowrap">
+                    <Loader2 size={10} className="animate-spin" />
+                    Gleaning suggestions...
+                  </div>
+                ) : (
+                  quickReplies.map((reply, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        setInput(reply);
+                        handleSend();
+                      }}
+                      className="px-4 py-2 bg-white/5 border border-white/10 hover:border-accent shadow-lg rounded-full text-[10px] text-white/80 hover:text-white transition-all backdrop-blur-md whitespace-nowrap shrink-0"
+                    >
+                      {reply}
+                    </button>
+                  ))
+                )}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
