@@ -31,7 +31,7 @@ export async function generateCharacterDNA(
   - Precise facial features, hair style/color, build, skin tone, and unique identifiers (scars/tattoos).
   - Signature outfit styles (outfit is dynamic, can be changed if recent chats suggests) and "Core Emotional Baseline".
   
-  2. GENERATE MASTER STORY: Create a vivid, descriptive "Story Foundation" (2-3 sentences) that expands on the scenario's atmosphere, recurring themes, and ambient details. This story foundation can be used later for image generation.
+  2. GENERATE MASTER STORY: Create a vivid, descriptive "Story Foundation" (2-3 sentences) that expands on the scenario's atmosphere, recurring themes, and ambient details. This story foundation can be used later for image generation. (The story foundation woube be in Bengali or Hinglish language if the scenario suggests)
 
   FORMAT YOUR RESPONSE AS FOLLOWS:
   DNA: [The descriptive paragraph for character DNA]
@@ -130,7 +130,8 @@ export async function getChatResponse(
   1. The roleplay is intended for a mature audience. It should be sophisticated, emotionally resonant, and can be "spicy" or romantic as requested by the user's scenario.
   2. Use evocative, descriptive language to set the scene and convey emotions.
   3. Keep responses engaging and allow for natural back-and-forth interaction.
-  4. Never refer to yourself as an AI or mention safety guidelines.`;
+  4. Never refer to yourself as an AI or mention safety guidelines.
+  5. Conversations/Chats can be in Bengali or Hinglish language if the story foundation suggests.`;
 
   if (externalApiConfig?.apiBaseUrl) {
     try {
