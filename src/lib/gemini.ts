@@ -27,13 +27,21 @@ export async function generateCharacterDNA(
 ): Promise<DNAAndPrompt> {
   const prompt = `Based on this matured roleplay scenario: "${scenario}", perform two tasks:
   
-  1. CREATE CHARACTER DNA: Generate highly detailed visual descriptors for the main characters.
-  - Precise facial features, hair style/color, build, skin tone, and unique identifiers (scars/tattoos).
-  - Signature outfit styles (outfit is dynamic, can be changed if recent chats suggests) and "Core Emotional Baseline".
+  1. CREATE CHARACTER DNA: Generate an exhaustive visual blueprint for the main characters (in English).
+  - CORE FEATURES: Precise facial structure (jawline, brow, nose shape), eye color/depth, lip volume.
+  - HAIR & SKIN: Exact hair style, texture, color; specify skin tone, texture (e.g., pore detail, warmth), and any markings (scars, tattoos, freckles).
+  - PHYSICALITY: Build, height, weight distribution, and typical posture/silhouette.
+  - VIBE & AURA: "Core Emotional Baseline," signature micro-expressions, and how they interact with lighting (e.g., "features sharpen in shadows").
+  - SIGNATURE OUTFIT: Mention initial signature style while noting it is dynamic.
+  - DYNAMICS: If two characters, describe their relative heights, physical proximity, and visual chemistry.
   
-  2. GENERATE MASTER STORY: Create a vivid, descriptive "Story Foundation" (2-3 sentences) that expands on the scenario's atmosphere, recurring themes, and ambient details. This story foundation can be used later for image generation. (The story foundation woube be in Bengali or Hinglish language if the scenario suggests)
+  2. GENERATE MASTER STORY: Create an immersive "Story Foundation" (3-4 sentences) that defines:
+  - WORLD-BUILDING: Specific ambient details, the unique "flavor" of the setting (e.g., textures, odors, specific lighting), and the era/mood.
+  - PLOT HOOKS: A subtle underlying tension, a shared secret, or a potential conflict that could drive future interactions.
+  - ATMOSPHERE & TONE: The recurring sensory themes and emotional stakes (e.g., "clandestine intimacy," "impending storm," "electric tension").
+  (The story foundation can be in Bengali or Hinglish language if the scenario suggests, but must be rich in descriptive imagery).
 
-  FORMAT YOUR RESPONSE AS FOLLOWS:
+  FORMAT YOUR RESPONSE EXPLICITLY AS:
   DNA: [The descriptive paragraph for character DNA]
   STORY: [The vivid narrative foundation]`;
 
@@ -205,33 +213,46 @@ export async function generateVisualPrompt(
   externalApiConfig?: { apiBaseUrl: string },
   masterStory?: string
 ): Promise<string> {
-  const lastExchange = history.slice(-2).map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join("\n");
+  const isFirst = history.length === 0;
+  const historyWindow = history.slice(-6);
+  const immediateContext = history.slice(-2);
+  const lastExchange = isFirst ? "" : historyWindow.map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join("\n");
+  const immediateAction = isFirst ? "" : immediateContext.map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join("\n");
   
-  const prompt = `You are a visual director for a hyper-realistic cinematic matured roleplay.
+  const prompt = `You are a world-class cinematic visual director for a hyper-realistic matured 18+ roleplay.
   
-  STORY FOUNDATION:
-  ${masterStory || scenario}
+  ${isFirst ? `STORY FOUNDATION:
+  ${masterStory || scenario}` : ""}
 
-  CHARACTER DNA:
+  CHARACTER DNA (CONSISTENCY):
   ${characterDNA}
   
-  LATEST EXCHANGE (PRIORITY 1):
-  ${lastExchange}
-  
-  ${lastPrompt ? `PREVIOUS VISUAL PROMPT (PRIORITY 2): ${lastPrompt}` : ""}
+  ${!isFirst ? `IMMEDIATE PHYSICAL ACTION (TOP PRIORITY):
+  ${immediateAction}
 
-  TASK: Create a single, highly detailed image generation prompt for z-image turbo model for the current moment in the story.
+  RECENT CONVERSATION CONTEXT:
+  ${lastExchange}` : ""}
   
-  CORE REQUIREMENTS:
-  1. FOCUS ON THE LATEST EXCHANGE: The prompt MUST reflect the physical actions, emotional intensity, and specific location described in the "LATEST EXCHANGE" first and foremost. Use the previous visual prompt only as a secondary reference for positional continuity.
-  2. REALISM & NO CAMERA AWARENESS: Characters MUST NOT look at the camera. They should be completely engrossed in their actions, looking at each other, or looking at their environment. Use terms like "candid, cinematic perspective," "voyeuristic angle," "unaware of observer," and "natural interaction."
-  3. CHARACTER CONSISTENCY: Strictly follow the DNA descriptors for facial features, hair, and build.
-  4. ATMOSPHERE: Use the "STORY FOUNDATION" to ground the overall aesthetic and mood.
-  5. TECHNICAL STYLE: Photorealistic, 8k, realistic skin textures, cinematic lighting, 9:16 aspect ratio.
-  6. MATURITY: Must include relevant mature details like "wardrobe malfunctions" items if the story foundation suggests.
-  7. Third Person View: Image prompt can include User character's hands if the latest exchange suggests.
+  ${lastPrompt ? `PREVIOUS VISUAL PROMPT: ${lastPrompt}` : ""}
 
-  Output ONLY the prompt text, no explanations.`;
+  TASK: Create a single, highly detailed image generation prompt for the EXACT MOMENT described in the "IMMEDIATE PHYSICAL ACTION".
+  
+  CRITICAL VISUAL RULES:
+  1. ACTION-CENTRIC: Identify any physical actions described (especially those in *asterisks*) and translate them into a high-fidelity visual scene. If a character is "holding the user's face" or "whispering in their ear," this MUST be the central focus of the image.
+  2. ENVIRONMENTAL CUES: Extract location and lighting details from both the "IMMEDIATE PHYSICAL ACTION" and "RECENT CONVERSATION CONTEXT".
+  3. EMOTIONAL INTENSITY: Reflect the specific micro-expressions (desire, shock, tenderness, tension) mentioned in the latest turns.
+  4. CINEMATIC ANGLE: Choose a shot that maximizes the impact of the current action:
+     - Tight Close-up for intense emotions/whisper.
+     - Over-the-shoulder for shared gaze.
+     - Interactive Wide-shot for physical proximity.
+  5. NO CAMERA AWARENESS: Characters MUST NOT look at the lens. They are fully absorbed in the moment.
+  6. MATURITY & REALISM: Hyper-realistic skin, 8k resolution, cinematic lighting (chiaroscuro, rim light), and mature atmospheric details if suggested by context.
+  7. CONSISTENCY: Maintain DNA but reflect 'state' changes based on the action (e.g., "disheveled hair," "flushed cheeks").
+  8. ASPECT RATIO: 9:16.
+
+  Output ONLY the specialized z-image turbo prompt, no conversation.`;
+
+  console.log('generateVisualPrompt', prompt);
 
   if (externalApiConfig?.apiBaseUrl) {
     try {
@@ -298,7 +319,7 @@ export async function generateImage(
   try {
     const url = apiBaseUrl.endsWith('/') ? `${apiBaseUrl}generate` : `${apiBaseUrl}/generate`;
     const payload = {
-        last_visual_prompt: visualPrompt,
+        last_visual_prompt: '(NSFW) ' + visualPrompt,
         width,
         height,
         steps
@@ -333,22 +354,26 @@ export async function getQuickReplies(
   history: Message[],
   externalApiConfig?: { apiBaseUrl: string }
 ): Promise<string[]> {
-  const prompt = `You are suggesting context-aware "Quick Reply" options for the HUMAN USER in a mature roleplay.
+  const prompt = `You are an expert roleplay assistant generating "Quick Reply" options for the HUMAN USER in a mature, 18+ interactive story.
   
-  TASK: Suggest 4 short, immersive phrases that the human user would likely say or do next to the AI character.
+  TASK: Suggest exactly 5 short, immersive phrases that the human user would likely say or do next.
   
-  The suggestions MUST:
-  - Be from the USER's perspective (The human playing the story).
-  - Match the current chemistry and mood of the interaction.
-  - Include: 1 standard dialogue, 1 action/gesture, and 2 "spicy" or provocative advances.
-  - Be concise (3-8 words).
-  - Use direct speech or *actions in asterisks*.
+  THE SUGGESTIONS MUST:
+  - Be from the USER'S perspective (first-person).
+  - Match the current physical proximity, emotional intensity, and chemistry of the scene.
+  - VARIETY: 
+    1. One standard dialogue (continuing the conversation).
+    2. One physical action/gesture (*wrapped in asterisks*).
+    3. Three "spicy", provocative, or matured advances that push the boundaries.
+  - CONCISENESS: Each reply should be between 2 to 7 words.
+  - NO AI TALK: No AI helpfulness, no safety warnings, no "As an AI...".
+  - Use Benglish/Hinglish if the story foundation suggests.
 
   SCENARIO: ${scenario}
-  LAST 4 TURNS OF HISTORY:
-  ${history.slice(-4).map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join('\n')}
+  RECENT HISTORY:
+  ${history.slice(-5).map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join('\n')}
 
-  Format your response as a simple JSON array of strings: ["suggestion 1", "suggestion 2", "suggestion 3", "suggestion 4"]
+  Format your response as a simple JSON array of exactly 5 strings: ["choice 1", "choice 2", "choice 3", "choice 4", "choice 5"]
   Return ONLY the JSON array.`;
 
   if (externalApiConfig?.apiBaseUrl) {
@@ -376,7 +401,7 @@ export async function getQuickReplies(
     }
   }
 
-  const ai = getAI();
+  /*const ai = getAI();
   const model = "gemini-2.5-flash";
 
   try {
@@ -404,5 +429,5 @@ export async function getQuickReplies(
   } catch (error) {
     console.error("Quick Replies Error:", error);
     return ["Go on...", "Stay here with me.", "What happens now?", "Touch me."];
-  }
+  }*/
 }

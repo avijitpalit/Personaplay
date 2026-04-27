@@ -400,7 +400,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
       </AnimatePresence>
 
       {/* Floating Action Buttons - Water Drop Style */}
-      <div className="fixed bottom-32 right-0 z-30 flex flex-col gap-2">
+      <div className="fixed bottom-[30%] right-0 z-30 flex flex-col gap-2">
         <button 
           onClick={handleGenerateImage}
           disabled={isGeneratingImage || isGeneratingPrompt || !currentVisualPrompt}
