@@ -27,13 +27,14 @@ export async function generateCharacterDNA(
 ): Promise<DNAAndPrompt> {
   const prompt = `Based on this matured roleplay scenario: "${scenario}", perform two tasks:
   
-  1. CREATE CHARACTER DNA: Generate an exhaustive visual blueprint for the main characters (in English).
+  1. CREATE CHARACTER DNA: Generate an exhaustive visual and biographical blueprint for the main characters (in English).
+  - IDENTITY: Full name, age, nationality, and religion/cultural background.
   - CORE FEATURES: Precise facial structure (jawline, brow, nose shape), eye color/depth, lip volume.
-  - HAIR & SKIN: Exact hair style, texture, color; specify skin tone, texture (e.g., pore detail, warmth), and any markings (scars, tattoos, freckles).
-  - PHYSICALITY: Build, height, weight distribution, and typical posture/silhouette.
-  - VIBE & AURA: "Core Emotional Baseline," signature micro-expressions, and how they interact with lighting (e.g., "features sharpen in shadows").
+  - HAIR & SKIN: Exact hair style, texture, color; specify skin tone (with specific undertones), texture (e.g., pore detail, warmth), and any markings (scars, tattoos, freckles).
+  - PHYSICALITY: Build, exact height, weight distribution, and typical posture/silhouette.
+  - VIBE & AURA: "Core Emotional Baseline," signature micro-expressions, and how they interact with lighting.
   - SIGNATURE OUTFIT: Mention initial signature style while noting it is dynamic.
-  - DYNAMICS: If two characters, describe their relative heights, physical proximity, and visual chemistry.
+  - DYNAMICS: Describe their relative heights, physical proximity, and visual chemistry.
   
   2. GENERATE MASTER STORY: Create an immersive "Story Foundation" (3-4 sentences) that defines:
   - WORLD-BUILDING: Specific ambient details, the unique "flavor" of the setting (e.g., textures, odors, specific lighting), and the era/mood.
