@@ -233,8 +233,6 @@ export async function generateVisualPrompt(
 
   RECENT CONVERSATION CONTEXT:
   ${lastExchange}` : ""}
-  
-  ${lastPrompt ? `PREVIOUS VISUAL PROMPT: ${lastPrompt}` : ""}
 
   TASK: Create a single, highly detailed image generation prompt for the current moment in the story.
   
@@ -317,7 +315,7 @@ export async function generateImage(
   try {
     const url = apiBaseUrl.endsWith('/') ? `${apiBaseUrl}generate` : `${apiBaseUrl}/generate`;
     const payload = {
-        last_visual_prompt: '(NSFW) ' + visualPrompt,
+        prompt: '(NSFW) ' + visualPrompt,
         width,
         height,
         steps
