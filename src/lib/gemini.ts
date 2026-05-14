@@ -220,7 +220,7 @@ export async function generateVisualPrompt(
   const lastExchange = isFirst ? "" : historyWindow.map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join("\n");
   const immediateAction = isFirst ? "" : immediateContext.map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join("\n");
   
-  const prompt = `You are a world-class cinematic visual director for a hyper-realistic matured 18+ roleplay.
+  const prompt = `Create a hyper-realistic matured 18+ visual prompt based on following settings.
   
   STORY FOUNDATION (CORE THEME & ENVIRONMENT):
   ${masterStory || scenario}
