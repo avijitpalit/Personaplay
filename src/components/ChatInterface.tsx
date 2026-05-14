@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Message, getChatResponse, generateImage, generateCharacterDNA, generateVisualPrompt, getQuickReplies } from '../lib/gemini';
+import { Message, getChatResponse, generateImage, generateCharacterDNA, generateVisualPrompt } from '../lib/gemini';
 import { Send, ArrowLeft, Loader2, User, Sparkles, Image as ImageIcon, Eye, EyeOff, Save, CheckCircle2, Settings, Info, Clock, FileText, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
@@ -33,8 +33,6 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [statusBarMessage, setStatusBarMessage] = useState<string | null>(null);
-  const [quickReplies, setQuickReplies] = useState<string[]>([]);
-  const [isGeneratingQuickReplies, setIsGeneratingQuickReplies] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -67,17 +65,9 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
       }
 
       // Initial quick replies
-      fetchQuickReplies(scenario, []);
     };
     initSession();
   }, [scenario, initialSession, apiBaseUrl]);
-
-  const fetchQuickReplies = async (sc: string, hist: Message[]) => {
-    setIsGeneratingQuickReplies(true);
-    const replies = await getQuickReplies(sc, hist, { apiBaseUrl });
-    setQuickReplies(replies);
-    setIsGeneratingQuickReplies(false);
-  };
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -125,7 +115,6 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
     const userMessage: Message = { role: 'user', text: input.trim() };
     const updatedMessages: Message[] = [...messages, userMessage];
     setMessages(updatedMessages);
-    setQuickReplies([]);
     setInput('');
     setIsLoading(true);
     setStatusBarMessage("AI is replying...");
@@ -153,9 +142,6 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
       setIsGeneratingPrompt(false);
       setStatusBarMessage(null);
     }
-
-    // New quick replies
-    fetchQuickReplies(scenario, finalMessages);
   };
 
   const [error, setError] = useState<string | null>(null);
@@ -502,40 +488,6 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
       {/* Input */}
       <footer className={`p-6 z-10 transition-transform duration-500 ${showChat ? 'translate-y-0' : 'translate-y-[200%]'}`}>
         
-        {/* Quick Replies Panel - Horizontal Slider */}
-        <AnimatePresence>
-          {showChat && (quickReplies.length > 0 || isGeneratingQuickReplies) && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              className="mb-4"
-            >
-              <div className="flex overflow-x-auto no-scrollbar gap-2 px-2 pb-2 mask-linear">
-                {isGeneratingQuickReplies && quickReplies.length === 0 ? (
-                  <div className="flex items-center gap-2 text-[8px] text-white/30 uppercase tracking-widest py-2 px-4 whitespace-nowrap">
-                    <Loader2 size={10} className="animate-spin" />
-                    Gleaning suggestions...
-                  </div>
-                ) : (
-                  quickReplies.map((reply, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => {
-                        setInput(reply);
-                        handleSend();
-                      }}
-                      className="px-4 py-2 bg-white/5 border border-white/10 hover:border-accent shadow-lg rounded-full text-[10px] text-white/80 hover:text-white transition-all backdrop-blur-md whitespace-nowrap shrink-0"
-                    >
-                      {reply}
-                    </button>
-                  ))
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         <form 
           onSubmit={handleSend}
           className="relative flex items-center"
