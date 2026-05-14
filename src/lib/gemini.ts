@@ -234,6 +234,9 @@ export async function generateVisualPrompt(
   RECENT CONVERSATION CONTEXT:
   ${lastExchange}` : ""}
 
+  ${lastPrompt ? `PREVIOUS VISUAL PROMPT (FOR CONTINUITY):
+  ${lastPrompt}` : ""}
+
   TASK: Create a single, highly detailed image generation prompt for the current moment in the story.
   
   CRITICAL VISUAL RULES:
