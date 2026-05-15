@@ -7,15 +7,18 @@ export default function App() {
   const [scenario, setScenario] = useState<string | null>(null);
   const [loadedSession, setLoadedSession] = useState<Session | null>(null);
   const [apiBaseUrl, setApiBaseUrl] = useState('https://odorful-hsiu-unmaledictory.ngrok-free.dev');
+  const [useInternalApi, setUseInternalApi] = useState(false);
 
-  const handleStart = (newScenario: string, _external: boolean, baseUrl: string) => {
+  const handleStart = (newScenario: string, internalMode: boolean, baseUrl: string) => {
     setScenario(newScenario);
+    setUseInternalApi(internalMode);
     setApiBaseUrl(baseUrl);
     setLoadedSession(null);
   };
 
   const handleLoadSession = (session: Session) => {
     setScenario(session.scenario);
+    setUseInternalApi(session.useInternalApi || false);
     setApiBaseUrl(session.apiBaseUrl || 'https://odorful-hsiu-unmaledictory.ngrok-free.dev');
     setLoadedSession(session);
   };
@@ -36,6 +39,7 @@ export default function App() {
             scenario={scenario} 
             initialSession={loadedSession}
             initialApiBaseUrl={apiBaseUrl}
+            initialUseInternalApi={useInternalApi}
             onBack={() => {
               setScenario(null);
               setLoadedSession(null);

@@ -73,9 +73,9 @@ export async function generateCharacterDNA(
     } catch (e) {
       console.error("External DNA Generation Error:", e);
     }
-  } /*else {
+  } else {
     const ai = getAI();
-    const model = "gemini-2.5-flash";
+    const model = "gemini-2.0-flash";
 
     try {
       const response = await ai.models.generateContent({
@@ -102,7 +102,7 @@ export async function generateCharacterDNA(
     } catch (error) {
       console.error("DNA Generation Error:", error);
     }
-  }*/
+  }
 
   return responseData;
 }
@@ -168,28 +168,25 @@ export async function getChatResponse(
     }
   }
 
-  /*const ai = getAI();
-  const model = "gemini-2.5-flash";
-
-  const contents = [
-    ...history.map(m => ({
-      role: m.role,
-      parts: [{ text: m.text }]
-    })),
-    {
-      role: "user",
-      parts: [{ text: userInput }]
-    }
-  ];
+  const ai = getAI();
+  const model = "gemini-3.1-pro-preview";
 
   try {
     const response = await ai.models.generateContent({
       model,
-      contents,
+      contents: [
+        ...history.map(m => ({
+          role: m.role,
+          parts: [{ text: m.text }]
+        })),
+        {
+          role: "user",
+          parts: [{ text: userInput }]
+        }
+      ],
       config: {
         systemInstruction,
         temperature: 1.0,
-        topP: 0.95,
         safetySettings: [
           { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
           { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -203,7 +200,7 @@ export async function getChatResponse(
   } catch (error) {
     console.error("Gemini API Error:", error);
     return { reply: "The connection seems to have flickered. Let's try that again." };
-  }*/
+  }
 }
 
 export async function generateVisualPrompt(
@@ -273,8 +270,8 @@ export async function generateVisualPrompt(
     }
   }
 
-  /*const ai = getAI();
-  const model = "gemini-2.5-flash";
+  const ai = getAI();
+  const model = "gemini-3-flash-preview";
 
   try {
     const response = await ai.models.generateContent({
@@ -301,7 +298,7 @@ export async function generateVisualPrompt(
   } catch (error) {
     console.error("Visual Prompt Generation Error:", error);
     return lastPrompt || "A hyper-realistic cinematic shot of the scene.";
-  }*/
+  }
 }
 
 export async function generateImage(

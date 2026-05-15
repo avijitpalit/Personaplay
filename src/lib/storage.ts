@@ -10,6 +10,7 @@ export interface Session {
   bgImage: string | null;
   lastVisualPrompt: string | undefined;
   apiBaseUrl: string;
+  useInternalApi: boolean;
   useExternalApi?: boolean;
   imageWidth: number;
   imageHeight: number;

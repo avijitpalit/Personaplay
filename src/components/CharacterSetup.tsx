@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Session, getSessions, deleteSession } from '../lib/storage';
 
 interface CharacterSetupProps {
-  onStart: (scenario: string, useExternalApi: boolean, apiBaseUrl: string) => void;
+  onStart: (scenario: string, useInternalApi: boolean, apiBaseUrl: string) => void;
   onLoadSession: (session: Session) => void;
   initialApiBaseUrl?: string;
 }
@@ -13,6 +13,7 @@ export default function CharacterSetup({ onStart, onLoadSession, initialApiBaseU
   const [scenario, setScenario] = useState('');
   const [sessions, setSessions] = useState<Session[]>([]);
   const [apiBaseUrl, setApiBaseUrl] = useState(initialApiBaseUrl);
+  const [useInternalApi, setUseInternalApi] = useState(false);
 
   useEffect(() => {
     setSessions(getSessions());
@@ -58,16 +59,33 @@ export default function CharacterSetup({ onStart, onLoadSession, initialApiBaseU
           </div>
 
           <div className="space-y-4 pt-2 border-t border-white/5">
-            <div className="flex flex-col gap-2 p-4 bg-white/5 rounded-2xl border border-white/10">
-              <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">API Base URL</label>
-              <input 
-                type="text"
-                value={apiBaseUrl}
-                onChange={e => setApiBaseUrl(e.target.value)}
-                placeholder="http://your-api-base-url"
-                className="bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50"
-              />
-              <p className="text-[9px] text-white/30 italic">Endpoints used: /t2t and /generate</p>
+            <div className="flex flex-col gap-4 p-4 bg-white/5 rounded-2xl border border-white/10">
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-[10px] uppercase tracking-wider text-white/40 font-bold">API Mode</span>
+                  <span className="text-xs text-white/60">{useInternalApi ? "Internal (Gemini API)" : "External (Custom URL)"}</span>
+                </div>
+                <button
+                  onClick={() => setUseInternalApi(!useInternalApi)}
+                  className={`relative w-12 h-6 rounded-full transition-colors duration-300 focus:outline-none ${useInternalApi ? 'bg-accent' : 'bg-white/10'}`}
+                >
+                  <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${useInternalApi ? 'translate-x-6' : 'translate-x-0'}`} />
+                </button>
+              </div>
+
+              {!useInternalApi && (
+                <div className="flex flex-col gap-2 pt-2 border-t border-white/5">
+                  <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">API Base URL</label>
+                  <input 
+                    type="text"
+                    value={apiBaseUrl}
+                    onChange={e => setApiBaseUrl(e.target.value)}
+                    placeholder="http://your-api-base-url"
+                    className="bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50"
+                  />
+                  <p className="text-[9px] text-white/30 italic">Endpoints used: /t2t and /generate</p>
+                </div>
+              )}
             </div>
           </div>
           
@@ -77,8 +95,8 @@ export default function CharacterSetup({ onStart, onLoadSession, initialApiBaseU
           </div>
 
           <button 
-            disabled={!scenario.trim() || scenario.length < 10 || !apiBaseUrl.trim()}
-            onClick={() => onStart(scenario, true, apiBaseUrl)}
+            disabled={!scenario.trim() || scenario.length < 10 || (!useInternalApi && !apiBaseUrl.trim())}
+            onClick={() => onStart(scenario, useInternalApi, apiBaseUrl)}
             className="w-full bg-accent text-white py-5 rounded-2xl font-bold text-lg hover:bg-accent/90 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg shadow-accent/20 flex items-center justify-center gap-3 group"
           >
             Enter the Story

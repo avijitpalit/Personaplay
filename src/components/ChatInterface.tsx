@@ -9,10 +9,11 @@ interface ChatInterfaceProps {
   scenario: string;
   initialSession?: Session | null;
   initialApiBaseUrl: string;
+  initialUseInternalApi: boolean;
   onBack: () => void;
 }
 
-export default function ChatInterface({ scenario, initialSession, initialApiBaseUrl, onBack }: ChatInterfaceProps) {
+export default function ChatInterface({ scenario, initialSession, initialApiBaseUrl, initialUseInternalApi, onBack }: ChatInterfaceProps) {
   const [sessionId, setSessionId] = useState<string | undefined>(initialSession?.id);
   const [messages, setMessages] = useState<Message[]>(initialSession?.history || []);
   const [input, setInput] = useState('');
@@ -24,6 +25,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
   const [characterDNA, setCharacterDNA] = useState<string | null>(initialSession?.characterDNA || null);
   const [masterStory, setMasterStory] = useState<string | null>(initialSession?.masterStory || null);
   const [apiBaseUrl, setApiBaseUrl] = useState<string>(initialSession?.apiBaseUrl || initialApiBaseUrl);
+  const [useInternalApi, setUseInternalApi] = useState<boolean>(initialSession?.useInternalApi ?? initialUseInternalApi);
   const [imageWidth, setImageWidth] = useState<number>(initialSession?.imageWidth || 720);
   const [imageHeight, setImageHeight] = useState<number>(initialSession?.imageHeight || 1280);
   const [imageSteps, setImageSteps] = useState<number>(initialSession?.imageSteps || 9);
@@ -47,7 +49,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
 
     const initSession = async () => {
       setStatusBarMessage("Initializing character DNA...");
-      const result = await generateCharacterDNA(scenario, { apiBaseUrl });
+      const result = await generateCharacterDNA(scenario, useInternalApi ? undefined : { apiBaseUrl });
       setCharacterDNA(result.dna);
       setMasterStory(result.story);
       
@@ -58,16 +60,14 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
         // Generate initial visual prompt based on scenario, DNA, and the fresh story outline
         setStatusBarMessage("Creating initial visual prompt...");
         setIsGeneratingPrompt(true);
-        const initialPrompt = await generateVisualPrompt(scenario, [], result.dna, undefined, { apiBaseUrl }, result.story);
+        const initialPrompt = await generateVisualPrompt(scenario, [], result.dna, undefined, useInternalApi ? undefined : { apiBaseUrl }, result.story);
         setCurrentVisualPrompt(initialPrompt);
         setIsGeneratingPrompt(false);
         setStatusBarMessage(null);
       }
-
-      // Initial quick replies
     };
     initSession();
-  }, [scenario, initialSession, apiBaseUrl]);
+  }, [scenario, initialSession, apiBaseUrl, useInternalApi]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -82,7 +82,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
         bgImage,
         lastVisualPrompt: currentVisualPrompt,
         apiBaseUrl,
-        useExternalApi: true,
+        useInternalApi,
         imageWidth,
         imageHeight,
         imageSteps
@@ -119,7 +119,10 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
     setIsLoading(true);
     setStatusBarMessage("AI is replying...");
 
-    const result = await getChatResponse(scenario, masterStory, characterDNA, messages, userMessage.text, { 
+    const result = await getChatResponse(scenario, masterStory, characterDNA, messages, userMessage.text, useInternalApi ? {
+      dna: characterDNA || undefined,
+      lastVisualPrompt: currentVisualPrompt
+    } : { 
       apiBaseUrl,
       dna: characterDNA || undefined,
       lastVisualPrompt: currentVisualPrompt
@@ -137,7 +140,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
     } else if (characterDNA) {
       setStatusBarMessage("Creating visual prompt...");
       setIsGeneratingPrompt(true);
-      const nextPrompt = await generateVisualPrompt(scenario, finalMessages, characterDNA, currentVisualPrompt, { apiBaseUrl }, masterStory || undefined);
+      const nextPrompt = await generateVisualPrompt(scenario, finalMessages, characterDNA, currentVisualPrompt, useInternalApi ? undefined : { apiBaseUrl }, masterStory || undefined);
       setCurrentVisualPrompt(nextPrompt);
       setIsGeneratingPrompt(false);
       setStatusBarMessage(null);
@@ -313,17 +316,34 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
                   </button>
                 </div>
 
-                <div className="flex flex-col gap-2">
-                  <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">API Base URL</label>
-                  <div className="flex gap-2">
-                    <input 
-                      type="text"
-                      value={apiBaseUrl}
-                      onChange={e => setApiBaseUrl(e.target.value)}
-                      placeholder="http://your-api-base-url"
-                      className="flex-1 bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-accent/50"
-                    />
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between p-3 bg-black/20 rounded-xl border border-white/5">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase tracking-wider text-white/40 font-bold">API Mode</span>
+                      <span className="text-xs text-white/60">{useInternalApi ? "Internal (Gemini API)" : "External (Custom URL)"}</span>
+                    </div>
+                    <button
+                      onClick={() => setUseInternalApi(!useInternalApi)}
+                      className={`relative w-10 h-5 rounded-full transition-colors duration-300 focus:outline-none ${useInternalApi ? 'bg-accent' : 'bg-white/10'}`}
+                    >
+                      <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${useInternalApi ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </button>
                   </div>
+
+                  {!useInternalApi && (
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">API Base URL</label>
+                      <div className="flex gap-2">
+                        <input 
+                          type="text"
+                          value={apiBaseUrl}
+                          onChange={e => setApiBaseUrl(e.target.value)}
+                          placeholder="http://your-api-base-url"
+                          className="flex-1 bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-accent/50"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">
