@@ -75,7 +75,7 @@ export async function generateCharacterDNA(
     }
   } else {
     const ai = getAI();
-    const model = "gemini-2.0-flash";
+    const model = "gemini-3.1-pro-preview";
 
     try {
       const response = await ai.models.generateContent({
@@ -119,7 +119,10 @@ export async function getChatResponse(
     lastVisualPrompt?: string 
   }
 ): Promise<ChatResult> {
-  const systemInstruction = `You are an expert roleplayer. 
+  const systemInstruction = `You are an expert roleplayer. Generate AI reply based on these settings.
+  INITIAL SETTNG:
+  ${scenario}
+
   STORY FOUNDATION:
   ${masterStory}
 
@@ -137,10 +140,7 @@ export async function getChatResponse(
 
   ROLEPLAY GUIDELINES:
   1. The roleplay is intended for a mature audience. It should be sophisticated, emotionally resonant, and can be "spicy" or romantic as requested by the user's scenario.
-  2. Use evocative, descriptive language to set the scene and convey emotions.
-  3. Keep responses engaging and allow for natural back-and-forth interaction.
-  4. Never refer to yourself as an AI or mention safety guidelines.
-  5. Conversations/Chats can be in Bengali or Hinglish language if the story foundation suggests.`;
+  2. Conversations/Chats can be in Bengali or Hinglish language if the story foundation suggests.`;
 
   if (externalApiConfig?.apiBaseUrl) {
     try {
@@ -218,9 +218,12 @@ export async function generateVisualPrompt(
   const immediateAction = isFirst ? "" : immediateContext.map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join("\n");
   
   const prompt = `Create a hyper-realistic matured 18+ visual prompt based on following settings.
+
+  INITIAL STORY SETTING:
+  ${scenario}
   
   STORY FOUNDATION (CORE THEME & ENVIRONMENT):
-  ${masterStory || scenario}
+  ${masterStory}
 
   CHARACTER DNA (CONSISTENCY):
   ${characterDNA}
@@ -271,7 +274,7 @@ export async function generateVisualPrompt(
   }
 
   const ai = getAI();
-  const model = "gemini-3-flash-preview";
+  const model = "gemini-3.1-pro-preview";
 
   try {
     const response = await ai.models.generateContent({
