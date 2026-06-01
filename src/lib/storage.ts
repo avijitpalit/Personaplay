@@ -12,6 +12,7 @@ export interface Session {
   apiBaseUrl: string;
   useInternalApi: boolean;
   useExternalApi?: boolean;
+  useXaiForImages?: boolean;
   imageWidth: number;
   imageHeight: number;
   imageSteps: number;
