@@ -355,7 +355,7 @@ export async function generateImage(
   try {
     const url = apiBaseUrl.endsWith('/') ? `${apiBaseUrl}generate` : `${apiBaseUrl}/generate`;
     const payload = {
-        prompt: '(NSFW) ' + visualPrompt,
+        prompt: visualPrompt,
         width,
         height,
         steps
