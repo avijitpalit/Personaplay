@@ -10,10 +10,11 @@ interface ChatInterfaceProps {
   initialSession?: Session | null;
   initialApiBaseUrl: string;
   initialUseInternalApi: boolean;
+  initialUseXaiForImages: boolean;
   onBack: () => void;
 }
 
-export default function ChatInterface({ scenario, initialSession, initialApiBaseUrl, initialUseInternalApi, onBack }: ChatInterfaceProps) {
+export default function ChatInterface({ scenario, initialSession, initialApiBaseUrl, initialUseInternalApi, initialUseXaiForImages, onBack }: ChatInterfaceProps) {
   const [sessionId, setSessionId] = useState<string | undefined>(initialSession?.id);
   const [messages, setMessages] = useState<Message[]>(initialSession?.history || []);
   const [input, setInput] = useState('');
@@ -26,6 +27,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
   const [masterStory, setMasterStory] = useState<string | null>(initialSession?.masterStory || null);
   const [apiBaseUrl, setApiBaseUrl] = useState<string>(initialSession?.apiBaseUrl || initialApiBaseUrl);
   const [useInternalApi, setUseInternalApi] = useState<boolean>(initialSession?.useInternalApi ?? initialUseInternalApi);
+  const [useXaiForImages, setUseXaiForImages] = useState<boolean>(initialSession?.useXaiForImages ?? initialUseXaiForImages);
   const [imageWidth, setImageWidth] = useState<number>(initialSession?.imageWidth || 720);
   const [imageHeight, setImageHeight] = useState<number>(initialSession?.imageHeight || 1280);
   const [imageSteps, setImageSteps] = useState<number>(initialSession?.imageSteps || 9);
@@ -83,6 +85,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
         lastVisualPrompt: currentVisualPrompt,
         apiBaseUrl,
         useInternalApi,
+        useXaiForImages,
         imageWidth,
         imageHeight,
         imageSteps
@@ -106,7 +109,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
       }, 5000); // Debounce auto-save
       return () => clearTimeout(timer);
     }
-  }, [messages, characterDNA, bgImage, currentVisualPrompt, apiBaseUrl, imageWidth, imageHeight, imageSteps]);
+  }, [messages, characterDNA, bgImage, currentVisualPrompt, apiBaseUrl, useXaiForImages, imageWidth, imageHeight, imageSteps]);
 
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -119,14 +122,18 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
     setIsLoading(true);
     setStatusBarMessage("AI is replying...");
 
-    const result = await getChatResponse(scenario, masterStory, characterDNA, messages, userMessage.text, useInternalApi ? {
-      dna: characterDNA || undefined,
-      lastVisualPrompt: currentVisualPrompt
-    } : { 
-      apiBaseUrl,
-      dna: characterDNA || undefined,
-      lastVisualPrompt: currentVisualPrompt
-    });
+    const result = await getChatResponse(
+      scenario, 
+      masterStory, 
+      characterDNA || "", 
+      messages, 
+      userMessage.text, 
+      useInternalApi ? undefined : { 
+        apiBaseUrl,
+        dna: characterDNA || undefined,
+        lastVisualPrompt: currentVisualPrompt
+      }
+    );
 
     const finalMessages: Message[] = [...updatedMessages, { role: 'model', text: result.reply }];
     
@@ -152,7 +159,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
   const handleGenerateImage = async () => {
     if (isGeneratingImage || !currentVisualPrompt) return;
     
-    if (!apiBaseUrl) {
+    if (!useXaiForImages && !apiBaseUrl) {
       setShowSettings(true);
       setError("Please provide an API Base URL first.");
       return;
@@ -163,13 +170,13 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
     setError(null);
 
     try {
-      const result = await generateImage(apiBaseUrl, currentVisualPrompt, imageWidth, imageHeight, imageSteps);
+      const result = await generateImage(apiBaseUrl, currentVisualPrompt, imageWidth, imageHeight, imageSteps, useXaiForImages);
       if (result) {
         setBgImage(result.url);
       }
     } catch (error: any) {
       console.error("Image Generation Error:", error);
-      setError("Image generation failed. Check console and API URL.");
+      setError(`Image generation failed: ${error.message || "Check console and API configuration."}`);
     } finally {
       setIsGeneratingImage(false);
       setStatusBarMessage(null);
@@ -344,6 +351,19 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
                       </div>
                     </div>
                   )}
+
+                  <div className="flex items-center justify-between p-3 bg-black/20 rounded-xl border border-white/5">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Image Gen Engine</span>
+                      <span className="text-xs text-white/60">{useXaiForImages ? "xAI (Grok Imagine Quality)" : "External API (Custom URL)"}</span>
+                    </div>
+                    <button
+                      onClick={() => setUseXaiForImages(!useXaiForImages)}
+                      className={`relative w-10 h-5 rounded-full transition-colors duration-300 focus:outline-none ${useXaiForImages ? 'bg-accent' : 'bg-white/10'}`}
+                    >
+                      <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${useXaiForImages ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">
