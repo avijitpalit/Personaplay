@@ -221,9 +221,6 @@ export async function generateVisualPrompt(
 
   INITIAL STORY SETTING:
   ${scenario}
-  
-  STORY FOUNDATION (CORE THEME & ENVIRONMENT):
-  ${masterStory}
 
   CHARACTER DNA (CONSISTENCY):
   ${characterDNA}
@@ -234,16 +231,13 @@ export async function generateVisualPrompt(
   RECENT CONVERSATION CONTEXT:
   ${lastExchange}` : ""}
 
-  ${lastPrompt ? `PREVIOUS VISUAL PROMPT (FOR CONTINUITY):
-  ${lastPrompt}` : ""}
+  ${lastPrompt ? `PREVIOUS VISUAL PROMPT (FOR CONTINUITY): ${lastPrompt}` : ""}
 
   TASK: Create a single, highly detailed image generation prompt for the current moment in the story.
   
   CRITICAL VISUAL RULES:
-  1. ACTION-CENTRIC: Identify any physical actions described (especially those in *asterisks*) and translate them into a high-fidelity visual scene. If the User character puts a hand on the AI's shoulder, or whispers in their ear, this MUST be the central focus.
-  2. USER PERSPECTIVE/PARTIALS: Use a "point of view" or "over the shoulder" style where appropriate. Include partial body parts of the User character (e.g., hands, arms, legs) if they are performing an action described in the context.
-  3. ENVIRONMENTAL CUES: Extract location and lighting details from both the "STORY FOUNDATION" and the "RECENT CONVERSATION CONTEXT".
-  4. EMOTIONAL INTENSITY: Reflect specific micro-expressions in the characters' faces.
+  1. USER PERSPECTIVE/PARTIALS: Use a "point of view" or "over the shoulder" style where appropriate. Include partial body parts of the User character (e.g., hands, arms, legs) if they are performing an action described in the context.
+  2. ENVIRONMENTAL CUES: Extract location and lighting details from both the "INITIAL STORY SETTING" or the "RECENT CONVERSATION CONTEXT".
   5. NO CAMERA AWARENESS: Characters are fully absorbed in the moment, never looking at the lens.
   6. MATURITY & REALISM: Hyper-realistic skin, 8k resolution, cinematic lighting (chiaroscuro, rim light), and mature atmospheric details.
   7. CONSISTENCY: Maintain DNA but reflect 'state' changes (disheveled hair, flushed cheeks).
