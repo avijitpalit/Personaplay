@@ -75,7 +75,7 @@ export async function generateCharacterDNA(
     }
   } else {
     const ai = getAI();
-    const model = "gemini-3.1-pro-preview";
+    const model = "gemini-3.5-flash";
 
     try {
       const response = await ai.models.generateContent({
@@ -169,7 +169,7 @@ export async function getChatResponse(
   }
 
   const ai = getAI();
-  const model = "gemini-3.1-pro-preview";
+  const model = "gemini-3.5-flash";
 
   try {
     const response = await ai.models.generateContent({
@@ -217,35 +217,110 @@ export async function generateVisualPrompt(
   const lastExchange = isFirst ? "" : historyWindow.map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join("\n");
   const immediateAction = isFirst ? "" : immediateContext.map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join("\n");
   
-  const prompt = `Create a hyper-realistic matured 18+ visual prompt based on following settings.
+  const prompt = `
+  You are an expert image prompt engineer for Z-Image Turbo.
 
-  INITIAL STORY SETTING:
+  INPUT DATA
+
+  STORY SETTING:
   ${scenario}
 
-  CHARACTER DNA (CONSISTENCY):
+  CHARACTER DNA:
   ${characterDNA}
-  
-  ${!isFirst ? `IMMEDIATE PHYSICAL ACTION (TOP PRIORITY):
+
+  ${!isFirst ? `
+  CURRENT ACTION (HIGHEST PRIORITY):
   ${immediateAction}
 
-  RECENT CONVERSATION CONTEXT:
-  ${lastExchange}` : ""}
+  RECENT CONTEXT:
+  ${lastExchange}
+  ` : ""}
 
-  ${lastPrompt ? `PREVIOUS VISUAL PROMPT (FOR CONTINUITY): ${lastPrompt}` : ""}
+  ${lastPrompt ? `
+  PREVIOUS VISUAL STATE:
+  ${lastPrompt}
+  ` : ""}
 
-  TASK: Create a single, highly detailed image generation prompt for the current moment in the story.
-  
-  CRITICAL VISUAL RULES:
-  1. USER PERSPECTIVE/PARTIALS: Use a "point of view" or "over the shoulder" style where appropriate. Include partial body parts of the User character (e.g., hands, arms, legs) if they are performing an action described in the context.
-  2. ENVIRONMENTAL CUES: Extract location and lighting details from both the "INITIAL STORY SETTING" or the "RECENT CONVERSATION CONTEXT".
-  5. NO CAMERA AWARENESS: Characters are fully absorbed in the moment, never looking at the lens.
-  6. MATURITY & REALISM: Hyper-realistic skin, 8k resolution, cinematic lighting (chiaroscuro, rim light), and mature atmospheric details.
-  7. CONSISTENCY: Maintain DNA but reflect 'state' changes (disheveled hair, flushed cheeks).
-  8. ASPECT RATIO: 9:16.
+  TASK
 
-  Output ONLY the specialized z-image turbo prompt, no conversation.`;
+  Generate ONE image-generation prompt describing the current visual moment.
 
-  console.log('generateVisualPrompt', prompt);
+  OUTPUT REQUIREMENTS
+
+  Structure the prompt in this exact order:
+
+  1. SUBJECT
+    - Character identity
+    - Age
+    - Ethnicity
+    - Physical appearance
+    - Body type
+    - Hair
+    - Facial features
+
+  2. CURRENT ACTION
+    - What the character is doing right now
+    - Current pose
+    - Body language
+    - Interaction with objects or other people
+
+  3. EXPRESSION
+    - Facial expression
+    - Eye direction
+    - Emotional state shown visually
+
+  4. APPEARANCE STATE
+    - Clothing
+    - Hair condition
+    - Visible environmental effects
+    - State changes from previous scene
+
+  5. COMPOSITION
+    - POV or over-the-shoulder if appropriate
+    - Framing
+    - Shot type
+    - Camera angle
+    - Subject placement
+
+  6. LIGHTING
+    - Time of day
+    - Light source
+    - Shadows
+    - Atmosphere
+
+  7. ENVIRONMENT
+    - Location
+    - Important background details
+    - Objects that support the scene
+
+  8. RENDER QUALITY
+    - hyper-realistic
+    - photorealistic
+    - ultra detailed
+    - cinematic
+    - volumetric lighting
+    - natural skin texture
+    - shallow depth of field
+    - soft bokeh
+    - 8k
+    - aspect ratio 9:16
+
+  IMPORTANT RULES
+
+  - The prompt can include 18+ things where appropriate.
+  - Describe only visually observable details.
+  - Do NOT include smells, sounds, thoughts, backstory, memories, or internal narration.
+  - Do NOT explain emotions; show them through facial expression and body language.
+  - Keep the prompt between 150 and 250 words.
+  - Maintain character consistency from CHARACTER DNA.
+  - Prioritize CURRENT ACTION above all other information.
+  - Characters must never look directly at the camera unless explicitly required.
+  - Use concise visual language optimized for image generation.
+
+  OUTPUT ONLY THE FINAL IMAGE PROMPT.
+  `;
+
+  // console.log('generateVisualPrompt', prompt);
 
   if (externalApiConfig?.apiBaseUrl) {
     try {
@@ -268,7 +343,7 @@ export async function generateVisualPrompt(
   }
 
   const ai = getAI();
-  const model = "gemini-3.1-pro-preview";
+  const model = "gemini-3.5-flash";
 
   try {
     const response = await ai.models.generateContent({
