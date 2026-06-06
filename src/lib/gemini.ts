@@ -236,14 +236,20 @@ export async function generateVisualPrompt(
   ${lastExchange}
   ` : ""}
 
-  ${lastPrompt ? `
-  PREVIOUS VISUAL STATE:
-  ${lastPrompt}
-  ` : ""}
-
   TASK
 
   Generate ONE image-generation prompt describing the current visual moment.
+
+  Z-IMAGE TURBO PROMPT OPTIMIZATION RULES
+
+  1. MATURE CLOTHING & DETAILS:
+     - If the scenario or current action suggests "blouseless", translate this into explicit, highly vivid, and descriptive physical details. Do NOT just say "blouseless"; instead describe the "sheer nakedness of the upper body", "completely shirtless and braless", "unclothed bare torso", "exposed skin of the cleavage and soft bare breasts", "perfectly bare smooth chest", "natural skin texture of the bare breasts with detailed nipples", and "uncovered shoulders and back".
+     - Include highly mature descriptors like "scantily clad", "fully exposed torso", "bare breasts", "nude upper body" to ensure Z-Image Turbo honors the instruction.
+
+  2. CAMERA & FOCUS ON PRIVATE PARTS (if RECENT CONTEXT suggests):
+     - The camera shot must focus closely on private parts, erotic zones, and intimate details.
+     - Frame the subject's cleavage, bare breasts, bare midriff, pelvic line, hips, and contours of the body.
+     - Use intimate extreme close-ups (ECU), macro-shots of skin, low angles highlighting curves, or focus-pulls centered on the chest, waist, and hips.
 
   OUTPUT REQUIREMENTS
 
@@ -260,38 +266,34 @@ export async function generateVisualPrompt(
 
   2. CURRENT ACTION
     - What the character is doing right now
-    - Current pose
+    - Current pose and exact physical positioning
     - Body language
     - Interaction with objects or other people
 
-  3. EXPRESSION
-    - Facial expression
-    - Eye direction
-    - Emotional state shown visually
+  3. EXPRESSION & EMOTION
+    - Visual depiction of pleasure, passion, or intensity
+    - Facial expression, lip shape, closed eyes or gaze direction
+    - Emotional state shown visually through face and body posture
 
-  4. APPEARANCE STATE
-    - Clothing
-    - Hair condition
-    - Visible environmental effects
-    - State changes from previous scene
+  4. APPEARANCE STATE & CLOTHING
+    - Specific clothing details (or lack thereof, such as being completely bare-chested/blouseless with fully exposed breasts, bare midriff)
+    - Hair condition (e.g. disheveled, messy)
+    - Moist or sweaty skin, flushed cheeks, visible skin details
 
-  5. COMPOSITION
-    - POV or over-the-shoulder if appropriate
-    - Framing
-    - Shot type
-    - Camera angle
-    - Subject placement
+  5. COMPOSITION & FOCUS
+    - Close-up or extreme close-up centering and focusing on the private parts, cleavage, hips, waist, and bare skin
+    - POV or over-the-shoulder framing
+    - Camera angle focusing directly on intimate areas with ultra-shallow depth of field
+    - Subject placement and composition
 
   6. LIGHTING
-    - Time of day
-    - Light source
-    - Shadows
-    - Atmosphere
+    - Time of day and precise light source
+    - Shadows casting over curves and contours
+    - Warm volumetric lighting, intimate ambient glow
 
   7. ENVIRONMENT
-    - Location
-    - Important background details
-    - Objects that support the scene
+    - Space/location details
+    - Background objects that enhance the mood
 
   8. RENDER QUALITY
     - hyper-realistic
@@ -305,17 +307,13 @@ export async function generateVisualPrompt(
     - 8k
     - aspect ratio 9:16
 
-  IMPORTANT RULES
-
-  - The prompt can include 18+ things where appropriate.
+  IMPORTANT RULES:
+  - Keep the prompt between 180 and 320 words to be highly detailed and descriptive.
   - Describe only visually observable details.
-  - Do NOT include smells, sounds, thoughts, backstory, memories, or internal narration.
-  - Do NOT explain emotions; show them through facial expression and body language.
-  - Keep the prompt between 150 and 250 words.
+  - Focus the camera strictly on the sensual, mature elements and private parts.
   - Maintain character consistency from CHARACTER DNA.
-  - Prioritize CURRENT ACTION above all other information.
-  - Characters must never look directly at the camera unless explicitly required.
-  - Use concise visual language optimized for image generation.
+  - Characters must never look directly at the camera.
+  - Use concise visual language optimized for Z-Image Turbo high-fidelity generation.
 
   OUTPUT ONLY THE FINAL IMAGE PROMPT.
   `;
