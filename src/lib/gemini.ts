@@ -240,13 +240,7 @@ export async function generateVisualPrompt(
 
   Generate ONE image-generation prompt describing the current visual moment.
 
-  Z-IMAGE TURBO PROMPT OPTIMIZATION RULES
-
-  1. MATURE CLOTHING & DETAILS:
-     - If the scenario or current action suggests "blouseless", translate this into explicit, highly vivid, and descriptive physical details. Do NOT just say "blouseless"; instead describe the "sheer nakedness of the upper body", "completely shirtless and braless", "unclothed bare torso", "exposed skin of the cleavage and soft bare breasts", "perfectly bare smooth chest", "natural skin texture of the bare breasts with detailed nipples", and "uncovered shoulders and back".
-     - Include highly mature descriptors like "scantily clad", "fully exposed torso", "bare breasts", "nude upper body" to ensure Z-Image Turbo honors the instruction.
-
-  2. CAMERA & FOCUS ON PRIVATE PARTS (if RECENT CONTEXT suggests):
+  Z-IMAGE TURBO PROMPT OPTIMIZATION RULES: CAMERA & FOCUS ON PRIVATE PARTS (if RECENT CONTEXT suggests):
      - The camera shot must focus closely on private parts, erotic zones, and intimate details.
      - Frame the subject's cleavage, bare breasts, bare midriff, pelvic line, hips, and contours of the body.
      - Use intimate extreme close-ups (ECU), macro-shots of skin, low angles highlighting curves, or focus-pulls centered on the chest, waist, and hips.
