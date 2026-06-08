@@ -123,20 +123,10 @@ export async function getChatResponse(
   INITIAL SETTNG:
   ${scenario}
 
-  STORY FOUNDATION:
-  ${masterStory}
-
-  CHARACTER DNA:
-  ${dna}
-
   CORE DIRECTIVES FOR CHARACTER CONSISTENCY:
   1. You are the character(s) described in the scenario.
-  2. Maintain a consistent personality throughout the entire conversation.
-  3. PHYSICAL CONSISTENCY: Keep the character's physical appearance, facial features, and hair style consistent.
-  4. OUTFIT CONSISTENCY: Maintain the character's outfit as described. If they are wearing a "red silk dress" or "black leather jacket", they continue wearing it unless they explicitly change.
-  5. Remember all previous interactions and details shared in the chat history.
-  6. If multiple characters are involved, distinguish them clearly through their unique speech patterns and actions.
-  7. Respond as a real person would, with depth, desire, and personality.
+  2. Remember all previous interactions and details shared in the chat history.
+  3. Respond as a real person would, with depth, desire, and personality.
 
   ROLEPLAY GUIDELINES:
   1. The roleplay is intended for a mature audience. It should be sophisticated, emotionally resonant, and can be "spicy" or romantic as requested by the user's scenario.
@@ -146,7 +136,7 @@ export async function getChatResponse(
     try {
       const url = externalApiConfig.apiBaseUrl.endsWith('/') ? `${externalApiConfig.apiBaseUrl}t2t` : `${externalApiConfig.apiBaseUrl}/t2t`;
       
-      const historyText = history.map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join('\n');
+      const historyText = history.slice(-10).map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join('\n');
       const fullPrompt = `${systemInstruction}\n\nChat History:\n${historyText}\n\nUser: ${userInput}\nAI:`;
 
       const response = await fetch(url, {
@@ -214,102 +204,49 @@ export async function generateVisualPrompt(
   const isFirst = history.length === 0;
   const historyWindow = history.slice(-6);
   const immediateContext = history.slice(-2);
-  const lastExchange = isFirst ? "" : historyWindow.map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join("\n");
+  const historyContext = isFirst ? "" : history.map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join("\n");
   const immediateAction = isFirst ? "" : immediateContext.map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join("\n");
   
+  const recentChat = history.slice(-2).map(m =>
+  `${m.role === 'user' ? 'User' : 'AI character'}: ${m.text}`
+).join("\n");
+
   const prompt = `
   You are an expert image prompt engineer for Z-Image Turbo.
-
-  INPUT DATA
+  Generate a single static image prompt based strictly on the inputs below.
 
   STORY SETTING:
   ${scenario}
 
-  CHARACTER DNA:
+  CHARACTER DNA (appearance reference only — face, hair, body):
   ${characterDNA}
 
-  ${!isFirst ? `
-  CURRENT ACTION (HIGHEST PRIORITY):
-  ${immediateAction}
+  MOST RECENT ACTION (this is the scene to depict — highest priority):
+  ${recentChat}
 
-  RECENT CONTEXT:
-  ${lastExchange}
-  ` : ""}
+  ${lastPrompt?.trim() 
+    ? `PREVIOUS VISUAL (face and hair consistency only — do NOT repeat same pose or framing): ${lastPrompt}` 
+    : ""}
 
-  TASK
+  Write a single flowing paragraph (180–240 words) describing the frozen moment derived 
+  from MOST RECENT ACTION in this mental order:
+  who is in frame → what they are physically doing right now → their exact pose 
+  and expression → camera angle and framing → light and atmosphere.
 
-  Generate ONE image-generation prompt describing the current visual moment.
+  If the scene involves physical intimacy or exposed skin, describe those 
+  sensory details naturally within the paragraph.
+  If the scene is a conversation or neutral interaction, focus on 
+  expression, body language, and spatial relationship between characters.
 
-  Z-IMAGE TURBO PROMPT OPTIMIZATION RULES: CAMERA & FOCUS ON PRIVATE PARTS (if RECENT CONTEXT suggests):
-     - The camera shot must focus closely on private parts, erotic zones, and intimate details.
-     - Frame the subject's cleavage, bare breasts, bare midriff, pelvic line, hips, and contours of the body.
-     - Use intimate extreme close-ups (ECU), macro-shots of skin, low angles highlighting curves, or focus-pulls centered on the chest, waist, and hips.
+  RULES:
+  - MOST RECENT ACTION determines the scene — not the DNA, not the previous visual
+  - DNA is for appearance only — face structure, skin, hair
+  - No pronouns "I/my/me" — use "the viewer" for first-person references
+  - Describe a static frozen moment only — no transitional verbs ("about to", "just finished")
+  - Photorealistic, cinematic, 8k, 9:16, shallow depth of field
+  - No labels, no preamble, no explanation
 
-  OUTPUT REQUIREMENTS
-
-  Structure the prompt in this exact order:
-
-  1. SUBJECT
-    - Character identity
-    - Age
-    - Ethnicity
-    - Physical appearance
-    - Body type
-    - Hair
-    - Facial features
-
-  2. CURRENT ACTION
-    - What the character is doing right now
-    - Current pose and exact physical positioning
-    - Body language
-    - Interaction with objects or other people
-
-  3. EXPRESSION & EMOTION
-    - Visual depiction of pleasure, passion, or intensity
-    - Facial expression, lip shape, closed eyes or gaze direction
-    - Emotional state shown visually through face and body posture
-
-  4. APPEARANCE STATE & CLOTHING
-    - Specific clothing details (or lack thereof, such as being completely bare-chested/blouseless with fully exposed breasts, bare midriff)
-    - Hair condition (e.g. disheveled, messy)
-    - Moist or sweaty skin, flushed cheeks, visible skin details
-
-  5. COMPOSITION & FOCUS
-    - Close-up or extreme close-up centering and focusing on the private parts, cleavage, hips, waist, and bare skin
-    - POV or over-the-shoulder framing
-    - Camera angle focusing directly on intimate areas with ultra-shallow depth of field
-    - Subject placement and composition
-
-  6. LIGHTING
-    - Time of day and precise light source
-    - Shadows casting over curves and contours
-    - Warm volumetric lighting, intimate ambient glow
-
-  7. ENVIRONMENT
-    - Space/location details
-    - Background objects that enhance the mood
-
-  8. RENDER QUALITY
-    - hyper-realistic
-    - photorealistic
-    - ultra detailed
-    - cinematic
-    - volumetric lighting
-    - natural skin texture
-    - shallow depth of field
-    - soft bokeh
-    - 8k
-    - aspect ratio 9:16
-
-  IMPORTANT RULES:
-  - Keep the prompt between 180 and 320 words to be highly detailed and descriptive.
-  - Describe only visually observable details.
-  - Focus the camera strictly on the sensual, mature elements and private parts.
-  - Maintain character consistency from CHARACTER DNA.
-  - Characters must never look directly at the camera.
-  - Use concise visual language optimized for Z-Image Turbo high-fidelity generation.
-
-  OUTPUT ONLY THE FINAL IMAGE PROMPT.
+  OUTPUT THE PROMPT ONLY.
   `;
 
   // console.log('generateVisualPrompt', prompt);
