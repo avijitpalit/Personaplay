@@ -191,17 +191,19 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="absolute inset-0 z-0"
+            className="absolute inset-0 z-0 overflow-hidden"
           >
             <img 
               src={bgImage} 
               alt="Scene Background" 
-              className="w-full h-full object-cover"
+              className={`w-full h-full object-cover transition-all duration-700 ease-in-out ${
+                showChat ? 'blur-2xl scale-110 opacity-80' : 'blur-none scale-100 opacity-100'
+              }`}
               referrerPolicy="no-referrer"
             />
             <motion.div 
-              animate={{ opacity: showChat ? 0.6 : 0 }}
-              className="absolute inset-0 bg-black backdrop-blur-[2px] transition-opacity duration-500" 
+              animate={{ opacity: showChat ? 0.45 : 0 }}
+              className="absolute inset-0 bg-black transition-opacity duration-500" 
             />
           </motion.div>
         )}
@@ -442,7 +444,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
         <button 
           onClick={() => setShowChat(!showChat)}
           className={`p-4 pl-6 bg-white/10 backdrop-blur-3xl border-y border-l border-white/20 rounded-l-full text-white hover:bg-white/20 transition-all shadow-2xl ${!showChat ? 'bg-accent/30 border-accent/40' : ''}`}
-          title={showChat ? "Hide Chat" : "Show Chat"}
+          title={showChat ? "Show Image (Hide Chat)" : "Show Chat"}
         >
           {showChat ? <EyeOff size={22} /> : <Eye size={22} />}
         </button>

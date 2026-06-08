@@ -26,7 +26,7 @@ body {
     radial-gradient(circle at 10% 80%, var(--color-accent) 0%, transparent 50%);
   filter: blur(80px);
   opacity: 0.4;
-  z-index: -1;
+  z-index: 1;
   pointer-events: none;
 }
 
