@@ -228,15 +228,10 @@ export async function generateVisualPrompt(
     ? `PREVIOUS VISUAL (face and hair consistency only — do NOT repeat same pose or framing): ${lastPrompt}` 
     : ""}
 
-  Write a single flowing paragraph (180–240 words) describing the frozen moment derived 
-  from MOST RECENT ACTION in this mental order:
-  who is in frame → what they are physically doing right now → their exact pose 
-  and expression → camera angle and framing → light and atmosphere.
-
-  If the scene involves physical intimacy or exposed skin, describe those 
+  (If the scene involves physical intimacy or exposed skin, describe those 
   sensory details naturally within the paragraph.
   If the scene is a conversation or neutral interaction, focus on 
-  expression, body language, and spatial relationship between characters.
+  expression, body language, and spatial relationship between characters.)
 
   RULES:
   - MOST RECENT ACTION determines the scene — not the DNA, not the previous visual
