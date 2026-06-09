@@ -25,26 +25,11 @@ export async function generateCharacterDNA(
   scenario: string, 
   externalApiConfig?: { apiBaseUrl: string }
 ): Promise<DNAAndPrompt> {
-  const prompt = `Based on this matured roleplay scenario: "${scenario}", perform two tasks:
+  const prompt = `Based on this matured roleplay scenario: "${scenario}", generate an exhaustive visual and biographical blueprint for character consistency (DNA).
+  Generate character appearance reference only — face shape, eyes, hair color/style, clothing, skin texture. Do not include a story foundation.
   
-  1. CREATE CHARACTER DNA: Generate an exhaustive visual and biographical blueprint for the main characters (in English).
-  - IDENTITY: Full name, age, nationality, and religion/cultural background.
-  - CORE FEATURES: Precise facial structure (jawline, brow, nose shape), eye color/depth, lip volume.
-  - HAIR & SKIN: Exact hair style, texture, color; specify skin tone (with specific undertones), texture (e.g., pore detail, warmth), and any markings (scars, tattoos, freckles).
-  - PHYSICALITY: Build, exact height, weight distribution, and typical posture/silhouette.
-  - VIBE & AURA: "Core Emotional Baseline," signature micro-expressions, and how they interact with lighting.
-  - SIGNATURE OUTFIT: Mention initial signature style while noting it is dynamic.
-  - DYNAMICS: Describe their relative heights, physical proximity, and visual chemistry.
-  
-  2. GENERATE MASTER STORY: Create an immersive "Story Foundation" (3-4 sentences) that defines:
-  - WORLD-BUILDING: Specific ambient details, the unique "flavor" of the setting (e.g., textures, odors, specific lighting), and the era/mood.
-  - PLOT HOOKS: A subtle underlying tension, a shared secret, or a potential conflict that could drive future interactions.
-  - ATMOSPHERE & TONE: The recurring sensory themes and emotional stakes (e.g., "clandestine intimacy," "impending storm," "electric tension").
-  (The story foundation can be in Bengali or Hinglish language if the scenario suggests, but must be rich in descriptive imagery).
-
-  FORMAT YOUR RESPONSE EXPLICITLY AS:
-  DNA: [The descriptive paragraph for character DNA]
-  STORY: [The vivid narrative foundation]`;
+  FORMAT:
+  DNA: [The descriptive paragraph for character DNA]`;
 
   let responseData: { dna: string; story: string | null } = { dna: "A mysterious character.", story: null };
 
@@ -61,13 +46,11 @@ export async function generateCharacterDNA(
       });
       if (response.ok) {
         const text = await response.text();
-        // Simple parsing for external API response
-        const dnaPart = text.match(/DNA:\s*([\s\S]*?)(?=\n[A-Z]+:|$)/i)?.[1]?.trim() || text.match(/DNA:\s*([\s\S]*?)(?=STORY:|$)/i)?.[1]?.trim();
-        const storyPart = text.match(/STORY:\s*([\s\S]*?)(?=\n[A-Z]+:|$)/i)?.[1]?.trim() || text.match(/STORY:\s*([\s\S]*)/i)?.[1]?.trim();
+        const dnaPart = text.match(/DNA:\s*([\s\S]*?)(?=\n[A-Z]+:|$)/i)?.[1]?.trim() || text.match(/DNA:\s*([\s\S]*)/i)?.[1]?.trim();
         
         responseData = {
           dna: dnaPart || text || responseData.dna,
-          story: storyPart || null
+          story: ""
         };
       }
     } catch (e) {
@@ -92,12 +75,11 @@ export async function generateCharacterDNA(
         }
       });
       const text = response.text || "";
-      const dnaPart = text.match(/DNA:\s*([\s\S]*?)(?=\n[A-Z]+:|$)/i)?.[1]?.trim() || text.match(/DNA:\s*([\s\S]*?)(?=STORY:|$)/i)?.[1]?.trim();
-      const storyPart = text.match(/STORY:\s*([\s\S]*?)(?=\n[A-Z]+:|$)/i)?.[1]?.trim() || text.match(/STORY:\s*([\s\S]*)/i)?.[1]?.trim();
+      const dnaPart = text.match(/DNA:\s*([\s\S]*?)(?=\n[A-Z]+:|$)/i)?.[1]?.trim() || text.match(/DNA:\s*([\s\S]*)/i)?.[1]?.trim();
       
       responseData = {
         dna: dnaPart || text || responseData.dna,
-        story: storyPart || null
+        story: ""
       };
     } catch (error) {
       console.error("DNA Generation Error:", error);
@@ -212,8 +194,8 @@ export async function generateVisualPrompt(
 ).join("\n");
 
   const prompt = `
-  You are an expert image prompt engineer for Z-Image Turbo.
-  Generate a single static image prompt based strictly on the inputs below.
+  You are an expert image prompt engineer.
+  Generate a single static image prompt based strictly on the inputs below. Your main priority is to ensure maximum photorealism, and correct gaze direction where characters interact with each other and never look at the camera.
 
   STORY SETTING:
   ${scenario}
@@ -225,23 +207,21 @@ export async function generateVisualPrompt(
   ${recentChat}
 
   ${lastPrompt?.trim() 
-    ? `PREVIOUS VISUAL (face and hair consistency only — do NOT repeat same pose or framing): ${lastPrompt}` 
+    ? `PREVIOUS VISUAL (use for visual consistency only — do NOT copy same pose): ${lastPrompt}` 
     : ""}
 
-  (If the scene involves physical intimacy or exposed skin, describe those 
-  sensory details naturally within the paragraph.
-  If the scene is a conversation or neutral interaction, focus on 
-  expression, body language, and spatial relationship between characters.)
+  Write a single, highly detailed paragraph (180–240 words) describing the frozen moment. Specify details in this order:
+  Who is in frame -> exact physical arrangement -> their actions -> gaze and expressions -> clothing/nakedness details -> lighting & detailed atmosphere -> camera angle.
 
-  RULES:
-  - MOST RECENT ACTION determines the scene — not the DNA, not the previous visual
-  - DNA is for appearance only — face structure, skin, hair
-  - No pronouns "I/my/me" — use "the viewer" for first-person references
-  - Describe a static frozen moment only — no transitional verbs ("about to", "just finished")
-  - Photorealistic, cinematic, 8k, 9:16, shallow depth of field
-  - No labels, no preamble, no explanation
+  PROMPTING RULES:
+  
+  1. GAZE DIRECTION AND EYE CONTACT (CRITICAL): The characters MUST look at each other, locking eyes with mutual intensity, completely absorbed in their interaction. They MUST NOT look at the camera/viewer. There must be zero lens contact. Their heads should be angled toward each other, with profiles, three-quarter views, or over-the-shoulder focus confirming they are looking directly at each other's faces/gaze.
+  2. REALISM & PHOTOGRAPHY: Describe with extreme focus on realism, physical authenticity, and tactile detail. Avoid plastic looks. Specify details like: high-fidelity skin pores, natural skin sheen, single loose hair strands, natural weight and gravity, realistic skin folds, ray-traced ambient lighting, volumetric dust particles, shot on an 85mm f/1.4 prime lens with shallow depth of field, authentic film grain, and realistic shadowing.
+  3. EXPLICIT MATURE WORDS FOR BLOUSELESS/SHIRTLESS: Z-Image Turbo handles explicit physical descriptions much better than generic terms. If the scene implies or suggests physical intimacy, or mentions a character being "blouseless", "topless", or "shirtless", you MUST explicitly translate this with direct terms like: "completely shirtless and braless", "unclothed bare breasts and chest", "bare natural upper-body skin", "nude torso", or "completely exposed breasts with high-resolution skin texture".
+  4. NO METAPHORS OR TRANSITIONAL ACTIONS: Describe the precise physical positioning. Do not use abstract prose or transition verbs like "about to" or "just finished". Only describe what is physically visible in the frozen frame.
+  5. NO pronoun "I/my/me".
 
-  OUTPUT THE PROMPT ONLY.
+  OUTPUT THE PROMPT ONLY. DO NOT write any introductory or concluding text. Do not write "Prompt:" or include quote marks.
   `;
 
   // console.log('generateVisualPrompt', prompt);

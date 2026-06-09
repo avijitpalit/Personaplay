@@ -24,7 +24,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
   const [bgImage, setBgImage] = useState<string | null>(initialSession?.bgImage || null);
   const [currentVisualPrompt, setCurrentVisualPrompt] = useState<string | undefined>(initialSession?.lastVisualPrompt);
   const [characterDNA, setCharacterDNA] = useState<string | null>(initialSession?.characterDNA || null);
-  const [masterStory, setMasterStory] = useState<string | null>(initialSession?.masterStory || null);
+  const [masterStory, setMasterStory] = useState<string | null>(null);
   const [apiBaseUrl, setApiBaseUrl] = useState<string>(initialSession?.apiBaseUrl || initialApiBaseUrl);
   const [useInternalApi, setUseInternalApi] = useState<boolean>(initialSession?.useInternalApi ?? initialUseInternalApi);
   const [useXaiForImages, setUseXaiForImages] = useState<boolean>(initialSession?.useXaiForImages ?? initialUseXaiForImages);
@@ -53,16 +53,16 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
       setStatusBarMessage("Initializing character DNA...");
       const result = await generateCharacterDNA(scenario, useInternalApi ? undefined : { apiBaseUrl });
       setCharacterDNA(result.dna);
-      setMasterStory(result.story);
+      setMasterStory(null);
       
       if (result.visualPrompt) {
         setCurrentVisualPrompt(result.visualPrompt);
         setStatusBarMessage(null);
       } else {
-        // Generate initial visual prompt based on scenario, DNA, and the fresh story outline
+        // Generate initial visual prompt based on scenario and DNA
         setStatusBarMessage("Creating initial visual prompt...");
         setIsGeneratingPrompt(true);
-        const initialPrompt = await generateVisualPrompt(scenario, [], result.dna, undefined, useInternalApi ? undefined : { apiBaseUrl }, result.story);
+        const initialPrompt = await generateVisualPrompt(scenario, [], result.dna, undefined, useInternalApi ? undefined : { apiBaseUrl }, undefined);
         setCurrentVisualPrompt(initialPrompt);
         setIsGeneratingPrompt(false);
         setStatusBarMessage(null);
@@ -147,7 +147,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
     } else if (characterDNA) {
       setStatusBarMessage("Creating visual prompt...");
       setIsGeneratingPrompt(true);
-      const nextPrompt = await generateVisualPrompt(scenario, finalMessages, characterDNA, currentVisualPrompt, useInternalApi ? undefined : { apiBaseUrl }, masterStory || undefined);
+      const nextPrompt = await generateVisualPrompt(scenario, finalMessages, characterDNA, currentVisualPrompt, useInternalApi ? undefined : { apiBaseUrl }, undefined);
       setCurrentVisualPrompt(nextPrompt);
       setIsGeneratingPrompt(false);
       setStatusBarMessage(null);
@@ -277,13 +277,6 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
                 </div>
 
                 <div className="space-y-4 font-mono text-[10px]">
-                  <section className="space-y-2">
-                    <div className="text-white/40 uppercase tracking-widest font-bold">Master Story</div>
-                    <div className="bg-white/5 p-3 rounded-lg text-white/70 whitespace-pre-wrap border border-white/10 italic">
-                      {masterStory || "Not generated yet."}
-                    </div>
-                  </section>
-
                   <section className="space-y-2">
                     <div className="text-white/40 uppercase tracking-widest font-bold">Character DNA</div>
                     <div className="bg-white/5 p-3 rounded-lg text-white/70 whitespace-pre-wrap border border-white/10">
@@ -455,24 +448,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
         ref={scrollRef}
         className={`flex-1 overflow-y-auto p-6 space-y-8 scroll-smooth z-10 transition-opacity duration-500 ${showChat ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
       >
-        {/* Master Story Display */}
-        {masterStory && masterStory.trim() !== scenario.trim() && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-12 p-8 glass-panel border border-accent/30 rounded-[2rem] relative bg-accent/5"
-          >
-             <div className="absolute -top-3 left-8 bg-accent text-white px-3 py-1 rounded-full text-[10px] uppercase font-bold tracking-widest flex items-center gap-2">
-              <Sparkles size={10} />
-              Story Foundation
-            </div>
-            <p className="text-white/80 font-serif italic text-lg leading-relaxed first-letter:text-4xl first-letter:font-bold first-letter:mr-1 first-letter:float-left">
-              {masterStory}
-            </p>
-          </motion.div>
-        )}
-
-        {messages.length === 0 && (!masterStory || masterStory.trim() === scenario.trim()) && (
+        {messages.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center text-center opacity-40">
             <Sparkles size={48} className="mb-4 text-accent" />
             <p className="text-xl font-serif italic mb-2">The stage is set.</p>
