@@ -4,23 +4,20 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Session, getSessions, deleteSession } from '../lib/storage';
 
 interface CharacterSetupProps {
-  onStart: (scenario: string, useInternalApi: boolean, apiBaseUrl: string, useXaiForImages: boolean) => void;
+  onStart: (scenario: string, useInternalApi: boolean, apiBaseUrl: string) => void;
   onLoadSession: (session: Session) => void;
   initialApiBaseUrl?: string;
-  initialUseXaiForImages?: boolean;
 }
 
 export default function CharacterSetup({ 
   onStart, 
   onLoadSession, 
-  initialApiBaseUrl = 'https://odorful-hsiu-unmaledictory.ngrok-free.dev',
-  initialUseXaiForImages = false
+  initialApiBaseUrl = 'https://odorful-hsiu-unmaledictory.ngrok-free.dev'
 }: CharacterSetupProps) {
   const [scenario, setScenario] = useState('');
   const [sessions, setSessions] = useState<Session[]>([]);
   const [apiBaseUrl, setApiBaseUrl] = useState(initialApiBaseUrl);
   const [useInternalApi, setUseInternalApi] = useState(false);
-  const [useXaiForImages, setUseXaiForImages] = useState(initialUseXaiForImages);
 
   useEffect(() => {
     setSessions(getSessions());
@@ -93,19 +90,6 @@ export default function CharacterSetup({
                   <p className="text-[9px] text-white/30 italic">Endpoints used: /t2t and /generate</p>
                 </div>
               )}
-
-              <div className="flex items-center justify-between pt-3 border-t border-white/5">
-                <div className="flex flex-col">
-                  <span className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Image Gen Engine</span>
-                  <span className="text-xs text-white/60">{useXaiForImages ? "xAI (Grok Imagine Quality)" : "External API (Custom URL)"}</span>
-                </div>
-                <button
-                  onClick={() => setUseXaiForImages(!useXaiForImages)}
-                  className={`relative w-12 h-6 rounded-full transition-colors duration-300 focus:outline-none ${useXaiForImages ? 'bg-accent' : 'bg-white/10'}`}
-                >
-                  <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${useXaiForImages ? 'translate-x-6' : 'translate-x-0'}`} />
-                </button>
-              </div>
             </div>
           </div>
           
@@ -115,8 +99,8 @@ export default function CharacterSetup({
           </div>
 
           <button 
-            disabled={!scenario.trim() || scenario.length < 10 || (!useInternalApi && !useXaiForImages && !apiBaseUrl.trim())}
-            onClick={() => onStart(scenario, useInternalApi, apiBaseUrl, useXaiForImages)}
+            disabled={!scenario.trim() || scenario.length < 10 || (!useInternalApi && !apiBaseUrl.trim())}
+            onClick={() => onStart(scenario, useInternalApi, apiBaseUrl)}
             className="w-full bg-accent text-white py-5 rounded-2xl font-bold text-lg hover:bg-accent/90 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg shadow-accent/20 flex items-center justify-center gap-3 group"
           >
             Enter the Story

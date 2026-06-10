@@ -282,51 +282,15 @@ export async function generateImage(
   visualPrompt: string,
   width: number = 720,
   height: number = 1280,
-  steps: number = 9,
-  useXaiForImages: boolean = false
+  steps: number = 9
 ): Promise<{ url: string } | null> {
-  if (useXaiForImages) {
-    const apiKey = process.env.XAI_API_KEY;
-    try {
-      const response = await fetch("https://api.x.ai/v1/images/generations", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: "grok-imagine-image-quality",
-          prompt: visualPrompt
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`xAI Image API failed with status ${response.status}: ${errorText}`);
-      }
-
-      const data = await response.json();
-      if (data && data.data && data.data[0]) {
-        const imgData = data.data[0];
-        if (imgData.url) {
-          return { url: imgData.url };
-        } else if (imgData.b64_json) {
-          return { url: `data:image/png;base64,${imgData.b64_json}` };
-        }
-      }
-      throw new Error("No image data found in xAI response.");
-    } catch (error) {
-      console.error("xAI Image Generation Error:", error);
-      throw error;
-    }
-  }
-
   if (!apiBaseUrl) {
     throw new Error("API Base URL is required for image generation.");
   }
 
   try {
-    const url = apiBaseUrl.endsWith('/') ? `${apiBaseUrl}generate` : `${apiBaseUrl}/generate`;
+    // const url = apiBaseUrl.endsWith('/') ? `${apiBaseUrl}generate` : `${apiBaseUrl}/generate`;
+    const url = 'https://avijitpalit3--z-image-turbo-zimageservice-fastapi-app.modal.run/generate';
     const payload = {
         prompt: visualPrompt,
         width,
