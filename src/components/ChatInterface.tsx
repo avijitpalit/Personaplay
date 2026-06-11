@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Message, getChatResponse, generateImage, generateCharacterDNA, generateVisualPrompt, detectAndUpdateCharacterDNA } from '../lib/gemini';
+import { Message, getChatResponse, generateImage, generateCharacterDNA, generateVisualPrompt } from '../lib/gemini';
 import { Send, ArrowLeft, Loader2, User, Sparkles, Image as ImageIcon, Eye, EyeOff, Save, CheckCircle2, Settings, Info, Clock, FileText, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
@@ -129,36 +129,14 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
     setIsLoading(false);
     setStatusBarMessage(null);
 
-    let latestDNA = characterDNA || "";
-    // Check if a new important character was introduced and register them
-    if (characterDNA) {
-      setStatusBarMessage("Analyzing characters...");
-      try {
-        const updatedDNA = await detectAndUpdateCharacterDNA(
-          characterDNA,
-          finalMessages,
-          useInternalApi ? undefined : { apiBaseUrl }
-        );
-        if (updatedDNA && updatedDNA !== "NO_CHANGE") {
-          latestDNA = updatedDNA;
-          setCharacterDNA(updatedDNA);
-          setStatusBarMessage("Registered new important character to DNA.");
-          // Sleep brief fraction of a second so user can appreciate the registration status
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-      } catch (err) {
-        console.error("Dynamic DNA registration error:", err);
-      }
-    }
-
     // Update visual prompt
     if (result.lastVisualPrompt) {
       setCurrentVisualPrompt(result.lastVisualPrompt);
       setStatusBarMessage(null);
-    } else if (latestDNA) {
+    } else if (characterDNA) {
       setStatusBarMessage("Creating visual prompt...");
       setIsGeneratingPrompt(true);
-      const nextPrompt = await generateVisualPrompt(scenario, finalMessages, latestDNA, currentVisualPrompt, useInternalApi ? undefined : { apiBaseUrl }, undefined);
+      const nextPrompt = await generateVisualPrompt(scenario, finalMessages, characterDNA, currentVisualPrompt, useInternalApi ? undefined : { apiBaseUrl }, undefined);
       setCurrentVisualPrompt(nextPrompt);
       setIsGeneratingPrompt(false);
       setStatusBarMessage(null);

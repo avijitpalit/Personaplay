@@ -20,25 +20,27 @@ export async function generateCharacterDNA(
   externalApiConfig?: { apiBaseUrl: string }
 ): Promise<{ dna: string }> {
   const prompt = `You are a professional artist and master character designer setting up precise character blueprints (DNA) for photorealistic image engines.
-  Based on this initial story setting, identify the central characters and generate a highly detailed visual consistency configuration for EACH character.
+  Based on this initial story setting, identify the central AI characters and generate a highly detailed visual consistency configuration for EACH AI character.
 
   INITIAL STORY SETTING:
   ${scenario}
-  
-  Do NOT include any story foundation, plot lines, narrative arcs, backgrounds, or lore. Ignore other scene setup guidelines. Focus solely on character appearance references.
-  
-  For EACH character, provide highly specific physical definitions in this order:
-  - NAME & IDENTITY: Age, name, and their visual relationship to other characters (such as relative height or frame).
-  - FACIAL BLUEPRINT: Precise jawline, nose structure, brows, chin shape, lip volume, and forehead shape.
-  - EYE CHARACTERISTICS: Exact color hue/shading, overall eye shape (e.g., heavily hooded, wide-set, almond-shaped), eyebrow shape, and intensity.
-  - HAIR CONFIGURATION: Exact style, part, volume, texture (straight, wavy, coarse), length, precise color, and how individual highlights or loose strands behave.
-  - SKIN TEXTURE & TONE: Precise skin undertones, detailed textures (such as high-fidelity skin pores, natural light sheen, realistic skin folds, subtle freckles, moles, or physical markers), and warmth.
-  - BODY STRUCTURE: Precise build, posture, stature, frame width, relative physical dimensions, and physical presence.
-  - ATTIRE & FABRICS (Dynamic Baseline): Style of clothing, fabric texture, and color palette. Note that these are baseline outfits and will dynamically adapt or change if subsequent chat actions or dialogue specify a change in clothing, disrobing, or nudity.
 
-  Focus on physical realism, high-contrast visual cues, and concrete details that will enable an image generation model to recreate identical representations of these specific characters consistently across different scenes. Avoid vague pronouns, narrative transitions, or abstract descriptions.
+  For EACH active AI character, provide highly specific physical definitions in this order:
+  - NAME & IDENTITY: Age, name, and height profile.
+  - FACIAL BLUEPRINT: Precise jawline, nose structure, brows, chin shape, lip volume, and forehead shape.
+  - EYE CHARACTERISTICS: Exact color hue/shading, shape (e.g., heavily hooded, almond, downturned), and brow depth.
+  - HAIR CONFIGURATION: Exact texture (e.g., coarse, silky, wavy, kinky), styling, partings, and length.
+  - ETHNICITY & SKIN TEXTURE: Natural complexion undertones, visible skin textures (e.g., pores, light freckles, matte finish).
+
+  USER CHARACTER (MINIMAL PROFILE):
+  Define a brief, minimal visual profile for the "User" or "Player" character. Keep it extremely simple, specifying ONLY:
+  - Gender/Identity
+  - Hair color, basic style, and length (so that when shown blurred from behind, it remains consistent)
+  - Broad shoulder/build description
+  - Simple, neutral baseline attire (e.g., solid color shirt or jacket)
+  Do NOT define any facial details, eyes, expressions, or precise skin pore textures for the User character, as they will only be seen blurred or cropped in the foreground.
   
-  Output the character profiles directly without any conversational preamble or surrounding quote marks.`;
+  Format the output clearly as a compact reference sheet for each AI character and the minimal User baseline, omitting all lore and narrative descriptions.`;
 
   let responseData: { dna: string } = { dna: "A mysterious character." };
 
@@ -94,86 +96,6 @@ export async function generateCharacterDNA(
   }
 
   return responseData;
-}
-
-export async function detectAndUpdateCharacterDNA(
-  currentDNA: string,
-  history: Message[],
-  externalApiConfig?: { apiBaseUrl: string }
-): Promise<string | null> {
-  const recentHistoryText = history.slice(-10).map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join("\n");
-
-  const prompt = `Analyze the recent roleplay chat history and the existing Character DNA.
-  
-  EXISTING CHARACTER DNA:
-  ${currentDNA}
-
-  RECENT CHAT HISTORY:
-  ${recentHistoryText}
-
-  TASK:
-  Determine if a brand-new, IMPORTANT character (a character playing an active, recurring, or significant role/dialogue, not a temporary extra or background passerby like a waiter, driver, or generic bystander) has been introduced in the recent chat history who is NOT yet registered in the existing Character DNA.
-
-  CRITICAL CRITERIA:
-  - DO NOT update for temporary, one-off, or minor background characters.
-  - ONLY update if the character is newly introduced and plays an active, major, or secondary role in the scene or dialogue.
-
-  OUTPUT INSTRUCTIONS:
-  - If a brand-new important character HAS been introduced and is not yet in the DNA, generate a detailed visual appearance blueprint for this new character (face, eye color, hair, facial features, body/clothing) and MERGE it seamlessly with the Existing Character DNA. Your output must contain the descriptions of ALL characters (both existing and new) formatted cleanly so they are completely retained for subsequent image generations. Do NOT write any conversational preambles/intro/outro. Output the resulting complete Character DNA only.
-  - If NO new important character has been introduced, or if the character is just a temporary/minor extra, or is already registered in the DNA, reply with exactly 'NO_CHANGE'.`;
-
-  if (externalApiConfig?.apiBaseUrl) {
-    try {
-      const url = externalApiConfig.apiBaseUrl.endsWith('/') ? `${externalApiConfig.apiBaseUrl}t2t` : `${externalApiConfig.apiBaseUrl}/t2t`;
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Bypass-Tunnel-Reminder': 'true'
-        },
-        body: JSON.stringify({ input: prompt }),
-      });
-      if (response.ok) {
-        const text = await response.text();
-        const cleaned = text.trim();
-        if (cleaned.includes("NO_CHANGE") && cleaned.length < 20) {
-          return "NO_CHANGE";
-        }
-        return cleaned || "NO_CHANGE";
-      }
-    } catch (e) {
-      console.error("External DNA Update Error:", e);
-    }
-  } else {
-    const ai = getAI();
-    const model = "gemini-3.5-flash";
-
-    try {
-      const response = await ai.models.generateContent({
-        model,
-        contents: prompt,
-        config: {
-          temperature: 0.3,
-          safetySettings: [
-            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-          ]
-        }
-      });
-      const text = response.text || "";
-      const cleaned = text.trim();
-      if (cleaned.includes("NO_CHANGE") && cleaned.length < 20) {
-        return "NO_CHANGE";
-      }
-      return cleaned || "NO_CHANGE";
-    } catch (error) {
-      console.error("DNA dynamic update error:", error);
-    }
-  }
-
-  return "NO_CHANGE";
 }
 
 export async function getChatResponse(
@@ -282,12 +204,12 @@ export async function generateVisualPrompt(
 
   const prompt = `
   You are an expert image prompt engineer.
-  Generate a single static image prompt based strictly on the inputs below. Your main priority is to ensure maximum photorealism, and correct gaze direction where characters interact with each other and never look at the camera.
+  Generate a single static image prompt based strictly on the inputs below. Your main priority is to ensure maximum photorealism, and correct camera perspective focusing on the AI character(s).
 
   STORY SETTING:
   ${scenario}
 
-  CHARACTER DNA (appearance reference only — face, hair, body):
+  CHARACTER DNA (appearance reference applies EXCLUSIVELY to the AI characters — face, hair, body):
   ${characterDNA}
 
   MOST RECENT ACTION (this is the scene to depict — highest priority):
@@ -302,11 +224,20 @@ export async function generateVisualPrompt(
 
   PROMPTING RULES:
   
-  1. GAZE DIRECTION AND EYE CONTACT (CRITICAL): The characters MUST look at each other, locking eyes with mutual intensity, completely absorbed in their interaction. They MUST NOT look at the camera/viewer. There must be zero lens contact. Their heads should be angled toward each other, with profiles, three-quarter views, or over-the-shoulder focus confirming they are looking directly at each other's faces/gaze.
-  2. REALISM & PHOTOGRAPHY: Describe with extreme focus on realism, physical authenticity, and tactile detail. Avoid plastic looks. Specify details like: high-fidelity skin pores, natural skin sheen, single loose hair strands, natural weight and gravity, realistic skin folds, ray-traced ambient lighting, volumetric dust particles, shot on an 85mm f/1.4 prime lens with shallow depth of field, authentic film grain, and realistic shadowing.
-  3. EXPLICIT MATURE WORDS FOR BLOUSELESS/SHIRTLESS: Z-Image Turbo handles explicit physical descriptions much better than generic terms. If the scene implies or suggests physical intimacy, or mentions a character being "blouseless", "topless", or "shirtless", you MUST explicitly translate this with direct terms like: "completely shirtless and braless", "unclothed bare breasts and chest", "bare natural upper-body skin", "nude torso", or "completely exposed breasts with high-resolution skin texture".
-  4. NO METAPHORS OR TRANSITIONAL ACTIONS: Describe the precise physical positioning. Do not use abstract prose or transition verbs like "about to" or "just finished". Only describe what is physically visible in the frozen frame.
-  5. NO pronoun "I/my/me".
+  1. CAMERA PERSPECTIVE (SEMI-FIRST PERSON / OVER-THE-SHOULDER):
+     - Position the camera slightly behind or above the User's shoulder (OTS setup), looking past them at the AI character(s).
+     - The User character MUST be highly blurred (bokeh/out-of-focus) in the immediate foreground, showing only an edge of their shoulder, neck, or hair to anchor the perspective. Never describe facial features, expressions, or precise details for the User.
+     - The AI character(s) must be in sharp, crystal-clear focus.
+  
+  2. DYNAMIC GAZE DIRECTION: Gaze must match the current action logically. If interacting with the User (e.g., conversing, gazing deeply), the AI character should look towards the User/lens. If engaged in a task (e.g., cooking, reading, looking away, sleeping), their gaze must focus naturally on that activity/object rather than looking at the camera/User.
+  
+  3. REALISM & PHOTOGRAPHY: Extreme realism, physical authenticity, and tactile details (skin pores, natural skin sheen, single loose hair strands, natural weight). Shot on an 85mm f/1.4 prime lens with extremely shallow depth of field (creating beautiful foreground bokeh on the User's silhouette), authentic film grain, and realistic ambient ray-traced lighting.
+  
+  4. EXPLICIT MATURE WORDS FOR BLOUSELESS/SHIRTLESS: Z-Image Turbo model handles explicit physical descriptions much better than generic terms. If the scene implies or suggests physical intimacy, or mentions a character being "blouseless", "topless", or "shirtless", you MUST explicitly translate this with direct terms like: "completely shirtless and braless", "unclothed bare breasts and chest", "bare natural upper-body skin", "nude torso", or "completely exposed breasts with high-resolution skin texture".
+  
+  5. NO METAPHORS OR TRANSITIONAL ACTIONS: Describe the precise physical positioning. Do not use abstract prose or transition verbs like "about to" or "just finished". Only describe what is physically visible in the frozen frame.
+  
+  6. NO pronoun "I/my/me".
 
   OUTPUT THE PROMPT ONLY. DO NOT write any introductory or concluding text. Do not write "Prompt:" or include quote marks.
   `;
