@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Message, getChatResponse, generateImage, generateCharacterDNA, generateVisualPrompt } from '../lib/gemini';
+import { Message, getChatResponse, generateImage, generateCharacterDNA, generateVisualPrompt, detectAndUpdateCharacterDNA } from '../lib/gemini';
 import { Send, ArrowLeft, Loader2, User, Sparkles, Image as ImageIcon, Eye, EyeOff, Save, CheckCircle2, Settings, Info, Clock, FileText, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
@@ -23,7 +23,6 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
   const [bgImage, setBgImage] = useState<string | null>(initialSession?.bgImage || null);
   const [currentVisualPrompt, setCurrentVisualPrompt] = useState<string | undefined>(initialSession?.lastVisualPrompt);
   const [characterDNA, setCharacterDNA] = useState<string | null>(initialSession?.characterDNA || null);
-  const [masterStory, setMasterStory] = useState<string | null>(null);
   const [apiBaseUrl, setApiBaseUrl] = useState<string>(initialSession?.apiBaseUrl || initialApiBaseUrl);
   const [useInternalApi, setUseInternalApi] = useState<boolean>(initialSession?.useInternalApi ?? initialUseInternalApi);
   const [imageWidth, setImageWidth] = useState<number>(initialSession?.imageWidth || 720);
@@ -51,20 +50,14 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
       setStatusBarMessage("Initializing character DNA...");
       const result = await generateCharacterDNA(scenario, useInternalApi ? undefined : { apiBaseUrl });
       setCharacterDNA(result.dna);
-      setMasterStory(null);
       
-      if (result.visualPrompt) {
-        setCurrentVisualPrompt(result.visualPrompt);
-        setStatusBarMessage(null);
-      } else {
-        // Generate initial visual prompt based on scenario and DNA
-        setStatusBarMessage("Creating initial visual prompt...");
-        setIsGeneratingPrompt(true);
-        const initialPrompt = await generateVisualPrompt(scenario, [], result.dna, undefined, useInternalApi ? undefined : { apiBaseUrl }, undefined);
-        setCurrentVisualPrompt(initialPrompt);
-        setIsGeneratingPrompt(false);
-        setStatusBarMessage(null);
-      }
+      // Generate initial visual prompt based on scenario and DNA
+      setStatusBarMessage("Creating initial visual prompt...");
+      setIsGeneratingPrompt(true);
+      const initialPrompt = await generateVisualPrompt(scenario, [], result.dna, undefined, useInternalApi ? undefined : { apiBaseUrl }, undefined);
+      setCurrentVisualPrompt(initialPrompt);
+      setIsGeneratingPrompt(false);
+      setStatusBarMessage(null);
     };
     initSession();
   }, [scenario, initialSession, apiBaseUrl, useInternalApi]);
@@ -78,7 +71,6 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
         scenario,
         history: messages,
         characterDNA,
-        masterStory,
         bgImage,
         lastVisualPrompt: currentVisualPrompt,
         apiBaseUrl,
@@ -121,7 +113,6 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
 
     const result = await getChatResponse(
       scenario, 
-      masterStory, 
       characterDNA || "", 
       messages, 
       userMessage.text, 
@@ -138,13 +129,36 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
     setIsLoading(false);
     setStatusBarMessage(null);
 
+    let latestDNA = characterDNA || "";
+    // Check if a new important character was introduced and register them
+    if (characterDNA) {
+      setStatusBarMessage("Analyzing characters...");
+      try {
+        const updatedDNA = await detectAndUpdateCharacterDNA(
+          characterDNA,
+          finalMessages,
+          useInternalApi ? undefined : { apiBaseUrl }
+        );
+        if (updatedDNA && updatedDNA !== "NO_CHANGE") {
+          latestDNA = updatedDNA;
+          setCharacterDNA(updatedDNA);
+          setStatusBarMessage("Registered new important character to DNA.");
+          // Sleep brief fraction of a second so user can appreciate the registration status
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      } catch (err) {
+        console.error("Dynamic DNA registration error:", err);
+      }
+    }
+
     // Update visual prompt
     if (result.lastVisualPrompt) {
       setCurrentVisualPrompt(result.lastVisualPrompt);
-    } else if (characterDNA) {
+      setStatusBarMessage(null);
+    } else if (latestDNA) {
       setStatusBarMessage("Creating visual prompt...");
       setIsGeneratingPrompt(true);
-      const nextPrompt = await generateVisualPrompt(scenario, finalMessages, characterDNA, currentVisualPrompt, useInternalApi ? undefined : { apiBaseUrl }, undefined);
+      const nextPrompt = await generateVisualPrompt(scenario, finalMessages, latestDNA, currentVisualPrompt, useInternalApi ? undefined : { apiBaseUrl }, undefined);
       setCurrentVisualPrompt(nextPrompt);
       setIsGeneratingPrompt(false);
       setStatusBarMessage(null);
