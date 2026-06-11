@@ -58,7 +58,7 @@ export async function generateCharacterDNA(
     }
   } else {
     const ai = getAI();
-    const model = "gemini-3.5-flash";
+    const model = "gemini-2.5-flash";
 
     try {
       const response = await ai.models.generateContent({
@@ -141,7 +141,7 @@ export async function getChatResponse(
   }
 
   const ai = getAI();
-  const model = "gemini-3.5-flash";
+  const model = "gemini-2.5-flash";
 
   try {
     const response = await ai.models.generateContent({
@@ -197,11 +197,8 @@ export async function generateVisualPrompt(
   You are an expert image prompt engineer.
   Generate a single static image prompt based strictly on the inputs below. Your main priority is to ensure maximum photorealism, and correct gaze direction where characters interact with each other and never look at the camera.
 
-  STORY SETTING:
+  INITIAL STORY SETTING:
   ${scenario}
-
-  CHARACTER DNA (appearance reference only — face, hair, body):
-  ${characterDNA}
 
   MOST RECENT ACTION (this is the scene to depict — highest priority):
   ${recentChat}
@@ -210,16 +207,20 @@ export async function generateVisualPrompt(
     ? `PREVIOUS VISUAL (use for visual consistency only — do NOT copy same pose): ${lastPrompt}` 
     : ""}
 
-  Write a single, highly detailed paragraph (180–240 words) describing the frozen moment. Specify details in this order:
+  Write a single, highly detailed paragraph (180-240 words) describing the frozen moment. Specify details in this order:
   Who is in frame -> exact physical arrangement -> their actions -> gaze and expressions -> clothing/nakedness details -> lighting & detailed atmosphere -> camera angle.
 
   PROMPTING RULES:
   
-  1. GAZE DIRECTION AND EYE CONTACT (CRITICAL): The characters MUST look at each other, locking eyes with mutual intensity, completely absorbed in their interaction. They MUST NOT look at the camera/viewer. There must be zero lens contact. Their heads should be angled toward each other, with profiles, three-quarter views, or over-the-shoulder focus confirming they are looking directly at each other's faces/gaze.
-  2. REALISM & PHOTOGRAPHY: Describe with extreme focus on realism, physical authenticity, and tactile detail. Avoid plastic looks. Specify details like: high-fidelity skin pores, natural skin sheen, single loose hair strands, natural weight and gravity, realistic skin folds, ray-traced ambient lighting, volumetric dust particles, shot on an 85mm f/1.4 prime lens with shallow depth of field, authentic film grain, and realistic shadowing.
-  3. EXPLICIT MATURE WORDS FOR BLOUSELESS/SHIRTLESS: Z-Image Turbo handles explicit physical descriptions much better than generic terms. If the scene implies or suggests physical intimacy, or mentions a character being "blouseless", "topless", or "shirtless", you MUST explicitly translate this with direct terms like: "completely shirtless and braless", "unclothed bare breasts and chest", "bare natural upper-body skin", "nude torso", or "completely exposed breasts with high-resolution skin texture".
-  4. NO METAPHORS OR TRANSITIONAL ACTIONS: Describe the precise physical positioning. Do not use abstract prose or transition verbs like "about to" or "just finished". Only describe what is physically visible in the frozen frame.
-  5. NO pronoun "I/my/me".
+  1. CHARACTER APPEARANCE & OUTFIT CONSISTENCY (CRITICAL):
+     - All character consistency (facial features, hair, general body, and initial attributes) must derive directly from the INITIAL STORY SETTING.
+     - Facial features must always remain identical to maintain visual continuity.
+     - Outfits/clothing must also remain consistent with the INITIAL STORY SETTING, unless the MOST RECENT ACTION or recent chat history explicitly describes a transition, a change of clothes, or a different outfit state (e.g. dressing up, taking off clothes, changing garments). In these certain situations, reflect the new outfit or clothing state naturally instead of keeping the previous one.
+  2. GAZE DIRECTION AND EYE CONTACT (CRITICAL): The characters MUST look at each other, locking eyes with mutual intensity, completely absorbed in their interaction. They MUST NOT look at the camera/viewer. There must be zero lens contact. Their heads should be angled toward each other, with profiles, three-quarter views, or over-the-shoulder focus confirming they are looking directly at each other's faces/gaze.
+  3. REALISM & PHOTOGRAPHY: Describe with extreme focus on realism, physical authenticity, and tactile detail. Avoid plastic looks. Specify details like: high-fidelity skin pores, natural skin sheen, single loose hair strands, natural weight and gravity, realistic skin folds, ray-traced ambient lighting, volumetric dust particles, shot on an 85mm f/1.4 prime lens with shallow depth of field, authentic film grain, and realistic shadowing.
+  4. EXPLICIT MATURE WORDS FOR BLOUSELESS/SHIRTLESS: Z-Image Turbo handles explicit physical descriptions much better than generic terms. If the scene implies or suggests physical intimacy, or mentions a character being "blouseless", "topless", or "shirtless", you MUST explicitly translate this with direct terms like: "completely shirtless and braless", "unclothed bare breasts and chest", "bare natural upper-body skin", "nude torso", or "completely exposed breasts with high-resolution skin texture".
+  5. NO METAPHORS OR TRANSITIONAL ACTIONS: Describe the precise physical positioning. Do not use abstract prose or transition verbs like "about to" or "just finished". Only describe what is physically visible in the frozen frame.
+  6. NO pronoun "I/my/me".
 
   OUTPUT THE PROMPT ONLY. DO NOT write any introductory or concluding text. Do not write "Prompt:" or include quote marks.
   `;
@@ -247,7 +248,7 @@ export async function generateVisualPrompt(
   }
 
   const ai = getAI();
-  const model = "gemini-3.5-flash";
+  const model = "gemini-2.5-flash";
 
   try {
     const response = await ai.models.generateContent({

@@ -470,17 +470,24 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
 
         {isLoading && (
           <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
             className="flex justify-start"
           >
             <div className="flex flex-col gap-2 items-start">
               <div className="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center border bg-white/5 border-white/20">
                 <Sparkles size={14} className="text-accent md:w-[18px] md:h-[18px]" />
               </div>
-              <div className="flex gap-3 items-center glass-panel px-4 py-3 md:px-5 md:py-4 rounded-2xl md:rounded-3xl">
-                <Loader2 size={16} className="animate-spin text-accent md:w-[18px] md:h-[18px]" />
-                <span className="text-xs md:text-sm italic text-white/40">Crafting response...</span>
+              <div className="flex gap-4 items-center glass-panel px-5 py-4 rounded-2xl md:rounded-[1.75rem] border border-white/10 shadow-lg shadow-accent/5 backdrop-blur-xl">
+                <div className="flex items-center gap-1.5 justify-center">
+                  <span className="w-2 h-2 rounded-full bg-accent animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1s' }}></span>
+                  <span className="w-2 h-2 rounded-full bg-accent/80 animate-bounce" style={{ animationDelay: '150ms', animationDuration: '1s' }}></span>
+                  <span className="w-2 h-2 rounded-full bg-accent/50 animate-bounce" style={{ animationDelay: '300ms', animationDuration: '1s' }}></span>
+                </div>
+                <div className="w-[1px] h-4 bg-white/10" />
+                <span className="text-xs md:text-sm italic text-white/60 animate-pulse tracking-wide font-serif">
+                  Choosing words carefully...
+                </span>
               </div>
             </div>
           </motion.div>
