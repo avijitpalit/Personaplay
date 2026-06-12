@@ -25,12 +25,16 @@ export async function generateCharacterDNA(
   INITIAL STORY SETTING:
   ${scenario}
 
+  LANGUAGE RULE (CRITICAL):
+  - You MUST generate the entire Character DNA in English.
+
   For EACH active AI character, provide highly specific physical definitions in this order:
   - NAME & IDENTITY: Age, name, and height profile.
   - FACIAL BLUEPRINT: Precise jawline, nose structure, brows, chin shape, lip volume, and forehead shape.
   - EYE CHARACTERISTICS: Exact color hue/shading, shape (e.g., heavily hooded, almond, downturned), and brow depth.
   - HAIR CONFIGURATION: Exact texture (e.g., coarse, silky, wavy, kinky), styling, partings, and length.
   - ETHNICITY & SKIN TEXTURE: Natural complexion undertones, visible skin textures (e.g., pores, light freckles, matte finish).
+  - BASELINE ATTIRE: Style of clothing, fabric texture, and default color palette.
 
   USER CHARACTER (MINIMAL PROFILE):
   Define a brief, minimal visual profile for the "User" or "Player" character. Keep it extremely simple, specifying ONLY:
@@ -40,7 +44,7 @@ export async function generateCharacterDNA(
   - Simple, neutral baseline attire (e.g., solid color shirt or jacket)
   Do NOT define any facial details, eyes, expressions, or precise skin pore textures for the User character, as they will only be seen blurred or cropped in the foreground.
   
-  Format the output clearly as a compact reference sheet for each AI character and the minimal User baseline, omitting all lore and narrative descriptions.`;
+  Format the output clearly as a compact reference sheet for each AI character and the minimal User baseline in English, omitting all lore and narrative descriptions.`;
 
   let responseData: { dna: string } = { dna: "A mysterious character." };
 
@@ -233,11 +237,15 @@ export async function generateVisualPrompt(
   
   3. REALISM & PHOTOGRAPHY: Extreme realism, physical authenticity, and tactile details (skin pores, natural skin sheen, single loose hair strands, natural weight). Shot on an 85mm f/1.4 prime lens with extremely shallow depth of field (creating beautiful foreground bokeh on the User's silhouette), authentic film grain, and realistic ambient ray-traced lighting.
   
-  4. EXPLICIT MATURE WORDS FOR BLOUSELESS/SHIRTLESS: Z-Image Turbo model handles explicit physical descriptions much better than generic terms. If the scene implies or suggests physical intimacy, or mentions a character being "blouseless", "topless", or "shirtless", you MUST explicitly translate this with direct terms like: "completely shirtless and braless", "unclothed bare breasts and chest", "bare natural upper-body skin", "nude torso", or "completely exposed breasts with high-resolution skin texture".
+  4. ETHNICITY & REGIONAL NATIONALITY BIAS: If the story setting, scenario, context, or names describe or imply an Indian, Bengali, South Asian, or other specific regional background, you MUST explicitly include definitive cultural/ethnic keywords (e.g., "Indian woman", "South Asian descent", "Bengali girl") in the appearance descriptors of the AI character(s) in the generated prompt. This overrides the default camera culture bias and ensures correct ethnic features.
   
-  5. NO METAPHORS OR TRANSITIONAL ACTIONS: Describe the precise physical positioning. Do not use abstract prose or transition verbs like "about to" or "just finished". Only describe what is physically visible in the frozen frame.
+  5. OUTFIT CONSISTENCY RULE: The attire/clothing of the character(s) described in the prompt MUST strictly match the baseline outfit described in the CHARACTER DNA, UNLESS the MOST RECENT ACTION explicitly describes or strongly implies a dynamic state change in active wear (such as getting in pajamas, changing clothes, disrobing, shirtless, topless, or nude). If no such clothing change is suggested in the recent action, strictly adhere to the CHARACTER DNA attire description.
   
-  6. NO pronoun "I/my/me".
+  6. EXPLICIT MATURE WORDS FOR BLOUSELESS/SHIRTLESS: Z-Image Turbo model handles explicit physical descriptions much better than generic terms. If the scene implies or suggests physical intimacy, or mentions a character being "blouseless", "topless", or "shirtless", you MUST explicitly translate this with direct terms like: "completely shirtless and braless", "unclothed bare breasts and chest", "bare natural upper-body skin", "nude torso", or "completely exposed breasts with high-resolution skin texture".
+  
+  7. NO METAPHORS OR TRANSITIONAL ACTIONS: Describe the precise physical positioning. Do not use abstract prose or transition verbs like "about to" or "just finished". Only describe what is physically visible in the frozen frame.
+  
+  8. NO pronoun "I/my/me".
 
   OUTPUT THE PROMPT ONLY. DO NOT write any introductory or concluding text. Do not write "Prompt:" or include quote marks.
   `;
