@@ -34,7 +34,6 @@ export async function generateCharacterDNA(
   - EYE CHARACTERISTICS: Exact color hue/shading, shape (e.g., heavily hooded, almond, downturned), and brow depth.
   - HAIR CONFIGURATION: Exact texture (e.g., coarse, silky, wavy, kinky), styling, partings, and length.
   - ETHNICITY & SKIN TEXTURE: Natural complexion undertones, visible skin textures (e.g., pores, light freckles, matte finish).
-  - BASELINE ATTIRE: Style of clothing, fabric texture, and default color palette.
 
   USER CHARACTER (MINIMAL PROFILE):
   Define a brief, minimal visual profile for the "User" or "Player" character. Keep it extremely simple, specifying ONLY:
@@ -239,7 +238,7 @@ export async function generateVisualPrompt(
   
   4. ETHNICITY & REGIONAL NATIONALITY BIAS: If the story setting, scenario, context, or names describe or imply an Indian, Bengali, South Asian, or other specific regional background, you MUST explicitly include definitive cultural/ethnic keywords (e.g., "Indian woman", "South Asian descent", "Bengali girl") in the appearance descriptors of the AI character(s) in the generated prompt. This overrides the default camera culture bias and ensures correct ethnic features.
   
-  5. OUTFIT CONSISTENCY RULE: The attire/clothing of the character(s) described in the prompt MUST strictly match the baseline outfit described in the CHARACTER DNA, UNLESS the MOST RECENT ACTION explicitly describes or strongly implies a dynamic state change in active wear (such as getting in pajamas, changing clothes, disrobing, shirtless, topless, or nude). If no such clothing change is suggested in the recent action, strictly adhere to the CHARACTER DNA attire description.
+  5. OUTFIT CONSISTENCY RULE: The attire/clothing of the character(s) will be dynamic, will only change if the recent action suggests, otherwise keep it consistent (to keep it consistent, use previous visual prompt as reference).
   
   6. EXPLICIT MATURE WORDS FOR BLOUSELESS/SHIRTLESS: Z-Image Turbo model handles explicit physical descriptions much better than generic terms. If the scene implies or suggests physical intimacy, or mentions a character being "blouseless", "topless", or "shirtless", you MUST explicitly translate this with direct terms like: "completely shirtless and braless", "unclothed bare breasts and chest", "bare natural upper-body skin", "nude torso", or "completely exposed breasts with high-resolution skin texture".
   
