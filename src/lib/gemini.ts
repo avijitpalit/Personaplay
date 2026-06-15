@@ -13,6 +13,48 @@ const getAI = () => {
 export interface ChatResult {
   reply: string;
   lastVisualPrompt?: string;
+  updatedMemories?: string;
+}
+
+export function parseChatResponse(
+  text: string, 
+  currentMemory: string = "", 
+  lastVisualPrompt?: string
+): { reply: string; updatedMemories: string; lastVisualPrompt?: string } {
+  let reply = text.trim();
+  let updatedMemories = currentMemory;
+  let visualPrompt = lastVisualPrompt;
+
+  const replyRegex = /\[REPLY\]([\s\S]*?)(\[\/REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|$)/i;
+  const memoryRegex = /\[MEMORIES\]([\s\S]*?)(\[\/MEMORIES\]|\[REPLY\]|\[VISUAL_PROMPT\]|$)/i;
+  const promptRegex = /\[VISUAL_PROMPT\]([\s\S]*?)(\[\/VISUAL_PROMPT\]|\[REPLY\]|\[MEMORIES\]|$)/i;
+
+  const replyMatch = text.match(replyRegex);
+  const memoryMatch = text.match(memoryRegex);
+  const promptMatch = text.match(promptRegex);
+
+  if (replyMatch && replyMatch[1]) {
+    reply = replyMatch[1].trim();
+  }
+  if (memoryMatch && memoryMatch[1]) {
+    updatedMemories = memoryMatch[1].trim();
+    // Strip empty lines or helper text from model if any
+    updatedMemories = updatedMemories.split('\n')
+      .map(line => line.trim())
+      .filter(line => line.startsWith('-') || line.startsWith('*') || line.match(/^\d+\./))
+      .join('\n');
+  }
+  if (promptMatch && promptMatch[1]) {
+    visualPrompt = promptMatch[1].trim();
+  }
+
+  // If tags are completely missing, fall back to returning whole text as reply
+  if (!replyMatch && !memoryMatch && !promptMatch) {
+    const cleanText = text.replace(/\[\/?REPLY\]/gi, '').replace(/\[\/?MEMORIES\]/gi, '').replace(/\[\/?VISUAL_PROMPT\]/gi, '').trim();
+    reply = cleanText;
+  }
+
+  return { reply, updatedMemories, lastVisualPrompt: visualPrompt };
 }
 
 export async function generateCharacterDNA(
@@ -71,7 +113,7 @@ export async function generateCharacterDNA(
     }
   } else {
     const ai = getAI();
-    const model = "gemini-3.5-flash";
+    const model = "gemini-2.5-flash";
 
     try {
       const response = await ai.models.generateContent({
@@ -106,25 +148,69 @@ export async function getChatResponse(
   dna: string,
   history: Message[],
   userInput: string,
+  memoryBank?: string,
   externalApiConfig?: { 
     apiBaseUrl: string, 
     dna?: string, 
     lastVisualPrompt?: string 
-  }
+  },
+  lastVisualPrompt?: string
 ): Promise<ChatResult> {
-  const systemInstruction = `You are an expert roleplayer. Generate AI reply based on these settings.
+  const systemInstruction = `You are an expert roleplayer and master image prompt engineer. Generate AI reply based on these settings.
   
-  INITIAL SETTNG:
+  INITIAL SETTING:
   ${scenario}
 
+  DYNAMIC MEMORY BANK (Cumulative past key facts/developments so far):
+  ${memoryBank?.trim() ? memoryBank : "None yet."}
+
+  CHARACTER DNA (Visual profiles for the AI character(s) and User):
+  ${dna?.trim() ? dna : "No specific DNA profile established."}
+
+  PREVIOUS VISUAL PROMPT (Use strictly as reference for styling/clothing continuity, do NOT copy same pose):
+  ${lastVisualPrompt?.trim() ? lastVisualPrompt : "None yet."}
+
   CORE DIRECTIVES FOR CHARACTER CONSISTENCY:
-  1. You are the character(s) described in the scenario.
-  2. Remember all previous interactions and details shared in the chat history.
+  1. You are the AI character(s) described in the scenario.
+  2. Remember all previous interactions, details shared in the chat history, and key context in the DYNAMIC MEMORY BANK.
   3. Respond as a real person would, with depth, desire, and personality.
 
   ROLEPLAY GUIDELINES:
   1. The roleplay is intended for a mature audience. It should be sophisticated, emotionally resonant, and can be "spicy" or romantic as requested by the user's scenario.
-  2. Conversations/Chats can be in Bengali or Hinglish language if the story foundation suggests.`;
+  2. Conversations/Chats can be in Bengali or Hinglish language if the story foundation suggests.
+
+  RESPONSE GENERATION & DYNAMIC UPDATES (CRITICAL):
+  You MUST output exactly THREE structured blocks in your complete response:
+  
+  1. [REPLY] block: Write the AI character's standard roleplay response in-character (matching the appropriate language/vibe).
+  
+  2. [MEMORIES] block: Update the DYNAMIC MEMORY BANK (maintain a bulleted list in English of up to 10 absolute key persistent facts/milestones about the user, relationships, choices, clothes, or setting items).
+  
+  3. [VISUAL_PROMPT] block: Write a single, highly detailed visual prompt paragraph (180-240 words) in English describing the exact frozen scene right after this [REPLY] action.
+     
+     VISUAL PROMPT RULES:
+     - Use the appearance details specified in CHARACTER DNA section above for the features of the AI character(s) and User.
+     - Refer to the PREVIOUS VISUAL PROMPT section above if available for visual consistency (especially attire/clothing continuity), but do NOT copy the same pose or actions.
+     - CAMERA PERSPECTIVE: Over-the-shoulder (OTS) setup slightly behind/above the User's shoulder looking past them. The User MUST be highly out of focus (bokeh blurred check, showing only a vague shoulder/hair silhouette edge in the foreground). AI character(s) in sharp, crystal-clear focus.
+     - DYNAMIC GAZE STYLE: Gaze matches the action logically (e.g., look at User if talking/gazing deeply; look at cooking pans/objects if cooking; closed eyes if sleeping).
+     - REALISM: Extreme tactile detail (high-fidelity skin pores, skin sheen, loose hair strands). Shot on an 85mm f/1.4 lens with very shallow depth of field. Realistic lighting.
+     - ETHNICITY BIAS: If story setting suggests Indian/Bengali/South Asian names or contexts, explicitly use terms like "Indian woman", "South Asian descent", or "Bengali girl" first under appearance.
+     - OUTFIT CONSISTENCY: The attire must match previous visuals or DNA baselines unless this latest turn describes or implies a dynamic clothing change.
+     - MATURE STYLING: Translate any shirts/blouse adjustments explicitly with direct terms like "bare natural upper-body skin", "completely shirtless", or "nude torso" with realistic skin textures.
+     - Write exactly one clean descriptive paragraph. Do NOT use pronouns "I, my, me". Do not write "Prompt:" or transitional words like "is about to".
+
+  FORMAT REQUIREMENT:
+  Your output MUST look exactly like this:
+  [REPLY]
+  <AI reply text here>
+  [/REPLY]
+  [MEMORIES]
+  - <Fact 1>
+  - <Fact 2>
+  [/MEMORIES]
+  [VISUAL_PROMPT]
+  <Visual prompt paragraph text here>
+  [/VISUAL_PROMPT]`;
 
   if (externalApiConfig?.apiBaseUrl) {
     try {
@@ -143,8 +229,11 @@ export async function getChatResponse(
       });
       if (response.ok) {
         const text = await response.text();
+        const parsed = parseChatResponse(text || "", memoryBank || "", lastVisualPrompt);
         return {
-          reply: text || "I'm lost in the moment... what were you saying?"
+          reply: parsed.reply || "I'm lost in the moment... what were you saying?",
+          updatedMemories: parsed.updatedMemories,
+          lastVisualPrompt: parsed.lastVisualPrompt
         };
       }
     } catch (e) {
@@ -153,14 +242,18 @@ export async function getChatResponse(
   }
 
   const ai = getAI();
-  const model = "gemini-3.5-flash";
+  const model = "gemini-2.5-flash";
 
   try {
+    // Slice history to the last 14 messages (approx. 7 back-and-forth turns) to control cost and latency.
+    // The details from prior chat turns are preserved/updated in the DYNAMIC MEMORY BANK.
+    const recentHistory = history.slice(-14);
+
     const response = await ai.models.generateContent({
       model,
       contents: [
-        ...history.map(m => ({
-          role: m.role,
+        ...recentHistory.map(m => ({
+          role: m.role as "user" | "model",
           parts: [{ text: m.text }]
         })),
         {
@@ -180,7 +273,12 @@ export async function getChatResponse(
       }
     });
 
-    return { reply: response.text || "I'm lost in the moment... what were you saying?" };
+    const parsed = parseChatResponse(response.text || "", memoryBank || "", lastVisualPrompt);
+    return { 
+      reply: parsed.reply || "I'm lost in the moment... what were you saying?",
+      updatedMemories: parsed.updatedMemories,
+      lastVisualPrompt: parsed.lastVisualPrompt
+    };
   } catch (error) {
     console.error("Gemini API Error:", error);
     return { reply: "The connection seems to have flickered. Let's try that again." };
@@ -193,7 +291,8 @@ export async function generateVisualPrompt(
   characterDNA: string,
   lastPrompt?: string,
   externalApiConfig?: { apiBaseUrl: string },
-  masterStory?: string
+  masterStory?: string,
+  memoryBank?: string
 ): Promise<string> {
   const isFirst = history.length === 0;
   const historyWindow = history.slice(-6);
@@ -201,9 +300,9 @@ export async function generateVisualPrompt(
   const historyContext = isFirst ? "" : history.map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join("\n");
   const immediateAction = isFirst ? "" : immediateContext.map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join("\n");
   
-  const recentChat = history.slice(-2).map(m =>
+  const recentChat = history.slice(-5).map(m =>
   `${m.role === 'user' ? 'User' : 'AI character'}: ${m.text}`
-).join("\n");
+ ).join("\n");
 
   const prompt = `
   You are an expert image prompt engineer.
@@ -214,6 +313,9 @@ export async function generateVisualPrompt(
 
   CHARACTER DNA (appearance reference applies EXCLUSIVELY to the AI characters — face, hair, body):
   ${characterDNA}
+
+  DYNAMIC MEMORY BANK (Cumulative past story developments / facts, clothing, or setting items):
+  ${memoryBank || "None yet."}
 
   MOST RECENT ACTION (this is the scene to depict — highest priority):
   ${recentChat}
@@ -272,7 +374,7 @@ export async function generateVisualPrompt(
   }
 
   const ai = getAI();
-  const model = "gemini-3.5-flash";
+  const model = "gemini-2.5-flash";
 
   try {
     const response = await ai.models.generateContent({

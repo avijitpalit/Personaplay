@@ -23,6 +23,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
   const [bgImage, setBgImage] = useState<string | null>(initialSession?.bgImage || null);
   const [currentVisualPrompt, setCurrentVisualPrompt] = useState<string | undefined>(initialSession?.lastVisualPrompt);
   const [characterDNA, setCharacterDNA] = useState<string | null>(initialSession?.characterDNA || null);
+  const [memoryBank, setMemoryBank] = useState<string>(initialSession?.memoryBank || '');
   const [apiBaseUrl, setApiBaseUrl] = useState<string>(initialSession?.apiBaseUrl || initialApiBaseUrl);
   const [useInternalApi, setUseInternalApi] = useState<boolean>(initialSession?.useInternalApi ?? initialUseInternalApi);
   const [imageWidth, setImageWidth] = useState<number>(initialSession?.imageWidth || 720);
@@ -54,7 +55,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
       // Generate initial visual prompt based on scenario and DNA
       setStatusBarMessage("Creating initial visual prompt...");
       setIsGeneratingPrompt(true);
-      const initialPrompt = await generateVisualPrompt(scenario, [], result.dna, undefined, useInternalApi ? undefined : { apiBaseUrl }, undefined);
+      const initialPrompt = await generateVisualPrompt(scenario, [], result.dna, undefined, useInternalApi ? undefined : { apiBaseUrl }, undefined, memoryBank);
       setCurrentVisualPrompt(initialPrompt);
       setIsGeneratingPrompt(false);
       setStatusBarMessage(null);
@@ -71,6 +72,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
         scenario,
         history: messages,
         characterDNA,
+        memoryBank,
         bgImage,
         lastVisualPrompt: currentVisualPrompt,
         apiBaseUrl,
@@ -92,13 +94,13 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
 
   // Auto-save when messages or other state changes
   useEffect(() => {
-    if (messages.length > 0 || characterDNA || bgImage) {
+    if (messages.length > 0 || characterDNA || bgImage || memoryBank) {
       const timer = setTimeout(() => {
         handleSave();
       }, 5000); // Debounce auto-save
       return () => clearTimeout(timer);
     }
-  }, [messages, characterDNA, bgImage, currentVisualPrompt, apiBaseUrl, imageWidth, imageHeight, imageSteps]);
+  }, [messages, characterDNA, bgImage, currentVisualPrompt, apiBaseUrl, imageWidth, imageHeight, imageSteps, memoryBank]);
 
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -116,12 +118,18 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
       characterDNA || "", 
       messages, 
       userMessage.text, 
+      memoryBank,
       useInternalApi ? undefined : { 
         apiBaseUrl,
         dna: characterDNA || undefined,
         lastVisualPrompt: currentVisualPrompt
-      }
+      },
+      currentVisualPrompt
     );
+
+    if (result.updatedMemories) {
+      setMemoryBank(result.updatedMemories);
+    }
 
     const finalMessages: Message[] = [...updatedMessages, { role: 'model', text: result.reply }];
     
@@ -136,7 +144,15 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
     } else if (characterDNA) {
       setStatusBarMessage("Creating visual prompt...");
       setIsGeneratingPrompt(true);
-      const nextPrompt = await generateVisualPrompt(scenario, finalMessages, characterDNA, currentVisualPrompt, useInternalApi ? undefined : { apiBaseUrl }, undefined);
+      const nextPrompt = await generateVisualPrompt(
+        scenario, 
+        finalMessages, 
+        characterDNA, 
+        currentVisualPrompt, 
+        useInternalApi ? undefined : { apiBaseUrl }, 
+        undefined,
+        result.updatedMemories || memoryBank
+      );
       setCurrentVisualPrompt(nextPrompt);
       setIsGeneratingPrompt(false);
       setStatusBarMessage(null);
@@ -270,6 +286,13 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
                     <div className="text-white/40 uppercase tracking-widest font-bold">Character DNA</div>
                     <div className="bg-white/5 p-3 rounded-lg text-white/70 whitespace-pre-wrap border border-white/10">
                       {characterDNA || "Not generated yet."}
+                    </div>
+                  </section>
+
+                  <section className="space-y-2">
+                    <div className="text-white/40 uppercase tracking-widest font-bold">Dynamic Memory Bank</div>
+                    <div className="bg-white/5 p-3 rounded-lg text-white/75 whitespace-pre-wrap border border-white/10 text-xs">
+                      {memoryBank || "No consolidated memories yet. Chat with the AI to seed the memory bank."}
                     </div>
                   </section>
 
