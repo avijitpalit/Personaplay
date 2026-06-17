@@ -113,7 +113,7 @@ export async function generateCharacterDNA(
     }
   } else {
     const ai = getAI();
-    const model = "gemini-2.5-flash";
+    const model = "gemma-4-31b-it";
 
     try {
       const response = await ai.models.generateContent({
@@ -242,7 +242,7 @@ export async function getChatResponse(
   }
 
   const ai = getAI();
-  const model = "gemini-2.5-flash";
+  const model = "gemma-4-31b-it";
 
   try {
     // Slice history to the last 14 messages (approx. 7 back-and-forth turns) to control cost and latency.
@@ -374,7 +374,7 @@ export async function generateVisualPrompt(
   }
 
   const ai = getAI();
-  const model = "gemini-2.5-flash";
+  const model = "gemma-4-31b-it";
 
   try {
     const response = await ai.models.generateContent({
