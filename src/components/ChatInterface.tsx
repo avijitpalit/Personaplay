@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Message, getChatResponse, generateImage, generateCharacterDNA, generateVisualPrompt } from '../lib/gemini';
+import { Message, getChatResponse, generateImage, generateCharacterDNA, generateVisualPrompt, generateInitialSetup } from '../lib/gemini';
 import { Send, ArrowLeft, Loader2, User, Sparkles, Image as ImageIcon, Eye, EyeOff, Save, CheckCircle2, Settings, Info, Clock, FileText, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
@@ -43,20 +43,16 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
     }
   }, [messages, isLoading]);
 
-  // Generate DNA and initial visual prompt when the component mounts
+  // Generate DNA and initial visual prompt in a single unified API call when the component mounts
   useEffect(() => {
     if (initialSession) return; // Skip if loading existing session
 
     const initSession = async () => {
-      setStatusBarMessage("Initializing character DNA...");
-      const result = await generateCharacterDNA(scenario, useInternalApi ? undefined : { apiBaseUrl });
-      setCharacterDNA(result.dna);
-      
-      // Generate initial visual prompt based on scenario and DNA
-      setStatusBarMessage("Creating initial visual prompt...");
+      setStatusBarMessage("Initializing scene & character setup...");
       setIsGeneratingPrompt(true);
-      const initialPrompt = await generateVisualPrompt(scenario, [], result.dna, undefined, useInternalApi ? undefined : { apiBaseUrl }, undefined, memoryBank);
-      setCurrentVisualPrompt(initialPrompt);
+      const setup = await generateInitialSetup(scenario, useInternalApi ? undefined : { apiBaseUrl });
+      setCharacterDNA(setup.dna);
+      setCurrentVisualPrompt(setup.visualPrompt);
       setIsGeneratingPrompt(false);
       setStatusBarMessage(null);
     };

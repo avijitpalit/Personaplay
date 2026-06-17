@@ -57,6 +57,140 @@ export function parseChatResponse(
   return { reply, updatedMemories, lastVisualPrompt: visualPrompt };
 }
 
+export function parseInitialSetupResponse(text: string): { dna: string; visualPrompt: string } {
+  let dna = "";
+  let visualPrompt = "";
+
+  const dnaRegex = /\[CHARACTER_DNA\]([\s\S]*?)(\[\/CHARACTER_DNA\]|\[INITIAL_VISUAL_PROMPT\]|$)/i;
+  const promptRegex = /\[INITIAL_VISUAL_PROMPT\]([\s\S]*?)(\[\/INITIAL_VISUAL_PROMPT\]|\[CHARACTER_DNA\]|$)/i;
+
+  const dnaMatch = text.match(dnaRegex);
+  const promptMatch = text.match(promptRegex);
+
+  if (dnaMatch && dnaMatch[1]) {
+    dna = dnaMatch[1].trim();
+  }
+  if (promptMatch && promptMatch[1]) {
+    visualPrompt = promptMatch[1].trim();
+  }
+
+  // Fallback if tags are completely missing or malformed
+  if (!dna && !visualPrompt) {
+    const parts = text.split(/PART 2|INITIAL VISUAL PROMPT|\[INITIAL_VISUAL_PROMPT\]/i);
+    if (parts.length >= 2) {
+      dna = parts[0].replace(/\[\/?CHARACTER_DNA\]/gi, "").trim();
+      visualPrompt = parts[1].replace(/\[\/?INITIAL_VISUAL_PROMPT\]/gi, "").trim();
+    } else {
+      dna = text.trim();
+      visualPrompt = "A cinematic over-the-shoulder shot capturing the atmosphere of the scenario.";
+    }
+  }
+
+  return {
+    dna: dna || "No character DNA created.",
+    visualPrompt: visualPrompt || "A cinematic over-the-shoulder shot capturing the atmosphere of the scenario."
+  };
+}
+
+export async function generateInitialSetup(
+  scenario: string,
+  externalApiConfig?: { apiBaseUrl: string }
+): Promise<{ dna: string; visualPrompt: string }> {
+  const prompt = `You are a professional artist, master character designer, and expert image prompt engineer.
+  Based on this initial story setting, you need to set up BOTH the Character DNA visual blueprints AND generate the very first visual scene prompt.
+
+  INITIAL STORY SETTING:
+  ${scenario}
+
+  LANGUAGE RULE (CRITICAL):
+  - You MUST generate the entire output in English.
+
+  PART 1: CHARACTER DNA BLUEPRINTS
+  For EACH active AI character, provide highly specific physical definitions in this order:
+  - NAME & IDENTITY: Age, name, and height profile.
+  - FACIAL BLUEPRINT: Precise jawline, nose structure, brows, chin shape, lip volume, and forehead shape.
+  - EYE CHARACTERISTICS: Exact color hue/shading, shape (e.g., heavily hooded, almond, downturned), and brow depth.
+  - HAIR CONFIGURATION: Exact texture (e.g., coarse, silky, wavy, kinky), styling, partings, and length.
+  - ETHNICITY & SKIN TEXTURE: Natural complexion undertones, visible skin textures (e.g., pores, light freckles, matte finish).
+
+  USER CHARACTER (MINIMAL PROFILE):
+  Define a brief, minimal visual profile for the "User" or "Player" character. Keep it extremely simple, specifying ONLY:
+  - Gender/Identity
+  - Hair color, basic style, and length (so that when shown blurred from behind, it remains consistent)
+  - Broad shoulder/build description
+  - Simple, neutral baseline attire (e.g., solid color shirt or jacket)
+  Do NOT define any facial details, eyes, expressions, or precise skin pore textures for the User character, as they will only be seen blurred or cropped in the foreground.
+
+  PART 2: INITIAL VISUAL PROMPT
+  Write a single, highly detailed visual prompt paragraph (180-240 words) in English describing the starting scene.
+  Rules for this prompt:
+  - CAMERA PERSPECTIVE: Over-the-shoulder (OTS) setup slightly behind/above the User's shoulder looking past them. The User MUST be highly out of focus (bokeh blurred, showing only a vague shoulder/hair silhouette edge in the foreground). The main AI character(s) in sharp, crystal-clear focus.
+  - DYNAMIC GAZE STYLE: Gaze matches the initial action logically (e.g. looking at the User, or looking at immediate surroundings/objects).
+  - REALISM: Extreme tactile detail (high-fidelity skin pores, skin sheen, loose hair strands). Shot on an 85mm f/1.4 lens with very shallow depth of field. Realistic lighting.
+  - ETHNICITY BIAS: If story setting suggests Indian/Bengali/South Asian names or contexts, explicitly use terms like "Indian woman", "South Asian descent", or "Bengali girl" first under appearance.
+  - ATTIRE: Describe character attire matching the baseline outfits.
+  - Format/Style: Write exactly one clean descriptive paragraph. Do NOT use pronouns "I, my, me". Do not write "Prompt:" or transitional words like "is about to".
+
+  FORMAT REQUIREMENT:
+  You must output EXACTLY two tagged blocks like this:
+  [CHARACTER_DNA]
+  <Your detailed character DNA list & profiles here>
+  [/CHARACTER_DNA]
+  [INITIAL_VISUAL_PROMPT]
+  <Your single highly-detailed initial visual prompt paragraph here>
+  [/INITIAL_VISUAL_PROMPT]`;
+
+  let responseData = { 
+    dna: "A mysterious character.", 
+    visualPrompt: "A cinematic over-the-shoulder shot capturing the atmosphere of the scenario." 
+  };
+
+  if (externalApiConfig?.apiBaseUrl) {
+    try {
+      const url = externalApiConfig.apiBaseUrl.endsWith('/') ? `${externalApiConfig.apiBaseUrl}t2t` : `${externalApiConfig.apiBaseUrl}/t2t`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Bypass-Tunnel-Reminder': 'true'
+         },
+        body: JSON.stringify({ input: prompt }),
+      });
+      if (response.ok) {
+        const text = await response.text();
+        return parseInitialSetupResponse(text || "");
+      }
+    } catch (e) {
+      console.error("External Initial Setup Generation Error:", e);
+    }
+  } else {
+    const ai = getAI();
+    const model = "gemma-4-31b-it";
+
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          temperature: 0.5,
+          safetySettings: [
+            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          ]
+        }
+      });
+      const text = response.text || "";
+      return parseInitialSetupResponse(text);
+    } catch (error) {
+      console.error("Initial Setup Generation Error:", error);
+    }
+  }
+
+  return responseData;
+}
+
 export async function generateCharacterDNA(
   scenario: string, 
   externalApiConfig?: { apiBaseUrl: string }
