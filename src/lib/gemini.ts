@@ -1,5 +1,7 @@
 import { GoogleGenAI, GenerateContentResponse, HarmCategory, HarmBlockThreshold } from "@google/genai";
 
+export const MODEL = "gemma-4-26b-a4b-it";
+
 export interface Message {
   role: "user" | "model";
   text: string;
@@ -165,11 +167,10 @@ export async function generateInitialSetup(
     }
   } else {
     const ai = getAI();
-    const model = "gemma-4-31b-it";
 
     try {
       const response = await ai.models.generateContent({
-        model,
+        model: MODEL,
         contents: prompt,
         config: {
           temperature: 0.5,
@@ -247,11 +248,10 @@ export async function generateCharacterDNA(
     }
   } else {
     const ai = getAI();
-    const model = "gemma-4-31b-it";
 
     try {
       const response = await ai.models.generateContent({
-        model,
+        model: MODEL,
         contents: prompt,
         config: {
           temperature: 0.5,
@@ -376,7 +376,6 @@ export async function getChatResponse(
   }
 
   const ai = getAI();
-  const model = "gemma-4-31b-it";
 
   try {
     // Slice history to the last 14 messages (approx. 7 back-and-forth turns) to control cost and latency.
@@ -384,7 +383,7 @@ export async function getChatResponse(
     const recentHistory = history.slice(-14);
 
     const response = await ai.models.generateContent({
-      model,
+      model: MODEL,
       contents: [
         ...recentHistory.map(m => ({
           role: m.role as "user" | "model",
@@ -508,11 +507,10 @@ export async function generateVisualPrompt(
   }
 
   const ai = getAI();
-  const model = "gemma-4-31b-it";
 
   try {
     const response = await ai.models.generateContent({
-      model,
+      model: MODEL,
       contents: prompt,
       config: {
         temperature: 0.8,
