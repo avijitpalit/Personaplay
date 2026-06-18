@@ -35,7 +35,31 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [statusBarMessage, setStatusBarMessage] = useState<string | null>(null);
+  const [consoleLogs, setConsoleLogs] = useState<{ type: 'info' | 'error' | 'warn'; message: string; timestamp: string }[]>(() => {
+    return (window as any).__captured_logs || [];
+  });
+  const [logFilter, setLogFilter] = useState<'all' | 'info' | 'warn' | 'error'>('all');
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const registerListener = (window as any).__register_log_listener;
+    if (registerListener) {
+      const unsubscribe = registerListener(() => {
+        setConsoleLogs([...((window as any).__captured_logs || [])]);
+      });
+      return unsubscribe;
+    }
+  }, []);
+
+  const handleClearLogs = () => {
+    (window as any).__captured_logs = [];
+    setConsoleLogs([]);
+  };
+
+  const filteredLogs = consoleLogs.filter(log => {
+    if (logFilter === 'all') return true;
+    return log.type === logFilter;
+  });
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -296,6 +320,50 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
                     <div className="text-white/40 uppercase tracking-widest font-bold">Current Visual Prompt</div>
                     <div className="bg-white/5 p-3 rounded-lg text-accent/70 whitespace-pre-wrap border border-accent/20">
                       {currentVisualPrompt || "Not generated yet."}
+                    </div>
+                  </section>
+
+                  <section className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="text-white/40 uppercase tracking-widest font-bold">Console Output Logs</div>
+                      <div className="flex items-center gap-2">
+                        <select 
+                          value={logFilter} 
+                          onChange={(e) => setLogFilter(e.target.value as any)}
+                          className="bg-white/5 border border-white/10 text-white/70 text-[9px] rounded px-2 py-0.5 focus:outline-none"
+                        >
+                          <option value="all" className="bg-black text-white">All Logs</option>
+                          <option value="info" className="bg-black text-white">Info</option>
+                          <option value="warn" className="bg-black text-white font-semibold">Warning</option>
+                          <option value="error" className="bg-black text-white font-semibold">Error</option>
+                        </select>
+                        <button 
+                          onClick={handleClearLogs}
+                          className="text-[9px] bg-red-500/20 hover:bg-red-500/30 text-red-300 font-bold px-2 py-0.5 rounded border border-red-500/30 transition-colors"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-black/60 border border-white/10 rounded-lg p-3 max-h-[180px] overflow-y-auto font-mono text-[9px] leading-relaxed space-y-1 select-text">
+                      {filteredLogs.length === 0 ? (
+                        <div className="text-white/30 italic">No console logs matching the filter. Send a message to call the models.</div>
+                      ) : (
+                        filteredLogs.map((log, index) => {
+                          let colorClass = "text-white/70";
+                          if (log.type === "error") colorClass = "text-red-400 font-semibold";
+                          if (log.type === "warn") colorClass = "text-yellow-400 font-semibold";
+                          
+                          return (
+                            <div key={index} className="flex gap-2 items-start border-b border-white/5 pb-1">
+                              <span className="text-white/30 select-none">[{log.timestamp}]</span>
+                              <span className="text-accent/60 font-bold uppercase select-none">[{log.type}]</span>
+                              <span className={`${colorClass} whitespace-pre-wrap flex-1`}>{log.message}</span>
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   </section>
                 </div>
