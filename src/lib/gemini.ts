@@ -1,6 +1,6 @@
 import { GoogleGenAI, GenerateContentResponse, HarmCategory, HarmBlockThreshold } from "@google/genai";
 
-export const MODEL = "gemma-4-31b-it";
+export const MODEL = "gemma-4-26b-a4b-it";
 
 export interface Message {
   role: "user" | "model";
