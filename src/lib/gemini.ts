@@ -126,7 +126,7 @@ export async function generateInitialSetup(
   PART 2: INITIAL VISUAL PROMPT
   Write a single, highly detailed visual prompt paragraph (180-240 words) in English describing the starting scene.
   Rules for this prompt:
-  - CAMERA PERSPECTIVE: Over-the-shoulder (OTS) setup slightly behind/above the User's shoulder looking past them. The User MUST be highly out of focus (bokeh blurred, showing only a vague shoulder/hair silhouette edge in the foreground). The main AI character(s) in sharp, crystal-clear focus.
+  - CAMERA PERSPECTIVE: Dynamic and context-dependent. Use an over-the-shoulder (OTS) setup slightly behind/above the User's shoulder looking past them if the current scenario or setting suggests direct physical proximity or conversation. Otherwise, choose the most cinematic and appropriate camera angle (e.g., direct close-up, medium shot, or wide establishment shot) that fits the narrative. If using OTS, the User MUST be highly out of focus (bokeh blurred, showing only a vague shoulder/hair silhouette edge in the foreground) with the main AI character(s) in sharp, crystal-clear focus.
   - DYNAMIC GAZE STYLE: Gaze matches the initial action logically (e.g. looking at the User, or looking at immediate surroundings/objects).
   - REALISM: Extreme tactile detail (high-fidelity skin pores, skin sheen, loose hair strands). Shot on an 85mm f/1.4 lens with very shallow depth of field. Realistic lighting.
   - ETHNICITY BIAS: If story setting suggests Indian/Bengali/South Asian names or contexts, explicitly use terms like "Indian woman", "South Asian descent", or "Bengali girl" first under appearance.
@@ -325,7 +325,7 @@ export async function getChatResponse(
      VISUAL PROMPT RULES:
      - Use the appearance details specified in CHARACTER DNA section above for the features of the AI character(s) and User.
      - Refer to the PREVIOUS VISUAL PROMPT section above if available for visual consistency (especially attire/clothing continuity), but do NOT copy the same pose or actions.
-     - CAMERA PERSPECTIVE: Over-the-shoulder (OTS) setup slightly behind/above the User's shoulder looking past them. The User MUST be highly out of focus (bokeh blurred check, showing only a vague shoulder/hair silhouette edge in the foreground). AI character(s) in sharp, crystal-clear focus.
+     - CAMERA PERSPECTIVE: Dynamic and context-dependent. Use an over-the-shoulder (OTS) setup slightly behind/above the User's shoulder looking past them if the recent actions or story suggests direct physical proximity or conversation. Otherwise, select the most expressive and fitting cinematic angle (e.g., intimate close-up, medium shot, or wide shot) that matches the active narrative turn. If using OTS, the User MUST be out of focus (bokeh blurred, showing only a vague shoulder/hair silhouette edge in the foreground) with the AI character(s) in sharp, crystal-clear focus.
      - DYNAMIC GAZE STYLE: Gaze matches the action logically (e.g., look at User if talking/gazing deeply; look at cooking pans/objects if cooking; closed eyes if sleeping).
      - REALISM: Extreme tactile detail (high-fidelity skin pores, skin sheen, loose hair strands). Shot on an 85mm f/1.4 lens with very shallow depth of field. Realistic lighting.
      - ETHNICITY BIAS: If story setting suggests Indian/Bengali/South Asian names or contexts, explicitly use terms like "Indian woman", "South Asian descent", or "Bengali girl" first under appearance.
@@ -462,10 +462,10 @@ export async function generateVisualPrompt(
 
   PROMPTING RULES:
   
-  1. CAMERA PERSPECTIVE (SEMI-FIRST PERSON / OVER-THE-SHOULDER):
-     - Position the camera slightly behind or above the User's shoulder (OTS setup), looking past them at the AI character(s).
-     - The User character MUST be highly blurred (bokeh/out-of-focus) in the immediate foreground, showing only an edge of their shoulder, neck, or hair to anchor the perspective. Never describe facial features, expressions, or precise details for the User.
-     - The AI character(s) must be in sharp, crystal-clear focus.
+  1. CAMERA PERSPECTIVE (DYNAMIC & CONTEXTUAL):
+     - Use an over-the-shoulder (OTS) setup slightly behind or above the User's shoulder looking past them at the AI character(s) if the recent action or conversation suggests direct physical proximity or face-to-face interaction.
+     - If the scene calls for another perspective (e.g., detailed facial close-ups, medium action shots, dramatic low-angle, or wide establishment shots), use the most cinema-grade and expressive angle suitable.
+     - When using an OTS shot, the User character MUST be highly blurred (bokeh/out-of-focus) in the immediate foreground, showing only an edge of their shoulder, neck, or hair to anchor the perspective. Never describe facial features, expressions, or precise details for the User. AI character(s) must always remain in sharp, crystal-clear focus.
   
   2. DYNAMIC GAZE DIRECTION: Gaze must match the current action logically. If interacting with the User (e.g., conversing, gazing deeply), the AI character should look towards the User/lens. If engaged in a task (e.g., cooking, reading, looking away, sleeping), their gaze must focus naturally on that activity/object rather than looking at the camera/User.
   
