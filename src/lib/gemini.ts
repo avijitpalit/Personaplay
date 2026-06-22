@@ -114,8 +114,9 @@ export async function generateInitialSetup(
   - EYE CHARACTERISTICS: Exact color hue/shading, shape (e.g., heavily hooded, almond, downturned), and brow depth.
   - HAIR CONFIGURATION: Exact texture (e.g., coarse, silky, wavy, kinky), styling, partings, and length.
   - ETHNICITY & SKIN TEXTURE: Natural complexion undertones, visible skin textures (e.g., pores, light freckles, matte finish).
+  - OTHER DETAILS: (If INITIAL STORY SETTING suggests anything).
 
-  USER CHARACTER (MINIMAL PROFILE):
+  USER CHARACTER (MINIMAL PROFILE, default is Male, 32 yo):
   Define a brief, minimal visual profile for the "User" or "Player" character. Keep it extremely simple, specifying ONLY:
   - Gender/Identity
   - Hair color, basic style, and length (so that when shown blurred from behind, it remains consistent)
@@ -211,6 +212,7 @@ export async function generateCharacterDNA(
   - EYE CHARACTERISTICS: Exact color hue/shading, shape (e.g., heavily hooded, almond, downturned), and brow depth.
   - HAIR CONFIGURATION: Exact texture (e.g., coarse, silky, wavy, kinky), styling, partings, and length.
   - ETHNICITY & SKIN TEXTURE: Natural complexion undertones, visible skin textures (e.g., pores, light freckles, matte finish).
+  - OTHER DETAILS: (If INITIAL STORY SETTING suggests anything).
 
   USER CHARACTER (MINIMAL PROFILE):
   Define a brief, minimal visual profile for the "User" or "Player" character. Keep it extremely simple, specifying ONLY:
