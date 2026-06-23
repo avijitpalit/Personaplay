@@ -108,21 +108,10 @@ export async function generateInitialSetup(
   - You MUST generate the entire output in English.
 
   PART 1: CHARACTER DNA BLUEPRINTS
-  For EACH active AI character, provide highly specific physical definitions in this order:
-  - NAME & IDENTITY: Age, name, and height profile.
-  - FACIAL BLUEPRINT: Precise jawline, nose structure, brows, chin shape, lip volume, and forehead shape.
-  - EYE CHARACTERISTICS: Exact color hue/shading, shape (e.g., heavily hooded, almond, downturned), and brow depth.
-  - HAIR CONFIGURATION: Exact texture (e.g., coarse, silky, wavy, kinky), styling, partings, and length.
-  - ETHNICITY & SKIN TEXTURE: Natural complexion undertones, visible skin textures (e.g., pores, light freckles, matte finish).
-  - OTHER DETAILS: (If INITIAL STORY SETTING suggests anything).
+  For EACH active AI character, provide highly specific physical definitions (for example: hair, eyes, face definition, body shape etc.)
 
   USER CHARACTER (MINIMAL PROFILE, default is Male, 32 yo):
-  Define a brief, minimal visual profile for the "User" or "Player" character. Keep it extremely simple, specifying ONLY:
-  - Gender/Identity
-  - Hair color, basic style, and length (so that when shown blurred from behind, it remains consistent)
-  - Broad shoulder/build description
-  - Simple, neutral baseline attire (e.g., solid color shirt or jacket)
-  Do NOT define any facial details, eyes, expressions, or precise skin pore textures for the User character, as they will only be seen blurred or cropped in the foreground.
+  Define a brief, minimal visual profile for the "User" or "Player" character. Keep it extremely simple.
 
   PART 2: INITIAL VISUAL PROMPT
   Write a single, highly detailed visual prompt paragraph (180-240 words) in English describing the starting scene.
@@ -157,7 +146,7 @@ export async function generateInitialSetup(
           'Content-Type': 'application/json',
           'Bypass-Tunnel-Reminder': 'true'
          },
-        body: JSON.stringify({ input: prompt }),
+        body: JSON.stringify({ input: prompt, init: true }),
       });
       if (response.ok) {
         const text = await response.text();
@@ -361,7 +350,7 @@ export async function getChatResponse(
           'Content-Type': 'application/json',
           'Bypass-Tunnel-Reminder': 'true'
         },
-        body: JSON.stringify({ input: fullPrompt }),
+        body: JSON.stringify({ init: false, system: systemInstruction, history: historyText, userInput }),
       });
       if (response.ok) {
         const text = await response.text();
