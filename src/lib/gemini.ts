@@ -117,6 +117,7 @@ export async function generateInitialSetup(
   Write a single, highly detailed visual prompt paragraph (180-240 words) in English describing the starting scene.
   Rules for this prompt:
   - DYNAMIC GAZE STYLE: Characters gaze matches the recent action logically.
+  - Focus on AI character defined in character dna but also include other character(s) if initial story setting suggests.
   - REALISM: Extreme tactile detail (high-fidelity skin pores, skin sheen, loose hair strands). Shot on an 85mm f/1.4 lens with very shallow depth of field. Realistic HDR lighting.
   - ETHNICITY BIAS: If story setting suggests Indian/Bengali/South Asian names or contexts, explicitly use terms like "Indian woman", "South Asian descent", or "Bengali girl" first under appearance.
   - OUTFIT CONSISTENCY: The attire must match previous visuals or DNA baselines unless this latest turn describes or implies a dynamic clothing change.
@@ -315,6 +316,7 @@ export async function getChatResponse(
      
      VISUAL PROMPT RULES:
      - DYNAMIC GAZE STYLE: Characters gaze matches the recent action logically.
+     - Focus on AI character defined in character dna but also include other character(s) if recent actions or dynamic memory bank suggests.
      - REALISM: Extreme tactile detail (high-fidelity skin pores, skin sheen, loose hair strands). Shot on an 85mm f/1.4 lens with very shallow depth of field. Realistic HDR lighting.
      - ETHNICITY BIAS: If story setting suggests Indian/Bengali/South Asian names or contexts, explicitly use terms like "Indian woman", "South Asian descent", or "Bengali girl" first under appearance.
      - OUTFIT CONSISTENCY: The attire must match previous visuals or DNA baselines unless this latest turn describes or implies a dynamic clothing change.
