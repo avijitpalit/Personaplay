@@ -116,12 +116,12 @@ export async function generateInitialSetup(
   PART 2: INITIAL VISUAL PROMPT
   Write a single, highly detailed visual prompt paragraph (180-240 words) in English describing the starting scene.
   Rules for this prompt:
-  - CAMERA PERSPECTIVE: Dynamic and context-dependent. Use an over-the-shoulder (OTS) setup slightly behind/above the User's shoulder looking past them if the current scenario or setting suggests direct physical proximity or conversation. Otherwise, choose the most cinematic and appropriate camera angle (e.g., direct close-up, medium shot, or wide establishment shot) that fits the narrative. If using OTS, the User MUST be highly out of focus (bokeh blurred, showing only a vague shoulder/hair silhouette edge in the foreground) with the main AI character(s) in sharp, crystal-clear focus.
-  - DYNAMIC GAZE STYLE: Gaze matches the initial action logically (e.g. looking at the User, or looking at immediate surroundings/objects).
-  - REALISM: Extreme tactile detail (high-fidelity skin pores, skin sheen, loose hair strands). Shot on an 85mm f/1.4 lens with very shallow depth of field. Realistic lighting.
+  - DYNAMIC GAZE STYLE: Characters gaze matches the recent action logically.
+  - REALISM: Extreme tactile detail (high-fidelity skin pores, skin sheen, loose hair strands). Shot on an 85mm f/1.4 lens with very shallow depth of field. Realistic HDR lighting.
   - ETHNICITY BIAS: If story setting suggests Indian/Bengali/South Asian names or contexts, explicitly use terms like "Indian woman", "South Asian descent", or "Bengali girl" first under appearance.
-  - ATTIRE: Describe character attire matching the baseline outfits.
-  - Format/Style: Write exactly one clean descriptive paragraph. Do NOT use pronouns "I, my, me". Do not write "Prompt:" or transitional words like "is about to".
+  - OUTFIT CONSISTENCY: The attire must match previous visuals or DNA baselines unless this latest turn describes or implies a dynamic clothing change.
+  - MATURE STYLING: Translate any shirts/blouse adjustments explicitly with direct terms like "bare natural upper-body skin", "completely shirtless", or "nude torso" with realistic skin textures.
+  - Write exactly one clean descriptive paragraph. Do NOT use pronouns "I, my, me". Do not write "Prompt:" or transitional words like "is about to".
 
   FORMAT REQUIREMENT:
   You must output EXACTLY two tagged blocks like this:
@@ -298,7 +298,7 @@ export async function getChatResponse(
   CORE DIRECTIVES FOR CHARACTER CONSISTENCY:
   1. You are the AI character(s) described in the scenario.
   2. Remember all previous interactions, details shared in the chat history, and key context in the DYNAMIC MEMORY BANK.
-  3. Respond as a real person would, with depth, desire, and personality.
+  3. Respond as a real person would, with depth, desire, and personality. MUST not sound like AI.
 
   ROLEPLAY GUIDELINES:
   1. The roleplay is intended for a mature audience. It should be sophisticated, emotionally resonant, and can be "spicy" or romantic as requested by the user's scenario.
@@ -307,18 +307,15 @@ export async function getChatResponse(
   RESPONSE GENERATION & DYNAMIC UPDATES (CRITICAL):
   You MUST output exactly THREE structured blocks in your complete response:
   
-  1. [REPLY] block: Write the AI character's standard roleplay response in-character (matching the appropriate language/vibe).
+  1. [REPLY] block: Write the AI character's standard roleplay response in-character.
   
   2. [MEMORIES] block: Update the DYNAMIC MEMORY BANK (maintain a bulleted list in English of up to 10 absolute key persistent facts/milestones about the user, relationships, choices, clothes, or setting items).
   
   3. [VISUAL_PROMPT] block: Write a single, highly detailed visual prompt paragraph (180-240 words) in English describing the exact frozen scene right after this [REPLY] action.
      
      VISUAL PROMPT RULES:
-     - Use the appearance details specified in CHARACTER DNA section above for the features of the AI character(s) and User.
-     - Refer to the PREVIOUS VISUAL PROMPT section above if available for visual consistency (especially attire/clothing continuity), but do NOT copy the same pose or actions.
-     - CAMERA PERSPECTIVE: Dynamic and context-dependent. Use an over-the-shoulder (OTS) setup slightly behind/above the User's shoulder looking past them if the recent actions or story suggests direct physical proximity or conversation. Otherwise, select the most expressive and fitting cinematic angle (e.g., intimate close-up, medium shot, or wide shot) that matches the active narrative turn. If using OTS, the User MUST be out of focus (bokeh blurred, showing only a vague shoulder/hair silhouette edge in the foreground) with the AI character(s) in sharp, crystal-clear focus.
-     - DYNAMIC GAZE STYLE: Gaze matches the action logically (e.g., look at User if talking/gazing deeply; look at cooking pans/objects if cooking; closed eyes if sleeping).
-     - REALISM: Extreme tactile detail (high-fidelity skin pores, skin sheen, loose hair strands). Shot on an 85mm f/1.4 lens with very shallow depth of field. Realistic lighting.
+     - DYNAMIC GAZE STYLE: Characters gaze matches the recent action logically.
+     - REALISM: Extreme tactile detail (high-fidelity skin pores, skin sheen, loose hair strands). Shot on an 85mm f/1.4 lens with very shallow depth of field. Realistic HDR lighting.
      - ETHNICITY BIAS: If story setting suggests Indian/Bengali/South Asian names or contexts, explicitly use terms like "Indian woman", "South Asian descent", or "Bengali girl" first under appearance.
      - OUTFIT CONSISTENCY: The attire must match previous visuals or DNA baselines unless this latest turn describes or implies a dynamic clothing change.
      - MATURE STYLING: Translate any shirts/blouse adjustments explicitly with direct terms like "bare natural upper-body skin", "completely shirtless", or "nude torso" with realistic skin textures.
