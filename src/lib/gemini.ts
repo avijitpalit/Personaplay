@@ -571,4 +571,89 @@ export async function generateImage(
   }
 }
 
+export async function getUserAutomatedReply(
+  scenario: string,
+  dna: string,
+  history: Message[],
+  memoryBank?: string,
+  externalApiConfig?: { apiBaseUrl: string }
+): Promise<string> {
+  const historyText = history.slice(-14).map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join('\n');
+
+  const prompt = `You are playing the role of the USER/PLAYER in this immersive roleplay scenario.
+  
+  INITIAL STORY SETTING:
+  ${scenario}
+
+  DYNAMIC MEMORY BANK:
+  ${memoryBank?.trim() ? memoryBank : "None yet."}
+
+  CHARACTER DNA (Visual profiles & references):
+  ${dna?.trim() ? dna : "None established."}
+
+  CHAT HISTORY:
+  ${historyText || "No chat history yet."}
+
+  ROLEPLAYING DIRECTIVES FOR YOU (THE USER/PLAYER):
+  1. Write the next logical action and/or dialogue for the USER (the player) ONLY.
+  2. Do NOT write dialogue or actions for the AI characters.
+  3. Keep your response concise, natural, engaging, and deeply in-character for the User/Player.
+  4. Write in the same style/tone as the scenario (could be casual, dramatic, romantic, or mature).
+  5. Speak or act as a real person. Use asterisks for actions/thoughts (e.g. *smiles softly, stepping closer*) and natural text for spoken dialogue.
+  6. Respond directly to the AI's latest turn, driving the narrative forward.
+  7. Do NOT wrap your output in tags, JSON, or any prefixes. Do NOT start your reply with "User:" or "AI:". Output ONLY the direct action and dialogue of the User.
+  8. MUST NOT sound like an AI assistant. Focus on natural human reaction.
+
+  Generate the next User reply (action and dialogue) now:`;
+
+  if (externalApiConfig?.apiBaseUrl) {
+    try {
+      const url = externalApiConfig.apiBaseUrl.endsWith('/') ? `${externalApiConfig.apiBaseUrl}t2t` : `${externalApiConfig.apiBaseUrl}/t2t`;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Bypass-Tunnel-Reminder': 'true'
+        },
+        body: JSON.stringify({ input: prompt }),
+      });
+      if (response.ok) {
+        const text = await response.text();
+        let cleaned = text.trim();
+        cleaned = cleaned.replace(/^User:\s*/i, "").trim();
+        cleaned = cleaned.replace(/^AI:\s*/i, "").trim();
+        return cleaned;
+      }
+    } catch (e) {
+      console.error("External User Auto-Reply Error:", e);
+    }
+  }
+
+  const ai = getAI();
+  try {
+    const response = await ai.models.generateContent({
+      model: MODEL,
+      contents: prompt,
+      config: {
+        temperature: 0.9,
+        safetySettings: [
+          { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        ]
+      }
+    });
+
+    let cleaned = (response.text || "").trim();
+    cleaned = cleaned.replace(/^User:\s*/i, "").trim();
+    cleaned = cleaned.replace(/^AI:\s*/i, "").trim();
+    return cleaned || "*steps forward, waiting for you to speak*";
+  } catch (error) {
+    console.error("Gemini User Auto-Reply Error:", error);
+    return "*waits in quiet anticipation*";
+  }
+}
+
 

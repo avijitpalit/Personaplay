@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Message, getChatResponse, generateImage, generateCharacterDNA, generateVisualPrompt, generateInitialSetup } from '../lib/gemini';
-import { Send, ArrowLeft, Loader2, User, Sparkles, Image as ImageIcon, Eye, EyeOff, Save, CheckCircle2, Settings, Info, Clock, FileText, X } from 'lucide-react';
+import { Message, getChatResponse, generateImage, generateCharacterDNA, generateVisualPrompt, generateInitialSetup, getUserAutomatedReply } from '../lib/gemini';
+import { Send, ArrowLeft, Loader2, User, Sparkles, Image as ImageIcon, Eye, EyeOff, Save, CheckCircle2, Settings, Info, Clock, FileText, X, Play, Pause } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
 import { Session, saveSession as persistSession } from '../lib/storage';
@@ -60,6 +60,104 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
     if (logFilter === 'all') return true;
     return log.type === logFilter;
   });
+
+  const [isAutoReplyEnabled, setIsAutoReplyEnabled] = useState(false);
+  const [isGeneratingAutoReply, setIsGeneratingAutoReply] = useState(false);
+
+  const triggerUserAutoReply = async (currentMessages: Message[]) => {
+    if (isGeneratingAutoReply || isLoading || isGeneratingPrompt) return;
+    setIsGeneratingAutoReply(true);
+    setStatusBarMessage("Generating automated User turn...");
+
+    try {
+      const userReplyText = await getUserAutomatedReply(
+        scenario,
+        characterDNA || "",
+        currentMessages,
+        memoryBank,
+        useInternalApi ? undefined : { apiBaseUrl }
+      );
+
+      if (userReplyText) {
+        setMessages(prev => [...prev, { role: 'user', text: userReplyText }]);
+      }
+    } catch (e) {
+      console.error("Auto-reply generation failed:", e);
+    } finally {
+      setIsGeneratingAutoReply(false);
+      setStatusBarMessage(null);
+    }
+  };
+
+  // Trigger automatic replies state machine
+  useEffect(() => {
+    if (!isAutoReplyEnabled || isLoading || isGeneratingAutoReply || isGeneratingPrompt || isGeneratingImage) return;
+
+    if (messages.length === 0) {
+      triggerUserAutoReply(messages);
+      return;
+    }
+
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage.role === 'model') {
+      triggerUserAutoReply(messages);
+    } else if (lastMessage.role === 'user') {
+      const triggerAiReply = async () => {
+        setIsLoading(true);
+        setStatusBarMessage("AI is replying...");
+        try {
+          const previousHistory = messages.slice(0, -1);
+          const result = await getChatResponse(
+            scenario, 
+            characterDNA || "", 
+            previousHistory, 
+            lastMessage.text, 
+            memoryBank,
+            useInternalApi ? undefined : { 
+              apiBaseUrl,
+              dna: characterDNA || undefined,
+              lastVisualPrompt: currentVisualPrompt
+            },
+            currentVisualPrompt
+          );
+
+          if (result.updatedMemories) {
+            setMemoryBank(result.updatedMemories);
+          }
+
+          const finalMessages: Message[] = [...messages, { role: 'model', text: result.reply }];
+          setMessages(finalMessages);
+          setIsLoading(false);
+          setStatusBarMessage(null);
+
+          // Update visual prompt
+          if (result.lastVisualPrompt) {
+            setCurrentVisualPrompt(result.lastVisualPrompt);
+          } else if (characterDNA) {
+            setStatusBarMessage("Creating visual prompt...");
+            setIsGeneratingPrompt(true);
+            const nextPrompt = await generateVisualPrompt(
+              scenario, 
+              finalMessages, 
+              characterDNA, 
+              currentVisualPrompt, 
+              useInternalApi ? undefined : { apiBaseUrl }, 
+              undefined,
+              result.updatedMemories || memoryBank
+            );
+            setCurrentVisualPrompt(nextPrompt);
+            setIsGeneratingPrompt(false);
+            setStatusBarMessage(null);
+          }
+        } catch (e) {
+          console.error("AI trigger failed:", e);
+          setIsLoading(false);
+          setStatusBarMessage(null);
+        }
+      };
+      triggerAiReply();
+    }
+  }, [isAutoReplyEnabled, messages, isLoading, isGeneratingAutoReply, isGeneratingPrompt, isGeneratingImage]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -486,6 +584,21 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
       {/* Floating Action Buttons - Water Drop Style */}
       <div className="fixed bottom-[30%] right-0 z-30 flex flex-col gap-2">
         <button 
+          onClick={() => setIsAutoReplyEnabled(!isAutoReplyEnabled)}
+          className={`p-4 pl-6 bg-white/10 backdrop-blur-3xl border-y border-l border-white/20 rounded-l-full text-white hover:bg-white/20 transition-all shadow-2xl relative z-10 ${
+            isAutoReplyEnabled ? 'bg-green-500/20 border-green-500/30' : ''
+          }`}
+          title={isAutoReplyEnabled ? "Pause Auto-Reply" : "Play Auto-Reply"}
+        >
+          {isGeneratingAutoReply ? (
+            <Loader2 size={22} className="animate-spin text-green-400" />
+          ) : isAutoReplyEnabled ? (
+            <Pause size={22} className="text-green-400 fill-green-400/20 animate-pulse" />
+          ) : (
+            <Play size={22} className="text-white fill-white/15" />
+          )}
+        </button>
+        <button 
           onClick={handleGenerateImage}
           disabled={isGeneratingImage || isGeneratingPrompt || !currentVisualPrompt}
           className={`p-4 pl-6 bg-white/10 backdrop-blur-3xl border-y border-l border-white/20 rounded-l-full text-white hover:bg-white/20 transition-all shadow-2xl relative z-10 ${isGeneratingImage || isGeneratingPrompt ? 'bg-accent/30 border-accent/40 brightness-125' : ''}`}
@@ -584,12 +697,15 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
             type="text"
             value={input}
             onChange={e => setInput(e.target.value)}
-            placeholder="Type your action or dialogue..."
-            className="w-full bg-white/5 border border-white/10 rounded-[2rem] px-8 py-5 pr-20 focus:outline-none focus:border-accent/50 transition-all glass-panel text-lg"
+            disabled={isAutoReplyEnabled || isLoading || isGeneratingAutoReply}
+            placeholder={isAutoReplyEnabled ? "Auto-playing roleplay... Click Pause to type" : "Type your action or dialogue..."}
+            className={`w-full bg-white/5 border border-white/10 rounded-[2rem] px-8 py-5 pr-20 focus:outline-none focus:border-accent/50 transition-all glass-panel text-lg ${
+              (isAutoReplyEnabled || isLoading || isGeneratingAutoReply) ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
           />
           <button 
             type="submit"
-            disabled={!input.trim() || isLoading}
+            disabled={!input.trim() || isLoading || isAutoReplyEnabled || isGeneratingAutoReply}
             className="absolute right-4 p-4 bg-accent text-white rounded-2xl hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-accent/20"
           >
             <Send size={24} />
