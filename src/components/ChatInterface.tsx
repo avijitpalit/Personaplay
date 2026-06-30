@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Message, getChatResponse, generateImage, generateCharacterDNA, generateVisualPrompt, generateInitialSetup, getUserAutomatedReply } from '../lib/gemini';
+import { Message, getChatResponse, generateImage, generateCharacterDNA, generateVisualPrompt, generateInitialSetup, getUserAutomatedReply, setGlobalModel } from '../lib/gemini';
 import { Send, ArrowLeft, Loader2, User, Sparkles, Image as ImageIcon, Eye, EyeOff, Save, CheckCircle2, Settings, Info, Clock, FileText, X, Play, Pause } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
@@ -10,10 +10,11 @@ interface ChatInterfaceProps {
   initialSession?: Session | null;
   initialApiBaseUrl: string;
   initialUseInternalApi: boolean;
+  selectedModel: string;
   onBack: () => void;
 }
 
-export default function ChatInterface({ scenario, initialSession, initialApiBaseUrl, initialUseInternalApi, onBack }: ChatInterfaceProps) {
+export default function ChatInterface({ scenario, initialSession, initialApiBaseUrl, initialUseInternalApi, selectedModel, onBack }: ChatInterfaceProps) {
   const [sessionId, setSessionId] = useState<string | undefined>(initialSession?.id);
   const [messages, setMessages] = useState<Message[]>(initialSession?.history || []);
   const [input, setInput] = useState('');
@@ -26,6 +27,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
   const [memoryBank, setMemoryBank] = useState<string>(initialSession?.memoryBank || '');
   const [apiBaseUrl, setApiBaseUrl] = useState<string>(initialSession?.apiBaseUrl || initialApiBaseUrl);
   const [useInternalApi, setUseInternalApi] = useState<boolean>(initialSession?.useInternalApi ?? initialUseInternalApi);
+  const [currentSelectedModel, setCurrentSelectedModel] = useState<string>(initialSession?.selectedModel || selectedModel);
   const [imageWidth, setImageWidth] = useState<number>(initialSession?.imageWidth || 720);
   const [imageHeight, setImageHeight] = useState<number>(initialSession?.imageHeight || 1280);
   const [imageSteps, setImageSteps] = useState<number>(initialSession?.imageSteps || 9);
@@ -160,10 +162,14 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
   }, [isAutoReplyEnabled, messages, isLoading, isGeneratingAutoReply, isGeneratingPrompt, isGeneratingImage]);
 
   useEffect(() => {
+    setGlobalModel(currentSelectedModel);
+  }, [currentSelectedModel]);
+
+  useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isLoading]);
+  }, [messages, isLoading, isGeneratingAutoReply]);
 
   // Generate DNA and initial visual prompt in a single unified API call when the component mounts
   useEffect(() => {
@@ -195,6 +201,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
         lastVisualPrompt: currentVisualPrompt,
         apiBaseUrl,
         useInternalApi,
+        selectedModel: currentSelectedModel,
         imageWidth,
         imageHeight,
         imageSteps
@@ -493,20 +500,28 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
                 </div>
 
                 <div className="flex flex-col gap-4">
-                  <div className="flex items-center justify-between p-3 bg-black/20 rounded-xl border border-white/5">
-                    <div className="flex flex-col">
-                      <span className="text-[10px] uppercase tracking-wider text-white/40 font-bold">API Mode</span>
-                      <span className="text-xs text-white/60">{useInternalApi ? "Internal (Gemini API)" : "External (Custom URL)"}</span>
-                    </div>
-                    <button
-                      onClick={() => setUseInternalApi(!useInternalApi)}
-                      className={`relative w-10 h-5 rounded-full transition-colors duration-300 focus:outline-none ${useInternalApi ? 'bg-accent' : 'bg-white/10'}`}
+                  <div className="flex flex-col gap-2">
+                    <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Roleplay Model</label>
+                    <select
+                      value={currentSelectedModel}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setCurrentSelectedModel(val);
+                        if (val === 'custom') {
+                          setUseInternalApi(false);
+                        } else {
+                          setUseInternalApi(true);
+                        }
+                      }}
+                      className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 text-white cursor-pointer"
                     >
-                      <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${useInternalApi ? 'translate-x-5' : 'translate-x-0'}`} />
-                    </button>
+                      <option value="gemma-4-31b-it" className="bg-neutral-900">gemma 31b</option>
+                      <option value="gemma-4-26b-a4b-it" className="bg-neutral-900">gemma 24b a4b</option>
+                      <option value="custom" className="bg-neutral-900">custom</option>
+                    </select>
                   </div>
 
-                  {!useInternalApi && (
+                  {currentSelectedModel === 'custom' && (
                     <div className="flex flex-col gap-2">
                       <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">API Base URL</label>
                       <div className="flex gap-2">
@@ -514,8 +529,8 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
                           type="text"
                           value={apiBaseUrl}
                           onChange={e => setApiBaseUrl(e.target.value)}
-                          placeholder="http://your-api-base-url"
-                          className="flex-1 bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-accent/50"
+                          placeholder="https://odorful-hsiu-unmaledictory.ngrok-free.dev"
+                          className="flex-1 bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-accent/50 text-white"
                         />
                       </div>
                     </div>
@@ -662,24 +677,31 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
 
         {isLoading && (
           <motion.div 
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex justify-start"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex justify-start mb-4"
           >
-            <div className="flex flex-col gap-2 items-start">
-              <div className="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center border bg-white/5 border-white/20">
-                <Sparkles size={14} className="text-accent md:w-[18px] md:h-[18px]" />
+            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full flex-shrink-0 flex items-center justify-center border bg-white/5 border-accent/30 shadow-md shadow-accent/10">
+              <div className="flex items-center gap-1 justify-center">
+                <span className="w-1.5 h-1.5 rounded-full bg-accent animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1s' }}></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-accent/80 animate-bounce" style={{ animationDelay: '150ms', animationDuration: '1s' }}></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-accent/50 animate-bounce" style={{ animationDelay: '300ms', animationDuration: '1s' }}></span>
               </div>
-              <div className="flex gap-4 items-center glass-panel px-5 py-4 rounded-2xl md:rounded-[1.75rem] border border-white/10 shadow-lg shadow-accent/5 backdrop-blur-xl">
-                <div className="flex items-center gap-1.5 justify-center">
-                  <span className="w-2 h-2 rounded-full bg-accent animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1s' }}></span>
-                  <span className="w-2 h-2 rounded-full bg-accent/80 animate-bounce" style={{ animationDelay: '150ms', animationDuration: '1s' }}></span>
-                  <span className="w-2 h-2 rounded-full bg-accent/50 animate-bounce" style={{ animationDelay: '300ms', animationDuration: '1s' }}></span>
-                </div>
-                <div className="w-[1px] h-4 bg-white/10" />
-                <span className="text-xs md:text-sm italic text-white/60 animate-pulse tracking-wide font-serif">
-                  Choosing words carefully...
-                </span>
+            </div>
+          </motion.div>
+        )}
+
+        {isGeneratingAutoReply && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex justify-end mb-4"
+          >
+            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full flex-shrink-0 flex items-center justify-center border bg-accent/20 border-accent/40 shadow-md shadow-accent/10">
+              <div className="flex items-center gap-1 justify-center">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1s' }}></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-white/80 animate-bounce" style={{ animationDelay: '150ms', animationDuration: '1s' }}></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-white/50 animate-bounce" style={{ animationDelay: '300ms', animationDuration: '1s' }}></span>
               </div>
             </div>
           </motion.div>

@@ -12,6 +12,7 @@ export interface Session {
   lastVisualPrompt: string | undefined;
   apiBaseUrl: string;
   useInternalApi: boolean;
+  selectedModel?: string;
   useExternalApi?: boolean;
   useXaiForImages?: boolean;
   imageWidth: number;

@@ -1,6 +1,10 @@
 import { GoogleGenAI, GenerateContentResponse, HarmCategory, HarmBlockThreshold } from "@google/genai";
 
-export const MODEL = "gemma-4-26b-a4b-it";
+export let MODEL = "gemma-4-26b-a4b-it";
+
+export function setGlobalModel(modelName: string) {
+  MODEL = modelName;
+}
 
 export interface Message {
   role: "user" | "model";
@@ -616,7 +620,7 @@ export async function getUserAutomatedReply(
           'Content-Type': 'application/json',
           'Bypass-Tunnel-Reminder': 'true'
         },
-        body: JSON.stringify({ input: prompt }),
+        body: JSON.stringify({ input: prompt, init: true }),
       });
       if (response.ok) {
         const text = await response.text();

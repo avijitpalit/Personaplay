@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Session, getSessions, deleteSession } from '../lib/storage';
 
 interface CharacterSetupProps {
-  onStart: (scenario: string, useInternalApi: boolean, apiBaseUrl: string) => void;
+  onStart: (scenario: string, useInternalApi: boolean, apiBaseUrl: string, selectedModel: string) => void;
   onLoadSession: (session: Session) => void;
   initialApiBaseUrl?: string;
 }
@@ -18,6 +18,7 @@ export default function CharacterSetup({
   const [sessions, setSessions] = useState<Session[]>([]);
   const [apiBaseUrl, setApiBaseUrl] = useState(initialApiBaseUrl);
   const [useInternalApi, setUseInternalApi] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<string>('gemma-4-26b-a4b-it');
 
   useEffect(() => {
     setSessions(getSessions());
@@ -64,28 +65,36 @@ export default function CharacterSetup({
 
           <div className="space-y-4 pt-2 border-t border-white/5">
             <div className="flex flex-col gap-4 p-4 bg-white/5 rounded-2xl border border-white/10">
-              <div className="flex items-center justify-between">
-                <div className="flex flex-col">
-                  <span className="text-[10px] uppercase tracking-wider text-white/40 font-bold">API Mode</span>
-                  <span className="text-xs text-white/60">{useInternalApi ? "Internal (Gemini API)" : "External (Custom URL)"}</span>
-                </div>
-                <button
-                  onClick={() => setUseInternalApi(!useInternalApi)}
-                  className={`relative w-12 h-6 rounded-full transition-colors duration-300 focus:outline-none ${useInternalApi ? 'bg-accent' : 'bg-white/10'}`}
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Roleplay Model</label>
+                <select
+                  value={selectedModel}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSelectedModel(val);
+                    if (val === 'custom') {
+                      setUseInternalApi(false);
+                    } else {
+                      setUseInternalApi(true);
+                    }
+                  }}
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 text-white cursor-pointer"
                 >
-                  <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${useInternalApi ? 'translate-x-6' : 'translate-x-0'}`} />
-                </button>
+                  <option value="gemma-4-31b-it" className="bg-neutral-900">gemma 31b</option>
+                  <option value="gemma-4-26b-a4b-it" className="bg-neutral-900">gemma 24b a4b</option>
+                  <option value="custom" className="bg-neutral-900">custom</option>
+                </select>
               </div>
 
-              {!useInternalApi && (
+              {selectedModel === 'custom' && (
                 <div className="flex flex-col gap-2 pt-2 border-t border-white/5">
                   <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">API Base URL</label>
                   <input 
                     type="text"
                     value={apiBaseUrl}
                     onChange={e => setApiBaseUrl(e.target.value)}
-                    placeholder="http://your-api-base-url"
-                    className="bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50"
+                    placeholder="https://odorful-hsiu-unmaledictory.ngrok-free.dev"
+                    className="bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 text-white"
                   />
                   <p className="text-[9px] text-white/30 italic">Endpoints used: /t2t and /generate</p>
                 </div>
@@ -99,8 +108,8 @@ export default function CharacterSetup({
           </div>
 
           <button 
-            disabled={!scenario.trim() || scenario.length < 10 || (!useInternalApi && !apiBaseUrl.trim())}
-            onClick={() => onStart(scenario, useInternalApi, apiBaseUrl)}
+            disabled={!scenario.trim() || scenario.length < 10 || (selectedModel === 'custom' && !apiBaseUrl.trim())}
+            onClick={() => onStart(scenario, selectedModel !== 'custom', apiBaseUrl, selectedModel)}
             className="w-full bg-accent text-white py-5 rounded-2xl font-bold text-lg hover:bg-accent/90 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg shadow-accent/20 flex items-center justify-center gap-3 group"
           >
             Enter the Story
