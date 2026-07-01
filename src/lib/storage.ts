@@ -59,7 +59,10 @@ export function saveSession(session: Omit<Session, 'id' | 'createdAt' | 'updated
     sessions.push(updatedSession);
   }
   
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+  sessions.sort((a, b) => b.updatedAt - a.updatedAt);
+  const prunedSessions = sessions.slice(0, 5);
+  
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(prunedSessions));
   return updatedSession;
 }
 

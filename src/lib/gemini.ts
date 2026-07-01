@@ -319,7 +319,8 @@ export async function getChatResponse(
   3. [VISUAL_PROMPT] block: Write a single, highly detailed visual prompt paragraph (180-240 words) in English describing the exact frozen scene right after this [REPLY] action.
      
      VISUAL PROMPT RULES:
-     - DYNAMIC GAZE STYLE: Characters gaze matches the recent action logically.
+     - FIRST-PERSON PERSPECTIVE: The camera perspective MUST be a strict first-person view of the User character, positioned exactly at the User's eyes (eye-level, line of sight) looking directly at the AI character(s) in front of them. The User is the camera, making the User completely invisible in the frame.
+     - DYNAMIC GAZE STYLE: Characters gaze matches the recent action logically, looking directly towards the User/lens if talking or interacting.
      - Focus on AI character defined in character dna but also include other character(s) if recent actions or dynamic memory bank suggests.
      - REALISM: Extreme tactile detail (high-fidelity skin pores, skin sheen, loose hair strands). Shot on an 85mm f/1.4 lens with very shallow depth of field. Realistic HDR lighting.
      - ETHNICITY BIAS: If story setting suggests Indian/Bengali/South Asian names or contexts, explicitly use terms like "Indian woman", "South Asian descent", or "Bengali girl" first under appearance.
@@ -456,10 +457,10 @@ export async function generateVisualPrompt(
 
   PROMPTING RULES:
   
-  1. CAMERA PERSPECTIVE (DYNAMIC & CONTEXTUAL):
-     - Use an over-the-shoulder (OTS) setup slightly behind or above the User's shoulder looking past them at the AI character(s) if the recent action or conversation suggests direct physical proximity or face-to-face interaction.
-     - If the scene calls for another perspective (e.g., detailed facial close-ups, medium action shots, dramatic low-angle, or wide establishment shots), use the most cinema-grade and expressive angle suitable.
-     - When using an OTS shot, the User character MUST be highly blurred (bokeh/out-of-focus) in the immediate foreground, showing only an edge of their shoulder, neck, or hair to anchor the perspective. Never describe facial features, expressions, or precise details for the User. AI character(s) must always remain in sharp, crystal-clear focus.
+  1. CAMERA PERSPECTIVE (MANDATORY FIRST-PERSON):
+     - The camera perspective MUST ALWAYS be a strict first-person view of the User character, positioned exactly at the User's eyes (eye-level, line of sight), looking directly at the AI character(s) in front of them.
+     - The User character acts as the camera itself, meaning the User is completely invisible to the frame (no shoulders, no hair, no neck of the User should be in-frame).
+     - The camera should be at the exact eye level of the User, creating an immersive point-of-view experience where the AI character looks and interacts directly towards the camera/lens.
   
   2. DYNAMIC GAZE DIRECTION: Gaze must match the current action logically. If interacting with the User (e.g., conversing, gazing deeply), the AI character should look towards the User/lens. If engaged in a task (e.g., cooking, reading, looking away, sleeping), their gaze must focus naturally on that activity/object rather than looking at the camera/User.
   
