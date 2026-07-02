@@ -37,6 +37,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [statusBarMessage, setStatusBarMessage] = useState<string | null>(null);
+  const [lastSendFailed, setLastSendFailed] = useState(false);
   const [consoleLogs, setConsoleLogs] = useState<{ type: 'info' | 'error' | 'warn'; message: string; timestamp: string }[]>(() => {
     return (window as any).__captured_logs || [];
   });
@@ -93,7 +94,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
 
   // Trigger automatic replies state machine
   useEffect(() => {
-    if (!isAutoReplyEnabled || isLoading || isGeneratingAutoReply || isGeneratingPrompt || isGeneratingImage) return;
+    if (!isAutoReplyEnabled || isLoading || isGeneratingAutoReply || isGeneratingPrompt || isGeneratingImage || lastSendFailed) return;
 
     if (messages.length === 0) {
       triggerUserAutoReply(messages);
@@ -122,6 +123,13 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
             },
             currentVisualPrompt
           );
+
+          if (result.error) {
+            setLastSendFailed(true);
+            setIsLoading(false);
+            setStatusBarMessage(null);
+            return;
+          }
 
           if (result.updatedMemories) {
             setMemoryBank(result.updatedMemories);
@@ -153,13 +161,14 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
           }
         } catch (e) {
           console.error("AI trigger failed:", e);
+          setLastSendFailed(true);
           setIsLoading(false);
           setStatusBarMessage(null);
         }
       };
       triggerAiReply();
     }
-  }, [isAutoReplyEnabled, messages, isLoading, isGeneratingAutoReply, isGeneratingPrompt, isGeneratingImage]);
+  }, [isAutoReplyEnabled, messages, isLoading, isGeneratingAutoReply, isGeneratingPrompt, isGeneratingImage, lastSendFailed]);
 
   useEffect(() => {
     setGlobalModel(currentSelectedModel);
@@ -231,6 +240,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
     e?.preventDefault();
     if (!input.trim() || isLoading) return;
 
+    setLastSendFailed(false);
     const userMessage: Message = { role: 'user', text: input.trim() };
     const updatedMessages: Message[] = [...messages, userMessage];
     setMessages(updatedMessages);
@@ -252,12 +262,81 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
       currentVisualPrompt
     );
 
+    if (result.error) {
+      setLastSendFailed(true);
+      setIsLoading(false);
+      setStatusBarMessage(null);
+      return;
+    }
+
     if (result.updatedMemories) {
       setMemoryBank(result.updatedMemories);
     }
 
     const finalMessages: Message[] = [...updatedMessages, { role: 'model', text: result.reply }];
     
+    setMessages(finalMessages);
+    setIsLoading(false);
+    setStatusBarMessage(null);
+
+    // Update visual prompt
+    if (result.lastVisualPrompt) {
+      setCurrentVisualPrompt(result.lastVisualPrompt);
+      setStatusBarMessage(null);
+    } else if (characterDNA) {
+      setStatusBarMessage("Creating visual prompt...");
+      setIsGeneratingPrompt(true);
+      const nextPrompt = await generateVisualPrompt(
+        scenario, 
+        finalMessages, 
+        characterDNA, 
+        currentVisualPrompt, 
+        useInternalApi ? undefined : { apiBaseUrl }, 
+        undefined,
+        result.updatedMemories || memoryBank
+      );
+      setCurrentVisualPrompt(nextPrompt);
+      setIsGeneratingPrompt(false);
+      setStatusBarMessage(null);
+    }
+  };
+
+  const handleRetry = async () => {
+    if (messages.length === 0 || isLoading) return;
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage.role !== 'user') return;
+
+    setLastSendFailed(false);
+    setIsLoading(true);
+    setStatusBarMessage("Retrying AI reply...");
+
+    const previousHistory = messages.slice(0, -1);
+    const result = await getChatResponse(
+      scenario, 
+      characterDNA || "", 
+      previousHistory, 
+      lastMessage.text, 
+      memoryBank,
+      useInternalApi ? undefined : { 
+        apiBaseUrl,
+        dna: characterDNA || undefined,
+        lastVisualPrompt: currentVisualPrompt
+      },
+      currentVisualPrompt
+    );
+
+    if (result.error) {
+      setLastSendFailed(true);
+      setIsLoading(false);
+      setStatusBarMessage(null);
+      return;
+    }
+
+    if (result.updatedMemories) {
+      setMemoryBank(result.updatedMemories);
+    }
+
+    const finalMessages: Message[] = [...messages, { role: 'model', text: result.reply }];
     setMessages(finalMessages);
     setIsLoading(false);
     setStatusBarMessage(null);
@@ -661,13 +740,31 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
                 }`}>
                   {msg.role === 'user' ? <User size={14} className="md:w-[18px] md:h-[18px]" /> : <Sparkles size={14} className="text-accent md:w-[18px] md:h-[18px]" />}
                 </div>
-                <div className={`p-4 md:p-5 rounded-2xl md:rounded-3xl ${
-                  msg.role === 'user' 
-                    ? 'bg-accent text-white' 
-                    : 'glass-panel text-white/90'
-                }`}>
-                  <div className="markdown-body text-sm md:text-base leading-snug md:leading-relaxed">
-                    <Markdown>{msg.text}</Markdown>
+                <div className="flex items-center gap-3">
+                  {msg.role === 'user' && i === messages.length - 1 && lastSendFailed && (
+                    <div className="flex items-center gap-2 mr-1">
+                      <span className="text-[10px] text-red-400 font-bold uppercase tracking-wider flex items-center gap-1 bg-red-950/40 border border-red-500/20 px-2.5 py-1 rounded-lg">
+                        <X size={12} className="text-red-400 animate-pulse" />
+                        Flickered
+                      </span>
+                      <button
+                        onClick={handleRetry}
+                        disabled={isLoading}
+                        className="flex items-center gap-1.5 text-xs text-accent hover:text-white bg-accent/20 hover:bg-accent/40 border border-accent/30 hover:border-accent/50 px-3 py-1.5 rounded-xl transition-all font-bold shadow-md shadow-accent/10 cursor-pointer"
+                      >
+                        <Play size={10} className="fill-accent text-accent group-hover:fill-white" />
+                        Retry
+                      </button>
+                    </div>
+                  )}
+                  <div className={`p-4 md:p-5 rounded-2xl md:rounded-3xl ${
+                    msg.role === 'user' 
+                      ? 'bg-accent text-white' 
+                      : 'glass-panel text-white/90'
+                  }`}>
+                    <div className="markdown-body text-sm md:text-base leading-snug md:leading-relaxed">
+                      <Markdown>{msg.text}</Markdown>
+                    </div>
                   </div>
                 </div>
               </div>

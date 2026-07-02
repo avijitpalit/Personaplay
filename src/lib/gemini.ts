@@ -20,6 +20,7 @@ export interface ChatResult {
   reply: string;
   lastVisualPrompt?: string;
   updatedMemories?: string;
+  error?: boolean;
 }
 
 export function parseChatResponse(
@@ -364,9 +365,12 @@ export async function getChatResponse(
           updatedMemories: parsed.updatedMemories,
           lastVisualPrompt: parsed.lastVisualPrompt
         };
+      } else {
+        return { reply: "The connection seems to have flickered. Let's try that again.", error: true };
       }
     } catch (e) {
       console.error("External Chat Error:", e);
+      return { reply: "The connection seems to have flickered. Let's try that again.", error: true };
     }
   }
 
@@ -409,7 +413,7 @@ export async function getChatResponse(
     };
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return { reply: "The connection seems to have flickered. Let's try that again." };
+    return { reply: "The connection seems to have flickered. Let's try that again.", error: true };
   }
 }
 
