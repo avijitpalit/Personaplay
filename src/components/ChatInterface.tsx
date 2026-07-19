@@ -30,7 +30,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
   const [currentSelectedModel, setCurrentSelectedModel] = useState<string>(initialSession?.selectedModel || selectedModel);
   const [imageWidth, setImageWidth] = useState<number>(initialSession?.imageWidth || 720);
   const [imageHeight, setImageHeight] = useState<number>(initialSession?.imageHeight || 1280);
-  const [imageSteps, setImageSteps] = useState<number>(initialSession?.imageSteps || 9);
+  const [imageSteps, setImageSteps] = useState<number>(initialSession?.imageSteps || 12);
   const [showChat, setShowChat] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [showLog, setShowLog] = useState(false);
@@ -640,7 +640,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
                     <input 
                       type="number"
                       value={imageSteps}
-                      onChange={e => setImageSteps(parseInt(e.target.value) || 9)}
+                      onChange={e => setImageSteps(parseInt(e.target.value) || 12)}
                       className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50"
                     />
                   </div>

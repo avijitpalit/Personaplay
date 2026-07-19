@@ -119,15 +119,15 @@ export async function generateInitialSetup(
   Define a brief, minimal visual profile for the "User" or "Player" character. Keep it extremely simple.
 
   PART 2: INITIAL VISUAL PROMPT
-  Write a single, highly detailed visual prompt paragraph (180-240 words) in English describing the starting scene.
+  Write a single, highly detailed visual prompt paragraph (180-240 words) in English describing the starting scene. Specify details in a descriptive natural language style following this structure: [Medium/Format] of [Subject Details], [Action/Pose], [Setting/Background], [Lighting], [Camera/Perspective], [Style/Atmosphere].
   Rules for this prompt:
-  - DYNAMIC GAZE STYLE: Characters gaze matches the recent action logically.
-  - Focus on AI character defined in character dna but also include other character(s) if initial story setting suggests.
-  - REALISM: Extreme tactile detail (high-fidelity skin pores, skin sheen, loose hair strands). Shot on an 85mm f/1.4 lens with very shallow depth of field. Realistic HDR lighting.
-  - ETHNICITY BIAS: If story setting suggests Indian/Bengali/South Asian names or contexts, explicitly use terms like "Indian woman", "South Asian descent", or "Bengali girl" first under appearance.
-  - OUTFIT CONSISTENCY: The attire must match previous visuals or DNA baselines unless this latest turn describes or implies a dynamic clothing change.
-  - MATURE STYLING: Translate any shirts/blouse adjustments explicitly with direct terms like "bare natural upper-body skin", "completely shirtless", or "nude torso" with realistic skin textures.
-  - Write exactly one clean descriptive paragraph. Do NOT use pronouns "I, my, me". Do not write "Prompt:" or transitional words like "is about to".
+  - NATURAL LANGUAGE FOR KREA V2: Avoid prompt-salad. Write a cohesive, flowing paragraph that reads like a vivid description of a photograph.
+  - FIRST-PERSON POV: The camera MUST be a strict first-person point-of-view of the User character (positioned at eye-level). The User is invisible to the frame.
+  - DYNAMIC GAZE: The AI character looks and interacts directly towards the camera/lens.
+  - REALISM: Emphasize extreme photorealism, physical authenticity, and tactile details. Use cinematic terms like "Shot on 35mm film", "85mm lens", "shallow depth of field", "authentic film grain".
+  - ETHNICITY BIAS: If story setting suggests Indian/Bengali/South Asian contexts, explicitly use terms like "Indian woman" or "Bengali girl".
+  - OUTFIT & MATURE STYLING: Translate any intimate clothing states explicitly with direct terms like "bare natural upper-body skin" or "completely shirtless" with high-resolution skin texture.
+  - Write exactly one clean descriptive paragraph. Do NOT use pronouns "I, my, me". Do not write "Prompt:" or transitional verbs like "is about to".
 
   FORMAT REQUIREMENT:
   You must output EXACTLY two tagged blocks like this:
@@ -319,15 +319,15 @@ export async function getChatResponse(
   
   3. [VISUAL_PROMPT] block: Write a single, highly detailed visual prompt paragraph (180-240 words) in English describing the exact frozen scene right after this [REPLY] action.
      
-     VISUAL PROMPT RULES:
-     - FIRST-PERSON PERSPECTIVE: The camera perspective MUST be a strict first-person view of the User character, positioned exactly at the User's eyes (eye-level, line of sight) looking directly at the AI character(s) in front of them. The User is the camera, making the User completely invisible in the frame.
-     - DYNAMIC GAZE STYLE: Characters gaze matches the recent action logically, looking directly towards the User/lens if talking or interacting.
-     - Focus on AI character defined in character dna but also include other character(s) if recent actions or dynamic memory bank suggests.
-     - REALISM: Extreme tactile detail (high-fidelity skin pores, skin sheen, loose hair strands). Shot on an 85mm f/1.4 lens with very shallow depth of field. Realistic HDR lighting.
-     - ETHNICITY BIAS: If story setting suggests Indian/Bengali/South Asian names or contexts, explicitly use terms like "Indian woman", "South Asian descent", or "Bengali girl" first under appearance.
-     - OUTFIT CONSISTENCY: The attire must match previous visuals or DNA baselines unless this latest turn describes or implies a dynamic clothing change.
-     - MATURE STYLING: Translate any shirts/blouse adjustments explicitly with direct terms like "bare natural upper-body skin", "completely shirtless", or "nude torso" with realistic skin textures.
-     - Write exactly one clean descriptive paragraph. Do NOT use pronouns "I, my, me". Do not write "Prompt:" or transitional words like "is about to".
+     VISUAL PROMPT RULES (KREA V2 FOCUS):
+     - NATURAL LANGUAGE: Avoid prompt-salad (e.g., "8k, masterpiece"). Write a cohesive, flowing paragraph that reads like a vivid description of a photograph using this structure: [Medium/Format] of [Subject Details], [Action/Pose], [Setting/Background], [Lighting], [Camera/Perspective], [Style/Atmosphere].
+     - FIRST-PERSON POV: The camera perspective MUST be a strict first-person point-of-view of the User character (eye-level). The User is invisible to the frame.
+     - DYNAMIC GAZE: Characters gaze matches the recent action logically, looking directly into the lens if talking or interacting with the User.
+     - REALISM & PHOTOGRAPHY: Emphasize extreme photorealism, physical authenticity, and tactile details (skin texture). Describe the shot with cinematic terms: "Shot on 35mm film", "85mm lens", "shallow depth of field".
+     - ETHNICITY BIAS: If story setting suggests Indian/Bengali/South Asian names or contexts, explicitly use terms like "Indian woman" or "Bengali girl".
+     - OUTFIT CONSISTENCY: The attire must match previous visuals unless this latest turn implies a dynamic clothing change.
+     - EXPLICIT STYLING (IF APPLICABLE): Translate any intimate clothing states explicitly with direct terms like "bare natural upper-body skin", "completely shirtless", or "nude torso".
+     - Write exactly one clean descriptive paragraph. Do NOT use pronouns "I, my, me". Do not write "Prompt:" or transitional verbs like "is about to".
 
   FORMAT REQUIREMENT:
   Your output MUST look exactly like this:
@@ -456,29 +456,31 @@ export async function generateVisualPrompt(
     ? `PREVIOUS VISUAL (use for visual consistency only — do NOT copy same pose): ${lastPrompt}` 
     : ""}
 
-  Write a single, highly detailed paragraph (180-240 words) describing the frozen moment. Specify details in this order:
-  Who is in frame -> exact physical arrangement -> their actions -> gaze and expressions -> clothing/nakedness details -> lighting & detailed atmosphere -> camera angle.
+  Write a single, highly detailed paragraph (180-240 words) describing the frozen moment. Specify details in a descriptive natural language style following this structure:
+  [Medium/Format] of [Subject Details], [Action/Pose], [Setting/Background], [Lighting], [Camera/Perspective], [Style/Atmosphere].
 
   PROMPTING RULES:
   
-  1. CAMERA PERSPECTIVE (MANDATORY FIRST-PERSON):
-     - The camera perspective MUST ALWAYS be a strict first-person view of the User character, positioned exactly at the User's eyes (eye-level, line of sight), looking directly at the AI character(s) in front of them.
-     - The User character acts as the camera itself, meaning the User is completely invisible to the frame (no shoulders, no hair, no neck of the User should be in-frame).
+  1. CAMERA PERSPECTIVE (MANDATORY FIRST-PERSON POV):
+     - The camera perspective MUST ALWAYS be a strict first-person point-of-view of the User character, positioned exactly at the User's eyes (eye-level, line of sight), looking directly at the AI character(s) in front of them.
+     - The User character acts as the camera itself. The User is completely invisible to the frame (no shoulders, no hands, no hair, no neck of the User should be in-frame).
      - The camera should be at the exact eye level of the User, creating an immersive point-of-view experience where the AI character looks and interacts directly towards the camera/lens.
   
-  2. DYNAMIC GAZE DIRECTION: Gaze must match the current action logically. If interacting with the User (e.g., conversing, gazing deeply), the AI character should look towards the User/lens. If engaged in a task (e.g., cooking, reading, looking away, sleeping), their gaze must focus naturally on that activity/object rather than looking at the camera/User.
+  2. NATURAL LANGUAGE FOR KREA V2: Krea V2 understands natural, descriptive language best. Avoid prompt-salad or comma-separated tags (like "8k, masterpiece, ultra-detailed"). Instead, write a cohesive, flowing paragraph that reads like a vivid description of a photograph.
   
-  3. REALISM & PHOTOGRAPHY: Extreme realism, physical authenticity, and tactile details (skin pores, natural skin sheen, single loose hair strands, natural weight). Shot on an 85mm f/1.4 prime lens with extremely shallow depth of field (creating beautiful foreground bokeh on the User's silhouette), authentic film grain, and realistic ambient ray-traced lighting.
+  3. DYNAMIC GAZE DIRECTION: Gaze must match the current action logically. If interacting with the User (e.g., conversing, gazing deeply), the AI character should look directly into the camera lens. If engaged in a task (e.g., cooking, reading, looking away, sleeping), their gaze must focus naturally on that activity/object rather than looking at the camera.
   
-  4. ETHNICITY & REGIONAL NATIONALITY BIAS: If the story setting, scenario, context, or names describe or imply an Indian, Bengali, South Asian, or other specific regional background, you MUST explicitly include definitive cultural/ethnic keywords (e.g., "Indian woman", "South Asian descent", "Bengali girl") in the appearance descriptors of the AI character(s) in the generated prompt. This overrides the default camera culture bias and ensures correct ethnic features.
+  4. REALISM & PHOTOGRAPHY: Emphasize extreme photorealism, physical authenticity, and tactile details (skin texture, natural skin sheen, loose hair strands, natural weight). Describe the shot with cinematic terms: "Shot on 35mm film", "85mm lens", "shallow depth of field", "authentic film grain", and "realistic ambient volumetric lighting".
   
-  5. OUTFIT CONSISTENCY RULE: The attire/clothing of the character(s) will be dynamic, will only change if the recent action suggests, otherwise keep it consistent (to keep it consistent, use previous visual prompt as reference).
+  5. ETHNICITY & REGIONAL NATIONALITY BIAS: If the story setting, scenario, context, or names describe or imply an Indian, Bengali, South Asian, or other specific regional background, you MUST explicitly include definitive cultural/ethnic keywords (e.g., "Indian woman", "South Asian descent", "Bengali girl") in the appearance descriptors of the AI character(s) in the generated prompt.
   
-  6. EXPLICIT MATURE WORDS FOR BLOUSELESS/SHIRTLESS: Z-Image Turbo model handles explicit physical descriptions much better than generic terms. If the scene implies or suggests physical intimacy, or mentions a character being "blouseless", "topless", or "shirtless", you MUST explicitly translate this with direct terms like: "completely shirtless and braless", "unclothed bare breasts and chest", "bare natural upper-body skin", "nude torso", or "completely exposed breasts with high-resolution skin texture".
+  6. OUTFIT CONSISTENCY RULE: The attire/clothing of the character(s) will be dynamic, will only change if the recent action suggests, otherwise keep it consistent (use previous visual prompt as reference).
   
-  7. NO METAPHORS OR TRANSITIONAL ACTIONS: Describe the precise physical positioning. Do not use abstract prose or transition verbs like "about to" or "just finished". Only describe what is physically visible in the frozen frame.
+  7. EXPLICIT DESCRIPTIONS (IF APPLICABLE): The model handles explicit physical descriptions much better than generic terms. If the scene implies or suggests physical intimacy, or mentions a character being "blouseless", "topless", or "shirtless", you MUST explicitly translate this with direct terms like: "completely shirtless and braless", "unclothed bare breasts and chest", "bare natural upper-body skin", "nude torso", or "completely exposed breasts with high-resolution skin texture".
   
-  8. NO pronoun "I/my/me".
+  8. NO METAPHORS OR TRANSITIONAL ACTIONS: Describe the precise physical positioning. Do not use abstract prose or transition verbs like "about to" or "just finished". Only describe what is physically visible in the frozen frame.
+  
+  9. NO pronoun "I/my/me".
 
   OUTPUT THE PROMPT ONLY. DO NOT write any introductory or concluding text. Do not write "Prompt:" or include quote marks.
   `;
@@ -540,7 +542,7 @@ export async function generateImage(
   visualPrompt: string,
   width: number = 720,
   height: number = 1280,
-  steps: number = 9
+  steps: number = 12
 ): Promise<{ url: string } | null> {
   if (!apiBaseUrl) {
     throw new Error("API Base URL is required for image generation.");
@@ -548,12 +550,14 @@ export async function generateImage(
 
   try {
     // const url = apiBaseUrl.endsWith('/') ? `${apiBaseUrl}generate` : `${apiBaseUrl}/generate`;
-    const url = 'https://avijitpalit3--z-image-turbo-zimageservice-fastapi-app.modal.run/generate';
+    const url = 'https://avijitpalit3--krea2-inference-krea2service-fastapi-app.modal.run/generate';
     const payload = {
         prompt: visualPrompt,
         width,
         height,
-        steps
+        steps,
+        lora_name: "KNPV4.1_pre.safetensors",
+        lora_strength: 1.3
     };
     const response = await fetch(url, {
       method: 'POST',
