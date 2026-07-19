@@ -556,8 +556,8 @@ export async function generateImage(
         width,
         height,
         steps,
-        lora_name: "KNPV4.1_pre.safetensors",
-        lora_strength: 1.3
+        /*lora_name: "KNPV4.1_pre.safetensors",
+        lora_strength: 1.3*/
     };
     const response = await fetch(url, {
       method: 'POST',
