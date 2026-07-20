@@ -542,7 +542,8 @@ export async function generateImage(
   visualPrompt: string,
   width: number = 720,
   height: number = 1280,
-  steps: number = 12
+  steps: number = 12,
+  loraStrength: number = 1.8
 ): Promise<{ url: string } | null> {
   if (!apiBaseUrl) {
     throw new Error("API Base URL is required for image generation.");
@@ -556,8 +557,9 @@ export async function generateImage(
         width,
         height,
         steps,
-        /*lora_name: "KNPV4.1_pre.safetensors",
-        lora_strength: 1.3*/
+        lora_name: "Krea2-realism-V2.safetensors",
+        lora_strength: loraStrength,
+        strength: 8
     };
     const response = await fetch(url, {
       method: 'POST',

@@ -11,10 +11,19 @@ interface ChatInterfaceProps {
   initialApiBaseUrl: string;
   initialUseInternalApi: boolean;
   selectedModel: string;
+  initialLoraStrength?: number;
   onBack: () => void;
 }
 
-export default function ChatInterface({ scenario, initialSession, initialApiBaseUrl, initialUseInternalApi, selectedModel, onBack }: ChatInterfaceProps) {
+export default function ChatInterface({ 
+  scenario, 
+  initialSession, 
+  initialApiBaseUrl, 
+  initialUseInternalApi, 
+  selectedModel, 
+  initialLoraStrength = 1.8,
+  onBack 
+}: ChatInterfaceProps) {
   const [sessionId, setSessionId] = useState<string | undefined>(initialSession?.id);
   const [messages, setMessages] = useState<Message[]>(initialSession?.history || []);
   const [input, setInput] = useState('');
@@ -31,6 +40,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
   const [imageWidth, setImageWidth] = useState<number>(initialSession?.imageWidth || 720);
   const [imageHeight, setImageHeight] = useState<number>(initialSession?.imageHeight || 1280);
   const [imageSteps, setImageSteps] = useState<number>(initialSession?.imageSteps || 12);
+  const [loraStrength, setLoraStrength] = useState<number>(initialSession?.loraStrength ?? initialLoraStrength);
   const [showChat, setShowChat] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [showLog, setShowLog] = useState(false);
@@ -213,7 +223,8 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
         selectedModel: currentSelectedModel,
         imageWidth,
         imageHeight,
-        imageSteps
+        imageSteps,
+        loraStrength
       });
       setSessionId(saved.id);
       setSaveSuccess(true);
@@ -234,7 +245,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
       }, 5000); // Debounce auto-save
       return () => clearTimeout(timer);
     }
-  }, [messages, characterDNA, bgImage, currentVisualPrompt, apiBaseUrl, imageWidth, imageHeight, imageSteps, memoryBank]);
+  }, [messages, characterDNA, bgImage, currentVisualPrompt, apiBaseUrl, imageWidth, imageHeight, imageSteps, loraStrength, memoryBank]);
 
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -379,7 +390,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
     setError(null);
 
     try {
-      const result = await generateImage(apiBaseUrl, currentVisualPrompt, imageWidth, imageHeight, imageSteps);
+      const result = await generateImage(apiBaseUrl, currentVisualPrompt, imageWidth, imageHeight, imageSteps, loraStrength);
       if (result) {
         setBgImage(result.url);
       }
@@ -623,7 +634,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
                       type="number"
                       value={imageWidth}
                       onChange={e => setImageWidth(parseInt(e.target.value) || 720)}
-                      className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50"
+                      className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white"
                     />
                   </div>
                   <div className="flex flex-col gap-1">
@@ -632,7 +643,7 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
                       type="number"
                       value={imageHeight}
                       onChange={e => setImageHeight(parseInt(e.target.value) || 1280)}
-                      className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50"
+                      className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white"
                     />
                   </div>
                   <div className="flex flex-col gap-1">
@@ -641,9 +652,22 @@ export default function ChatInterface({ scenario, initialSession, initialApiBase
                       type="number"
                       value={imageSteps}
                       onChange={e => setImageSteps(parseInt(e.target.value) || 12)}
-                      className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50"
+                      className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white"
                     />
                   </div>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">LoRA Strength</label>
+                  <input 
+                    type="number"
+                    step="0.1"
+                    min="0.0"
+                    max="5.0"
+                    value={loraStrength}
+                    onChange={e => setLoraStrength(parseFloat(e.target.value) || 1.8)}
+                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white"
+                  />
                 </div>
 
                 <div className="flex flex-col gap-2">

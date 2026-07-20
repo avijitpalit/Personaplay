@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Session, getSessions, deleteSession } from '../lib/storage';
 
 interface CharacterSetupProps {
-  onStart: (scenario: string, useInternalApi: boolean, apiBaseUrl: string, selectedModel: string) => void;
+  onStart: (scenario: string, useInternalApi: boolean, apiBaseUrl: string, selectedModel: string, loraStrength: number) => void;
   onLoadSession: (session: Session) => void;
   initialApiBaseUrl?: string;
 }
@@ -19,6 +19,7 @@ export default function CharacterSetup({
   const [apiBaseUrl, setApiBaseUrl] = useState(initialApiBaseUrl);
   const [useInternalApi, setUseInternalApi] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>('gemma-4-26b-a4b-it');
+  const [loraStrength, setLoraStrength] = useState<number>(1.8);
 
   useEffect(() => {
     setSessions(getSessions());
@@ -86,6 +87,19 @@ export default function CharacterSetup({
                 </select>
               </div>
 
+              <div className="flex flex-col gap-2 pt-2 border-t border-white/5">
+                <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">LoRA Strength</label>
+                <input 
+                  type="number"
+                  step="0.1"
+                  min="0.0"
+                  max="5.0"
+                  value={loraStrength}
+                  onChange={e => setLoraStrength(parseFloat(e.target.value) || 1.8)}
+                  className="bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 text-white"
+                />
+              </div>
+
               {selectedModel === 'custom' && (
                 <div className="flex flex-col gap-2 pt-2 border-t border-white/5">
                   <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">API Base URL</label>
@@ -109,7 +123,7 @@ export default function CharacterSetup({
 
           <button 
             disabled={!scenario.trim() || scenario.length < 10 || (selectedModel === 'custom' && !apiBaseUrl.trim())}
-            onClick={() => onStart(scenario, selectedModel !== 'custom', apiBaseUrl, selectedModel)}
+            onClick={() => onStart(scenario, selectedModel !== 'custom', apiBaseUrl, selectedModel, loraStrength)}
             className="w-full bg-accent text-white py-5 rounded-2xl font-bold text-lg hover:bg-accent/90 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg shadow-accent/20 flex items-center justify-center gap-3 group"
           >
             Enter the Story
