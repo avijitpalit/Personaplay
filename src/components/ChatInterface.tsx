@@ -21,7 +21,7 @@ export default function ChatInterface({
   initialApiBaseUrl, 
   initialUseInternalApi, 
   selectedModel, 
-  initialLoraStrength = 1.8,
+  initialLoraStrength = 1.5,
   onBack 
 }: ChatInterfaceProps) {
   const [sessionId, setSessionId] = useState<string | undefined>(initialSession?.id);
@@ -39,7 +39,7 @@ export default function ChatInterface({
   const [currentSelectedModel, setCurrentSelectedModel] = useState<string>(initialSession?.selectedModel || selectedModel);
   const [imageWidth, setImageWidth] = useState<number>(initialSession?.imageWidth || 720);
   const [imageHeight, setImageHeight] = useState<number>(initialSession?.imageHeight || 1280);
-  const [imageSteps, setImageSteps] = useState<number>(initialSession?.imageSteps || 12);
+  const [imageSteps, setImageSteps] = useState<number>(initialSession?.imageSteps || 8);
   const [loraStrength, setLoraStrength] = useState<number>(initialSession?.loraStrength ?? initialLoraStrength);
   const [showChat, setShowChat] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
@@ -651,7 +651,7 @@ export default function ChatInterface({
                     <input 
                       type="number"
                       value={imageSteps}
-                      onChange={e => setImageSteps(parseInt(e.target.value) || 12)}
+                      onChange={e => setImageSteps(parseInt(e.target.value) || 8)}
                       className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white"
                     />
                   </div>
@@ -665,7 +665,7 @@ export default function ChatInterface({
                     min="0.0"
                     max="5.0"
                     value={loraStrength}
-                    onChange={e => setLoraStrength(parseFloat(e.target.value) || 1.8)}
+                    onChange={e => setLoraStrength(parseFloat(e.target.value) || 1.5)}
                     className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white"
                   />
                 </div>

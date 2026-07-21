@@ -1,6 +1,6 @@
 import { GoogleGenAI, GenerateContentResponse, HarmCategory, HarmBlockThreshold } from "@google/genai";
 
-export let MODEL = "gemma-4-26b-a4b-it";
+export let MODEL = "gemma-4-31b-it";
 
 export function setGlobalModel(modelName: string) {
   MODEL = modelName;
@@ -121,7 +121,7 @@ export async function generateInitialSetup(
   PART 2: INITIAL VISUAL PROMPT
   Write a single, highly detailed visual prompt paragraph (180-240 words) in English describing the starting scene. Specify details in a descriptive natural language style following this structure: [Medium/Format] of [Subject Details], [Action/Pose], [Setting/Background], [Lighting], [Camera/Perspective], [Style/Atmosphere].
   Rules for this prompt:
-  - NATURAL LANGUAGE FOR KREA V2: Avoid prompt-salad. Write a cohesive, flowing paragraph that reads like a vivid description of a photograph.
+  - NATURAL LANGUAGE FOR KREA V2: Avoid prompt-salad. Write a cohesive, flowing paragraph that reads like a vivid description of a photograph. Group subjects with their own attributes and actions. Use grounded phrasing for poses, interactions, and spatial layout. Do not invent highly specific clothing, colors, or materials unless the input supports them. If you need text rendered in the image, put quotes around the words (e.g., a sign that says "STOP").
   - FIRST-PERSON POV: The camera MUST be a strict first-person point-of-view of the User character (positioned at eye-level). The User is invisible to the frame.
   - DYNAMIC GAZE: The AI character looks and interacts directly towards the camera/lens.
   - REALISM: Emphasize extreme photorealism, physical authenticity, and tactile details. Use cinematic terms like "Shot on 35mm film", "85mm lens", "shallow depth of field", "authentic film grain".
@@ -320,7 +320,7 @@ export async function getChatResponse(
   3. [VISUAL_PROMPT] block: Write a single, highly detailed visual prompt paragraph (180-240 words) in English describing the exact frozen scene right after this [REPLY] action.
      
      VISUAL PROMPT RULES (KREA V2 FOCUS):
-     - NATURAL LANGUAGE: Avoid prompt-salad (e.g., "8k, masterpiece"). Write a cohesive, flowing paragraph that reads like a vivid description of a photograph using this structure: [Medium/Format] of [Subject Details], [Action/Pose], [Setting/Background], [Lighting], [Camera/Perspective], [Style/Atmosphere].
+     - NATURAL LANGUAGE: Avoid prompt-salad (e.g., "8k, masterpiece"). Write a cohesive, flowing paragraph that reads like a vivid description of a photograph using this structure: [Medium/Format] of [Subject Details], [Action/Pose], [Setting/Background], [Lighting], [Camera/Perspective], [Style/Atmosphere]. Group subjects with their attributes/actions. Use grounded phrasing for poses, interactions, and spatial layout. If text rendering is needed, put quotes around the words.
      - FIRST-PERSON POV: The camera perspective MUST be a strict first-person point-of-view of the User character (eye-level). The User is invisible to the frame.
      - DYNAMIC GAZE: Characters gaze matches the recent action logically, looking directly into the lens if talking or interacting with the User.
      - REALISM & PHOTOGRAPHY: Emphasize extreme photorealism, physical authenticity, and tactile details (skin texture). Describe the shot with cinematic terms: "Shot on 35mm film", "85mm lens", "shallow depth of field".
@@ -466,7 +466,7 @@ export async function generateVisualPrompt(
      - The User character acts as the camera itself. The User is completely invisible to the frame (no shoulders, no hands, no hair, no neck of the User should be in-frame).
      - The camera should be at the exact eye level of the User, creating an immersive point-of-view experience where the AI character looks and interacts directly towards the camera/lens.
   
-  2. NATURAL LANGUAGE FOR KREA V2: Krea V2 understands natural, descriptive language best. Avoid prompt-salad or comma-separated tags (like "8k, masterpiece, ultra-detailed"). Instead, write a cohesive, flowing paragraph that reads like a vivid description of a photograph.
+  2. NATURAL LANGUAGE FOR KREA V2: Krea V2 understands natural, descriptive language best. Avoid prompt-salad or comma-separated tags (like "8k, masterpiece, ultra-detailed"). Instead, write a cohesive, flowing paragraph that reads like a vivid description of a photograph. Group subjects with their own attributes and actions. Use grounded phrasing for poses, interactions, and spatial layout. Do not invent highly specific clothing, colors, or materials unless the input supports them. If you need text rendered in the image, put quotes around the exact words.
   
   3. DYNAMIC GAZE DIRECTION: Gaze must match the current action logically. If interacting with the User (e.g., conversing, gazing deeply), the AI character should look directly into the camera lens. If engaged in a task (e.g., cooking, reading, looking away, sleeping), their gaze must focus naturally on that activity/object rather than looking at the camera.
   
@@ -542,8 +542,8 @@ export async function generateImage(
   visualPrompt: string,
   width: number = 720,
   height: number = 1280,
-  steps: number = 12,
-  loraStrength: number = 1.8
+  steps: number = 8,
+  loraStrength: number = 1.5
 ): Promise<{ url: string } | null> {
   if (!apiBaseUrl) {
     throw new Error("API Base URL is required for image generation.");
@@ -557,9 +557,8 @@ export async function generateImage(
         width,
         height,
         steps,
-        lora_name: "Krea2-realism-V2.safetensors",
-        lora_strength: loraStrength,
-        strength: 8
+        lora_name: "Krea2_HMNSFW_AIO.safetensors",
+        lora_strength: loraStrength
     };
     const response = await fetch(url, {
       method: 'POST',

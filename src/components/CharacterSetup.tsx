@@ -18,8 +18,8 @@ export default function CharacterSetup({
   const [sessions, setSessions] = useState<Session[]>([]);
   const [apiBaseUrl, setApiBaseUrl] = useState(initialApiBaseUrl);
   const [useInternalApi, setUseInternalApi] = useState(false);
-  const [selectedModel, setSelectedModel] = useState<string>('gemma-4-26b-a4b-it');
-  const [loraStrength, setLoraStrength] = useState<number>(1.8);
+  const [selectedModel, setSelectedModel] = useState<string>('gemma-4-31b-it');
+  const [loraStrength, setLoraStrength] = useState<number>(1.5);
 
   useEffect(() => {
     setSessions(getSessions());
@@ -95,7 +95,7 @@ export default function CharacterSetup({
                   min="0.0"
                   max="5.0"
                   value={loraStrength}
-                  onChange={e => setLoraStrength(parseFloat(e.target.value) || 1.8)}
+                  onChange={e => setLoraStrength(parseFloat(e.target.value) || 1.5)}
                   className="bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 text-white"
                 />
               </div>

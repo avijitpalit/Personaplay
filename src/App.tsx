@@ -8,8 +8,8 @@ export default function App() {
   const [loadedSession, setLoadedSession] = useState<Session | null>(null);
   const [apiBaseUrl, setApiBaseUrl] = useState('https://odorful-hsiu-unmaledictory.ngrok-free.dev');
   const [useInternalApi, setUseInternalApi] = useState(false);
-  const [selectedModel, setSelectedModel] = useState('gemma-4-26b-a4b-it');
-  const [loraStrength, setLoraStrength] = useState<number>(1.8);
+  const [selectedModel, setSelectedModel] = useState('gemma-4-31b-it');
+  const [loraStrength, setLoraStrength] = useState<number>(1.5);
 
   const handleStart = (newScenario: string, internalMode: boolean, baseUrl: string, model: string, strength: number) => {
     setScenario(newScenario);
@@ -24,8 +24,8 @@ export default function App() {
     setScenario(session.scenario);
     setUseInternalApi(session.useInternalApi || false);
     setApiBaseUrl(session.apiBaseUrl || 'https://odorful-hsiu-unmaledictory.ngrok-free.dev');
-    setSelectedModel((session as any).selectedModel || 'gemma-4-26b-a4b-it');
-    setLoraStrength(session.loraStrength !== undefined ? session.loraStrength : 1.8);
+    setSelectedModel((session as any).selectedModel || 'gemma-4-31b-it');
+    setLoraStrength(session.loraStrength !== undefined ? session.loraStrength : 1.5);
     setLoadedSession(session);
   };
 
