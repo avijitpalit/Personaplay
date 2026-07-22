@@ -40,6 +40,8 @@ export default function ChatInterface({
   const [imageWidth, setImageWidth] = useState<number>(initialSession?.imageWidth || 720);
   const [imageHeight, setImageHeight] = useState<number>(initialSession?.imageHeight || 1280);
   const [imageSteps, setImageSteps] = useState<number>(initialSession?.imageSteps || 8);
+  const [enableLora, setEnableLora] = useState<boolean>(initialSession?.enableLora ?? true);
+  const [loraName, setLoraName] = useState<string>(initialSession?.loraName || 'Krea2_HMNSFW_AIO.safetensors');
   const [loraStrength, setLoraStrength] = useState<number>(initialSession?.loraStrength ?? initialLoraStrength);
   const [showChat, setShowChat] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
@@ -224,6 +226,8 @@ export default function ChatInterface({
         imageWidth,
         imageHeight,
         imageSteps,
+        enableLora,
+        loraName,
         loraStrength
       });
       setSessionId(saved.id);
@@ -245,7 +249,7 @@ export default function ChatInterface({
       }, 5000); // Debounce auto-save
       return () => clearTimeout(timer);
     }
-  }, [messages, characterDNA, bgImage, currentVisualPrompt, apiBaseUrl, imageWidth, imageHeight, imageSteps, loraStrength, memoryBank]);
+  }, [messages, characterDNA, bgImage, currentVisualPrompt, apiBaseUrl, imageWidth, imageHeight, imageSteps, enableLora, loraName, loraStrength, memoryBank]);
 
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -390,7 +394,7 @@ export default function ChatInterface({
     setError(null);
 
     try {
-      const result = await generateImage(apiBaseUrl, currentVisualPrompt, imageWidth, imageHeight, imageSteps, loraStrength);
+      const result = await generateImage(apiBaseUrl, currentVisualPrompt, imageWidth, imageHeight, imageSteps, loraStrength, enableLora, loraName);
       if (result) {
         setBgImage(result.url);
       }
@@ -657,17 +661,47 @@ export default function ChatInterface({
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">LoRA Strength</label>
-                  <input 
-                    type="number"
-                    step="0.1"
-                    min="0.0"
-                    max="5.0"
-                    value={loraStrength}
-                    onChange={e => setLoraStrength(parseFloat(e.target.value) || 1.5)}
-                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white"
-                  />
+                <div className="flex flex-col gap-3 p-3 bg-white/5 rounded-xl border border-white/10">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input 
+                        type="checkbox"
+                        checked={enableLora}
+                        onChange={e => setEnableLora(e.target.checked)}
+                        className="rounded border-white/20 bg-black/40 text-accent focus:ring-accent w-4 h-4 cursor-pointer accent-accent"
+                      />
+                      <span className="text-xs font-bold uppercase tracking-wider text-white">Enable LoRA</span>
+                    </label>
+                  </div>
+
+                  <div className={`space-y-3 transition-opacity ${enableLora ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Lora</label>
+                      <select
+                        value={loraName}
+                        onChange={e => setLoraName(e.target.value)}
+                        disabled={!enableLora}
+                        className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white cursor-pointer"
+                      >
+                        <option value="Krea2_HMNSFW_AIO.safetensors" className="bg-neutral-900">Krea2_HMNSFW_AIO.safetensors</option>
+                        <option value="Krea2-realism-V2.safetensors" className="bg-neutral-900">Krea2-realism-V2.safetensors</option>
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">LoRA Strength</label>
+                      <input 
+                        type="number"
+                        step="0.1"
+                        min="0.0"
+                        max="5.0"
+                        value={loraStrength}
+                        onChange={e => setLoraStrength(parseFloat(e.target.value) || 1.5)}
+                        disabled={!enableLora}
+                        className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white disabled:opacity-50"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex flex-col gap-2">

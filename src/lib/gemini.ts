@@ -543,7 +543,9 @@ export async function generateImage(
   width: number = 720,
   height: number = 1280,
   steps: number = 8,
-  loraStrength: number = 1.5
+  loraStrength: number = 1.5,
+  enableLora: boolean = true,
+  loraName: string = "Krea2_HMNSFW_AIO.safetensors"
 ): Promise<{ url: string } | null> {
   if (!apiBaseUrl) {
     throw new Error("API Base URL is required for image generation.");
@@ -552,14 +554,18 @@ export async function generateImage(
   try {
     // const url = apiBaseUrl.endsWith('/') ? `${apiBaseUrl}generate` : `${apiBaseUrl}/generate`;
     const url = 'https://avijitpalit3--krea2-inference-krea2service-fastapi-app.modal.run/generate';
-    const payload = {
+    const payload: Record<string, any> = {
         prompt: visualPrompt,
         width,
         height,
-        steps,
-        lora_name: "Krea2_HMNSFW_AIO.safetensors",
-        lora_strength: loraStrength
+        steps
     };
+
+    if (enableLora) {
+      payload.lora_name = loraName;
+      payload.lora_strength = loraStrength;
+    }
+
     const response = await fetch(url, {
       method: 'POST',
       headers: {

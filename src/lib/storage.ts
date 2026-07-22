@@ -18,6 +18,8 @@ export interface Session {
   imageWidth: number;
   imageHeight: number;
   imageSteps: number;
+  enableLora?: boolean;
+  loraName?: string;
   loraStrength?: number;
   createdAt: number;
   updatedAt: number;
