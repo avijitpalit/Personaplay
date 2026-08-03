@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Message, getChatResponse, generateImage, generateCharacterDNA, generateVisualPrompt, generateInitialSetup, getUserAutomatedReply, setGlobalModel } from '../lib/gemini';
-import { Send, ArrowLeft, Loader2, User, Sparkles, Image as ImageIcon, Eye, EyeOff, Save, CheckCircle2, Settings, Info, Clock, FileText, X, Play, Pause } from 'lucide-react';
+import { Send, ArrowLeft, Loader2, User, Sparkles, Image as ImageIcon, Eye, EyeOff, Save, CheckCircle2, Settings, Info, Clock, FileText, X, Play, Pause, Thermometer, AlertTriangle, Lock, Unlock, RotateCcw, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
 import { Session, saveSession as persistSession } from '../lib/storage';
@@ -43,7 +43,9 @@ export default function ChatInterface({
   const [enableLora, setEnableLora] = useState<boolean>(initialSession?.enableLora ?? true);
   const [loraName, setLoraName] = useState<string>(initialSession?.loraName || 'Krea2_HMNSFW_AIO.safetensors');
   const [loraStrength, setLoraStrength] = useState<number>(initialSession?.loraStrength ?? initialLoraStrength);
-  const [temperature, setTemperature] = useState<number>(initialSession?.temperature ?? 0);
+  const [temperature, setTemperature] = useState<number>(initialSession?.temperature ?? 0.0);
+  const [isGameOver, setIsGameOver] = useState<boolean>((initialSession?.temperature ?? 0.0) > 0.8);
+  const [isPrivateThought, setIsPrivateThought] = useState<boolean>(false);
   const [showChat, setShowChat] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [showLog, setShowLog] = useState(false);
@@ -134,8 +136,7 @@ export default function ChatInterface({
               dna: characterDNA || undefined,
               lastVisualPrompt: currentVisualPrompt
             },
-            currentVisualPrompt,
-            temperature
+            currentVisualPrompt
           );
 
           if (result.error) {
@@ -148,9 +149,16 @@ export default function ChatInterface({
           if (result.updatedMemories) {
             setMemoryBank(result.updatedMemories);
           }
-          
+
           if (result.temperatureDelta !== undefined) {
-            setTemperature(prev => Math.min(100, Math.max(0, prev + result.temperatureDelta!)));
+            setTemperature(prev => {
+              const nextTemp = Math.max(0, Math.min(1.0, prev + (result.temperatureDelta || 0)));
+              const rounded = parseFloat(nextTemp.toFixed(2));
+              if (rounded > 0.8) {
+                setIsGameOver(true);
+              }
+              return rounded;
+            });
           }
 
           const finalMessages: Message[] = [...messages, { role: 'model', text: result.reply }];
@@ -256,14 +264,18 @@ export default function ChatInterface({
       }, 5000); // Debounce auto-save
       return () => clearTimeout(timer);
     }
-  }, [messages, characterDNA, bgImage, currentVisualPrompt, apiBaseUrl, imageWidth, imageHeight, imageSteps, enableLora, loraName, loraStrength, memoryBank, temperature]);
+  }, [messages, characterDNA, bgImage, currentVisualPrompt, apiBaseUrl, imageWidth, imageHeight, imageSteps, enableLora, loraName, loraStrength, memoryBank]);
 
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if (!input.trim() || isLoading || isGameOver) return;
 
     setLastSendFailed(false);
-    const userMessage: Message = { role: 'user', text: input.trim() };
+    const userMessage: Message = { 
+      role: 'user', 
+      text: input.trim(),
+      isPrivate: isPrivateThought
+    };
     const updatedMessages: Message[] = [...messages, userMessage];
     setMessages(updatedMessages);
     setInput('');
@@ -281,8 +293,7 @@ export default function ChatInterface({
         dna: characterDNA || undefined,
         lastVisualPrompt: currentVisualPrompt
       },
-      currentVisualPrompt,
-      temperature
+      currentVisualPrompt
     );
 
     if (result.error) {
@@ -295,9 +306,17 @@ export default function ChatInterface({
     if (result.updatedMemories) {
       setMemoryBank(result.updatedMemories);
     }
-    
+
+    // Process Temperature Delta
     if (result.temperatureDelta !== undefined) {
-      setTemperature(prev => Math.min(100, Math.max(0, prev + result.temperatureDelta!)));
+      setTemperature(prev => {
+        const nextTemp = Math.max(0, Math.min(1.0, prev + (result.temperatureDelta || 0)));
+        const rounded = parseFloat(nextTemp.toFixed(2));
+        if (rounded > 0.8) {
+          setIsGameOver(true);
+        }
+        return rounded;
+      });
     }
 
     const finalMessages: Message[] = [...updatedMessages, { role: 'model', text: result.reply }];
@@ -329,7 +348,7 @@ export default function ChatInterface({
   };
 
   const handleRetry = async () => {
-    if (messages.length === 0 || isLoading) return;
+    if (messages.length === 0 || isLoading || isGameOver) return;
     const lastMessage = messages[messages.length - 1];
     if (lastMessage.role !== 'user') return;
 
@@ -361,6 +380,17 @@ export default function ChatInterface({
 
     if (result.updatedMemories) {
       setMemoryBank(result.updatedMemories);
+    }
+
+    if (result.temperatureDelta !== undefined) {
+      setTemperature(prev => {
+        const nextTemp = Math.max(0, Math.min(1.0, prev + (result.temperatureDelta || 0)));
+        const rounded = parseFloat(nextTemp.toFixed(2));
+        if (rounded > 0.8) {
+          setIsGameOver(true);
+        }
+        return rounded;
+      });
     }
 
     const finalMessages: Message[] = [...messages, { role: 'model', text: result.reply }];
@@ -457,13 +487,31 @@ export default function ChatInterface({
             </button>
             <div className="flex flex-col">
               <h2 className="font-serif font-bold text-white text-lg leading-none">Roleplay Session</h2>
-              <span className="text-[9px] uppercase tracking-[0.2em] text-accent font-bold mt-1">Mature & Immersive</span>
+              <span className="text-[9px] uppercase tracking-[0.2em] text-accent font-bold mt-1">Bengali Roleplay Game</span>
+            </div>
+
+            {/* Temperature Meter */}
+            <div className="flex items-center gap-2 bg-black/40 border border-white/10 px-3 py-1.5 rounded-2xl ml-auto md:ml-4">
+              <Thermometer size={16} className={temperature > 0.7 ? "text-red-400 animate-pulse" : temperature > 0.4 ? "text-yellow-400" : "text-emerald-400"} />
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] uppercase font-bold text-white/40 tracking-wider">Temp:</span>
+                  <span className={`text-xs font-mono font-bold ${temperature > 0.7 ? "text-red-400" : temperature > 0.4 ? "text-yellow-400" : "text-emerald-400"}`}>
+                    {(temperature * 100).toFixed(0)}%
+                  </span>
+                  {temperature > 0.8 && (
+                    <span className="text-[8px] bg-red-500/30 text-red-300 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider animate-pulse">Limit Exceeded</span>
+                  )}
+                </div>
+                <div className="w-20 h-1.5 bg-white/10 rounded-full overflow-hidden mt-0.5">
+                  <div 
+                    className={`h-full transition-all duration-500 rounded-full ${temperature > 0.7 ? "bg-red-500" : temperature > 0.4 ? "bg-yellow-400" : "bg-emerald-400"}`}
+                    style={{ width: `${Math.min(100, temperature * 100)}%` }}
+                  />
+                </div>
+              </div>
             </div>
             <div className="flex items-center gap-1 ml-auto">
-              <div className="hidden md:flex items-center gap-2 mr-4 bg-white/5 border border-white/10 rounded-full px-3 py-1" title="Intimacy/Arousal Temperature">
-                <span className="text-[10px] uppercase font-bold text-white/50 tracking-wider">Temp</span>
-                <span className="text-sm font-bold text-accent">{temperature}°</span>
-              </div>
               <button
                 onClick={() => setShowLog(!showLog)}
                 className={`p-2 rounded-lg transition-colors ${showLog ? 'bg-accent text-white' : 'hover:bg-white/5 text-white/60'}`}
@@ -677,6 +725,54 @@ export default function ChatInterface({
                   </div>
                 </div>
 
+                {/* Temperature Controls & Debugging */}
+                <div className="flex flex-col gap-3 p-4 bg-red-950/20 border border-red-500/20 rounded-2xl">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Thermometer size={16} className="text-red-400" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-white">Temperature Controls (Debug)</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTemperature(0.0);
+                        setIsGameOver(false);
+                      }}
+                      className="flex items-center gap-1.5 text-[10px] bg-red-500/20 hover:bg-red-500/30 text-red-300 font-bold px-2.5 py-1 rounded-lg border border-red-500/30 transition-all cursor-pointer"
+                    >
+                      <RotateCcw size={12} />
+                      Reset to 0.0
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-white/60">Current Temperature:</span>
+                      <span className={`font-mono font-bold ${temperature > 0.8 ? 'text-red-400 animate-pulse' : temperature > 0.5 ? 'text-yellow-400' : 'text-emerald-400'}`}>
+                        {temperature.toFixed(2)} / 1.00 ({Math.round(temperature * 100)}%)
+                      </span>
+                    </div>
+                    <input 
+                      type="range"
+                      min="0.0"
+                      max="1.0"
+                      step="0.02"
+                      value={temperature}
+                      onChange={e => {
+                        const val = parseFloat(e.target.value);
+                        setTemperature(val);
+                        if (val > 0.8) {
+                          setIsGameOver(true);
+                        } else {
+                          setIsGameOver(false);
+                        }
+                      }}
+                      className="w-full accent-red-500 h-2 bg-black/40 rounded-lg cursor-pointer"
+                    />
+                    <p className="text-[9px] text-white/30 italic">If temperature exceeds 0.8, the game over limit is triggered.</p>
+                  </div>
+                </div>
+
                 <div className="flex flex-col gap-3 p-3 bg-white/5 rounded-xl border border-white/10">
                   <div className="flex items-center justify-between">
                     <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -717,20 +813,6 @@ export default function ChatInterface({
                         className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white disabled:opacity-50"
                       />
                     </div>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-3 p-3 bg-white/5 rounded-xl border border-white/10">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Debug Temperature (0-100)</label>
-                    <input 
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={temperature}
-                      onChange={e => setTemperature(parseInt(e.target.value) || 0)}
-                      className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white"
-                    />
                   </div>
                 </div>
 
@@ -847,9 +929,17 @@ export default function ChatInterface({
                   )}
                   <div className={`p-4 md:p-5 rounded-2xl md:rounded-3xl ${
                     msg.role === 'user' 
-                      ? 'bg-accent text-white' 
+                      ? msg.isPrivate
+                        ? 'bg-purple-950/80 border border-purple-500/40 text-purple-100 shadow-lg'
+                        : 'bg-accent text-white' 
                       : 'glass-panel text-white/90'
                   }`}>
+                    {msg.isPrivate && (
+                      <div className="flex items-center gap-1.5 text-[10px] text-purple-300 font-bold uppercase tracking-wider mb-2 pb-1 border-b border-purple-500/30 select-none">
+                        <Lock size={12} className="text-purple-400" />
+                        <span>Private Internal Thought (AI Cannot Read This)</span>
+                      </div>
+                    )}
                     <div className="markdown-body text-sm md:text-base leading-snug md:leading-relaxed">
                       <Markdown>{msg.text}</Markdown>
                     </div>

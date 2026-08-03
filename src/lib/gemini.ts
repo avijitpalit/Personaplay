@@ -9,6 +9,7 @@ export function setGlobalModel(modelName: string) {
 export interface Message {
   role: "user" | "model";
   text: string;
+  isPrivate?: boolean;
 }
 
 // Use a custom key if provided, otherwise fall back to the system default
@@ -28,16 +29,16 @@ export function parseChatResponse(
   text: string, 
   currentMemory: string = "", 
   lastVisualPrompt?: string
-): { reply: string; updatedMemories: string; lastVisualPrompt?: string; temperatureDelta?: number } {
+): { reply: string; updatedMemories: string; lastVisualPrompt?: string; temperatureDelta: number } {
   let reply = text.trim();
   let updatedMemories = currentMemory;
   let visualPrompt = lastVisualPrompt;
-  let temperatureDelta: number | undefined = undefined;
+  let temperatureDelta = 0;
 
-  const replyRegex = /\[REPLY\]([\s\S]*?)(\[\/REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|\[TEMPERATURE_CHANGE\]|$)/i;
-  const memoryRegex = /\[MEMORIES\]([\s\S]*?)(\[\/MEMORIES\]|\[REPLY\]|\[VISUAL_PROMPT\]|\[TEMPERATURE_CHANGE\]|$)/i;
-  const promptRegex = /\[VISUAL_PROMPT\]([\s\S]*?)(\[\/VISUAL_PROMPT\]|\[REPLY\]|\[MEMORIES\]|\[TEMPERATURE_CHANGE\]|$)/i;
-  const tempRegex = /\[TEMPERATURE_CHANGE\]([\s\S]*?)(\[\/TEMPERATURE_CHANGE\]|\[REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|$)/i;
+  const replyRegex = /\[REPLY\]([\s\S]*?)(\[\/REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|\[TEMP_DELTA\]|$)/i;
+  const memoryRegex = /\[MEMORIES\]([\s\S]*?)(\[\/MEMORIES\]|\[REPLY\]|\[VISUAL_PROMPT\]|\[TEMP_DELTA\]|$)/i;
+  const promptRegex = /\[VISUAL_PROMPT\]([\s\S]*?)(\[\/VISUAL_PROMPT\]|\[REPLY\]|\[MEMORIES\]|\[TEMP_DELTA\]|$)/i;
+  const tempRegex = /\[TEMP_DELTA\]([\s\S]*?)(\[\/TEMP_DELTA\]|\[REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|$)/i;
 
   const replyMatch = text.match(replyRegex);
   const memoryMatch = text.match(memoryRegex);
@@ -59,13 +60,17 @@ export function parseChatResponse(
     visualPrompt = promptMatch[1].trim();
   }
   if (tempMatch && tempMatch[1]) {
-    const val = parseInt(tempMatch[1].trim(), 10);
+    const val = parseFloat(tempMatch[1].trim());
     if (!isNaN(val)) temperatureDelta = val;
   }
 
   // If tags are completely missing, fall back to returning whole text as reply
-  if (!replyMatch && !memoryMatch && !promptMatch && !tempMatch) {
-    const cleanText = text.replace(/\[\/?REPLY\]/gi, '').replace(/\[\/?MEMORIES\]/gi, '').replace(/\[\/?VISUAL_PROMPT\]/gi, '').replace(/\[\/?TEMPERATURE_CHANGE\]/gi, '').trim();
+  if (!replyMatch && !memoryMatch && !promptMatch) {
+    const cleanText = text.replace(/\[\/?REPLY\]/gi, '')
+      .replace(/\[\/?MEMORIES\]/gi, '')
+      .replace(/\[\/?VISUAL_PROMPT\]/gi, '')
+      .replace(/\[\/?TEMP_DELTA\]/gi, '')
+      .trim();
     reply = cleanText;
   }
 
@@ -121,9 +126,9 @@ export async function generateInitialSetup(
   - You MUST generate the entire output in English.
 
   PART 1: CHARACTER DNA BLUEPRINTS
-  For EACH active AI character, provide highly specific physical definitions (for example: hair, eyes, face definition, body shape etc.). By default, assume the AI character is Indian (Bengali) unless the scenario states otherwise.
+  For EACH active AI character, provide highly specific physical definitions (for example: hair, eyes, face definition, body shape etc.)
 
-  USER CHARACTER (MINIMAL PROFILE, default is Male, 32 yo, Indian/Bengali):
+  USER CHARACTER (MINIMAL PROFILE, default is Male, 32 yo):
   Define a brief, minimal visual profile for the "User" or "Player" character. Keep it extremely simple.
 
   PART 2: INITIAL VISUAL PROMPT
@@ -293,12 +298,11 @@ export async function getChatResponse(
     dna?: string, 
     lastVisualPrompt?: string 
   },
-  lastVisualPrompt?: string,
-  currentTemperature?: number
+  lastVisualPrompt?: string
 ): Promise<ChatResult> {
-  const systemInstruction = `You are an expert roleplayer and master image prompt engineer. Generate AI reply based on these settings.
+  const systemInstruction = `You are an expert roleplayer and master image prompt engineer in an interactive Bengali roleplay game.
   
-  INITIAL SETTING:
+  INITIAL SETTING (CRITICAL - INFER CHARACTER SENSITIVITY & MODESTY FROM THIS):
   ${scenario}
 
   DYNAMIC MEMORY BANK (Cumulative past key facts/developments so far):
@@ -310,70 +314,66 @@ export async function getChatResponse(
   PREVIOUS VISUAL PROMPT (Use strictly as reference for styling/clothing continuity, do NOT copy same pose):
   ${lastVisualPrompt?.trim() ? lastVisualPrompt : "None yet."}
 
-  CURRENT INTIMACY/AROUSAL TEMPERATURE: ${currentTemperature !== undefined ? currentTemperature : 0}/100
+  DEFAULT LANGUAGE & NATIONALITY DIRECTIVES:
+  1. DEFAULT ROLEPLAY LANGUAGE: Bengali (বাংলা). The AI character MUST speak and express dialogue in natural, emotionally resonant Bengali (বাংলা) by default, unless the user explicitly switches language in dialogue.
+  2. DEFAULT NATIONALITY & CULTURAL CONTEXT: Indian Bengali (ভারত / পশ্চিমবঙ্গ / দক্ষিণ এশীয় ঐতিহ্যিক পরিবেশ). Characters have authentic Indian Bengali cultural traits, names, and visual aesthetics.
 
-  CORE DIRECTIVES FOR CHARACTER CONSISTENCY:
-  1. You are the AI character(s) described in the scenario. By default, your nationality is Indian (Bengali).
-  2. Remember all previous interactions, details shared in the chat history, and key context in the DYNAMIC MEMORY BANK.
-  3. Respond as a real person would, with depth, desire, and personality. MUST not sound like AI.
-  4. LANGUAGE RULE: The AI character's dialogue and narration in the [REPLY] block MUST be entirely in Bengali language (Bangla script), unless the scenario explicitly demands English.
-  
-  INNER THOUGHTS RULE (CRITICAL):
-  - The User's input may contain their inner thoughts (usually enclosed in asterisks *I think this* or parentheses).
-  - Your character CANNOT read minds. They can only hear spoken words and see physical actions.
-  - Do NOT let the AI character react to or acknowledge the User's inner thoughts. Respond ONLY to visible actions and audible dialogue.
+  PERCEPTION ISOLATION RULE (CRITICAL):
+  - The AI character can ONLY perceive external, spoken dialogue and visible physical actions of the User.
+  - The AI character CANNOT read, perceive, or know the User's internal private thoughts, secret plans, or unexecuted intentions. Respond strictly to what the User says out loud or physically does in the shared environment.
 
-  ROLEPLAY GUIDELINES:
-  1. The roleplay is intended for a mature audience. It should be sophisticated, emotionally resonant, and can be "spicy" or romantic as requested by the user's scenario.
-  2. Conversations/Chats can be in Bengali or Hinglish language if the story foundation suggests.
+  GAME MECHANIC - TEMPERATURE & DYNAMIC BOUNDARY DELTA (CRITICAL):
+  - Read and analyze the character's modesty, shyness, traditional values, and boundaries strictly from what is written in the INITIAL SETTING above.
+  - Every time the User tries to corrupt, touch body parts, or initiate physical intimacy with the AI character, calculate the temperature increase/delta according to how that specific character would react:
+    * If the INITIAL SETTING describes the character as modest, shy, traditional, conservative, or reserved: Uninvited physical touch, corruptive moves, washing back, or intimacy causes HIGH temperature increase (+0.20 to +0.35 per touch/action).
+    * If the INITIAL SETTING describes the character as moderately open or balanced: Medium temperature increase (+0.10 to +0.20 per touch/action).
+    * If the INITIAL SETTING describes the character as bold, shameless, or highly receptive: Low temperature increase (+0.05 to +0.12 per touch/action).
+    * Respectful speech, polite dialogue, or stepping back: Decreases temperature (-0.05 to -0.15).
+    * Neutral conversation: Delta is 0.00.
+  - Output the delta float value clearly in a [TEMP_DELTA] block (e.g., [TEMP_DELTA]+0.25[/TEMP_DELTA]).
 
-  RESPONSE GENERATION & DYNAMIC UPDATES (CRITICAL):
-  You MUST output exactly FOUR structured blocks in your complete response:
-  
-  1. [REPLY] block: Write the AI character's standard roleplay response in-character.
-  
-  2. [MEMORIES] block: Update the DYNAMIC MEMORY BANK (maintain a bulleted list in English of up to 10 absolute key persistent facts/milestones about the user, relationships, choices, clothes, or setting items).
-  
-  3. [VISUAL_PROMPT] block: Write a single, highly detailed visual prompt paragraph (180-240 words) in English describing the exact frozen scene right after this [REPLY] action.
-     
-     VISUAL PROMPT RULES (KREA V2 FOCUS):
-     - NATURAL LANGUAGE: Avoid prompt-salad. Write a cohesive, flowing paragraph that reads like a vivid description of a photograph.
-     - FIRST-PERSON POV & CAMERA DISTANCE: The camera perspective MUST be a strict first-person point-of-view of the User character (eye-level). If the User touches the AI character, washes their back, or is physically close, the camera MUST move closer (e.g., extreme close-up, macro shot, over-the-shoulder). In close contact, you MUST explicitly describe first-person elements like "first-person view of my hands doing [action]".
-     - DYNAMIC GAZE: Characters gaze matches the recent action logically.
-     - REALISM & PHOTOGRAPHY: Emphasize extreme photorealism, physical authenticity, and tactile details (skin texture).
-     - OUTFIT CONSISTENCY: The attire must match previous visuals unless changed.
+  DYNAMIC CAMERA PROXIMITY & POINT OF VIEW IN VISUAL PROMPTS:
+  - Adjust the camera distance dynamically based on the exact physical interaction in the recent turn:
+    * EXTREME CLOSE-UP / PHYSICAL CONTACT: If the interaction involves intimate touch or physical contact (e.g., washing back with soap, touching face, holding hands, caressing), specify a first-person close-up POV showing the user's hand/arm performing the physical action on that exact body part (e.g. "First-person close-up macro POV shot, showing the user's wet soapy hand washing the bare back of the Bengali woman...").
+    * CLOSE-UP POV: Seated close, whispering, or gazing.
+    * MEDIUM POV: Seated across a table or standing nearby.
+    * WIDE POV: Room entry or moving across space.
+  - Always use explicit Indian Bengali descriptors ("Indian Bengali woman", "authentic South Asian facial features").
 
-  4. [TEMPERATURE_CHANGE] block: Output a SINGLE NUMBER representing the change in the character's intimacy/arousal temperature based on the User's actions in this turn.
-     - E.g., a modest character might have high fluctuation or negative reaction (e.g. -10 or +15) depending on context. 
-     - A simple friendly action might be +2. A highly explicit/corrupting action could be +15 or +20. Output ONLY the number (e.g. 5, -5, 12).
+  RESPONSE GENERATION & DYNAMIC UPDATES:
+  You MUST output FOUR structured blocks in your complete response:
+  
+  1. [REPLY] block: Write the AI character's standard roleplay response in Bengali (বাংলা) in-character.
+  
+  2. [TEMP_DELTA] block: Output the temperature change float (e.g. +0.25, +0.10, -0.05, or 0.00).
+
+  3. [MEMORIES] block: Update the DYNAMIC MEMORY BANK (maintain a bulleted list in English of up to 10 persistent facts).
+  
+  4. [VISUAL_PROMPT] block: Write a single, highly detailed visual prompt paragraph (180-240 words) in English describing the exact frozen scene right after this [REPLY] action.
 
   FORMAT REQUIREMENT:
-  Your output MUST look exactly like this:
   [REPLY]
-  <AI reply text here>
+  <AI reply text in Bengali here>
   [/REPLY]
+  [TEMP_DELTA]
+  +0.20
+  [/TEMP_DELTA]
   [MEMORIES]
   - <Fact 1>
   - <Fact 2>
   [/MEMORIES]
   [VISUAL_PROMPT]
-  <Visual prompt paragraph text here>
-  [/VISUAL_PROMPT]
-  [TEMPERATURE_CHANGE]
-  <Number here>
-  [/TEMPERATURE_CHANGE]`;
+  <Visual prompt paragraph text in English here>
+  [/VISUAL_PROMPT]`;
+
+  // Filter out private thoughts from chat history passed to AI model
+  const publicHistory = history.filter(m => !m.isPrivate);
 
   if (externalApiConfig?.apiBaseUrl) {
     try {
       const url = externalApiConfig.apiBaseUrl.endsWith('/') ? `${externalApiConfig.apiBaseUrl}t2t` : `${externalApiConfig.apiBaseUrl}/t2t`;
       
-      const historyText = history.slice(-10).map(m => {
-        if (m.role === 'user') {
-          return `User: [User's past action/dialogue hidden for realism]`;
-        }
-        return `AI: ${m.text}`;
-      }).join('\n');
-      const fullPrompt = `${systemInstruction}\n\nChat History:\n${historyText}\n\nUser: ${userInput}\nAI:`;
+      const historyText = publicHistory.slice(-10).map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join('\n');
 
       const response = await fetch(url, {
         method: 'POST',
@@ -387,45 +387,32 @@ export async function getChatResponse(
         const text = await response.text();
         const parsed = parseChatResponse(text || "", memoryBank || "", lastVisualPrompt);
         return {
-          reply: parsed.reply || "I'm lost in the moment... what were you saying?",
+          reply: parsed.reply || "আমি কিছুক্ষণের জন্য বিভ্রান্ত হয়ে পড়েছিলাম... কী বলছিলে তুমি?",
           updatedMemories: parsed.updatedMemories,
-          lastVisualPrompt: parsed.lastVisualPrompt
+          lastVisualPrompt: parsed.lastVisualPrompt,
+          temperatureDelta: parsed.temperatureDelta
         };
       } else {
-        return { reply: "The connection seems to have flickered. Let's try that again.", error: true };
+        return { reply: "সংযোগটি সাময়িকভাবে বিচ্ছিন্ন হয়ে গিয়েছিল। অনুগ্রহ করে আবার চেষ্টা করুন।", error: true };
       }
     } catch (e) {
       console.error("External Chat Error:", e);
-      return { reply: "The connection seems to have flickered. Let's try that again.", error: true };
+      return { reply: "সংযোগটি সাময়িকভাবে বিচ্ছিন্ন হয়ে গিয়েছিল। অনুগ্রহ করে আবার চেষ্টা করুন।", error: true };
     }
   }
 
   const ai = getAI();
 
   try {
-    // Slice history to the last 14 messages (approx. 7 back-and-forth turns) to control cost and latency.
-    // The details from prior chat turns are preserved/updated in the DYNAMIC MEMORY BANK.
-    const recentHistory = history.slice(-14);
-
-    const formattedHistory = recentHistory.map(m => {
-      if (m.role === 'user') {
-        // Obfuscate past user inputs so the AI character cannot "read" the user's past chat history/inner thoughts,
-        // making the interaction more realistic. The AI must rely on the Memory Bank and its own past replies.
-        return {
-          role: "user" as const,
-          parts: [{ text: "[User's past action/dialogue. AI character remembers the gist via memory bank, but cannot read the exact transcript or inner thoughts.]" }]
-        };
-      }
-      return {
-        role: "model" as const,
-        parts: [{ text: m.text }]
-      };
-    });
+    const recentHistory = publicHistory.slice(-14);
 
     const response = await ai.models.generateContent({
       model: MODEL,
       contents: [
-        ...formattedHistory,
+        ...recentHistory.map(m => ({
+          role: m.role as "user" | "model",
+          parts: [{ text: m.text }]
+        })),
         {
           role: "user",
           parts: [{ text: userInput }]
@@ -445,13 +432,14 @@ export async function getChatResponse(
 
     const parsed = parseChatResponse(response.text || "", memoryBank || "", lastVisualPrompt);
     return { 
-      reply: parsed.reply || "I'm lost in the moment... what were you saying?",
+      reply: parsed.reply || "আমি কিছুক্ষণের জন্য বিভ্রান্ত হয়ে পড়েছিলাম... কী বলছিলে তুমি?",
       updatedMemories: parsed.updatedMemories,
-      lastVisualPrompt: parsed.lastVisualPrompt
+      lastVisualPrompt: parsed.lastVisualPrompt,
+      temperatureDelta: parsed.temperatureDelta
     };
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return { reply: "The connection seems to have flickered. Let's try that again.", error: true };
+    return { reply: "সংযোগটি সাময়িকভাবে বিচ্ছিন্ন হয়ে গিয়েছিল। অনুগ্রহ করে আবার চেষ্টা করুন।", error: true };
   }
 }
 
@@ -499,10 +487,12 @@ export async function generateVisualPrompt(
 
   PROMPTING RULES:
   
-  1. CAMERA PERSPECTIVE (MANDATORY FIRST-PERSON POV):
-     - The camera perspective MUST ALWAYS be a strict first-person point-of-view of the User character, positioned exactly at the User's eyes (eye-level, line of sight), looking directly at the AI character(s) in front of them.
-     - The User character acts as the camera itself. The User is completely invisible to the frame (no shoulders, no hands, no hair, no neck of the User should be in-frame).
-     - The camera should be at the exact eye level of the User, creating an immersive point-of-view experience where the AI character looks and interacts directly towards the camera/lens.
+  1. CAMERA PERSPECTIVE & DYNAMIC PROXIMITY (MANDATORY FIRST-PERSON POV):
+     - The camera perspective MUST be a strict first-person point-of-view of the User character, positioned relative to the physical distance of the action:
+       * PHYSICAL CONTACT / TOUCH (e.g. washing back with soap, holding hands, caressing face, touching body): First-person extreme close-up POV showing the user's hand/arm performing the exact physical action on that specific body part (e.g., 'First-person macro POV shot, showing the user's wet hand holding a soap bar washing the smooth bare back of the Bengali woman...').
+       * CLOSE CONVERSATION: Eye-level close-up POV looking directly at the AI character's eyes.
+       * MEDIUM / WIDE: Seated or standing across the room.
+     - The User character acts as the camera itself. Unless showing hands/arms during physical contact, the User is invisible to the frame.
   
   2. NATURAL LANGUAGE FOR KREA V2: Krea V2 understands natural, descriptive language best. Avoid prompt-salad or comma-separated tags (like "8k, masterpiece, ultra-detailed"). Instead, write a cohesive, flowing paragraph that reads like a vivid description of a photograph. Group subjects with their own attributes and actions. Use grounded phrasing for poses, interactions, and spatial layout. Do not invent highly specific clothing, colors, or materials unless the input supports them. If you need text rendered in the image, put quotes around the exact words.
   

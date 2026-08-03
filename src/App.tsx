@@ -9,8 +9,14 @@ export default function App() {
   const [apiBaseUrl, setApiBaseUrl] = useState('https://odorful-hsiu-unmaledictory.ngrok-free.dev');
   const [useInternalApi, setUseInternalApi] = useState(false);
   const [selectedModel, setSelectedModel] = useState('gemma-4-31b-it');
+  const [characterModesty, setCharacterModesty] = useState<'modest' | 'balanced' | 'bold'>('modest');
 
-  const handleStart = (newScenario: string, internalMode: boolean, baseUrl: string, model: string) => {
+  const handleStart = (
+    newScenario: string, 
+    internalMode: boolean, 
+    baseUrl: string, 
+    model: string
+  ) => {
     setScenario(newScenario);
     setUseInternalApi(internalMode);
     setApiBaseUrl(baseUrl);
@@ -23,6 +29,7 @@ export default function App() {
     setUseInternalApi(session.useInternalApi || false);
     setApiBaseUrl(session.apiBaseUrl || 'https://odorful-hsiu-unmaledictory.ngrok-free.dev');
     setSelectedModel((session as any).selectedModel || 'gemma-4-31b-it');
+    if (session.characterModesty) setCharacterModesty(session.characterModesty);
     setLoadedSession(session);
   };
 
@@ -44,6 +51,7 @@ export default function App() {
             initialApiBaseUrl={apiBaseUrl}
             initialUseInternalApi={useInternalApi}
             selectedModel={selectedModel}
+            initialCharacterModesty={characterModesty}
             onBack={() => {
               setScenario(null);
               setLoadedSession(null);

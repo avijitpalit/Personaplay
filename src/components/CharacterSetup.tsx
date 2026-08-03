@@ -14,7 +14,7 @@ export default function CharacterSetup({
   onLoadSession, 
   initialApiBaseUrl = 'https://odorful-hsiu-unmaledictory.ngrok-free.dev'
 }: CharacterSetupProps) {
-  const [scenario, setScenario] = useState('');
+  const [scenario, setScenario] = useState('আমি এবং অনন্যা, কলকাতার এক বৃষ্টিভেজা বিকেলে বারান্দায় বসে চা খাচ্ছি। অনন্যা অত্যন্ত শালীন, ঐতিহ্যবাহী শাড়ি পরিহিত এবং লাজুক প্রকৃতির এক বাঙালি তরুণী। বাইরে অবিরাম বৃষ্টি পড়ছে, আর আমরা কথা বলছি...');
   const [sessions, setSessions] = useState<Session[]>([]);
   const [apiBaseUrl, setApiBaseUrl] = useState(initialApiBaseUrl);
   const [useInternalApi, setUseInternalApi] = useState(false);
@@ -54,12 +54,16 @@ export default function CharacterSetup({
       >
         <div className="space-y-6">
           <div>
-            <label className="block text-[10px] uppercase tracking-[0.3em] text-white/40 mb-4 font-bold">Roleplay Scenario & Character Details</label>
+            <div className="flex justify-between items-center mb-4">
+              <label className="block text-[10px] uppercase tracking-[0.3em] text-white/40 font-bold">Roleplay Scenario & Character Details</label>
+              <span className="text-[10px] text-accent/80 font-bold uppercase tracking-wider">Default: Bengali Indian Roleplay</span>
+            </div>
+
             <textarea 
               value={scenario}
               onChange={e => setScenario(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-5 focus:outline-none focus:border-accent/50 min-h-[250px] text-lg leading-relaxed placeholder:text-white/20 transition-all resize-none"
-              placeholder="Example: I'm meeting a mysterious stranger at a dimly lit jazz club for our first date. They are sophisticated, slightly dangerous, and very charming. The air is thick with the smell of rain and expensive perfume..."
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-5 focus:outline-none focus:border-accent/50 min-h-[200px] text-lg leading-relaxed placeholder:text-white/20 transition-all resize-none"
+              placeholder="উদাহরণ: আমি এবং অনন্যা কলকাতার এক বৃষ্টিভেজা বিকেলে বারান্দায় বসে চা খাচ্ছি..."
             />
           </div>
 
@@ -104,7 +108,7 @@ export default function CharacterSetup({
           
           <div className="flex items-center gap-3 text-xs text-white/30 italic px-2">
             <Sparkles size={14} className="text-accent" />
-            <span>The AI will adapt to your tone and the complexity of your description.</span>
+            <span>বাংলা ভাষা ও ভারতীয় সংস্কৃতিসহ ইন্টারেক্টিভ রোলপ্লে সক্রিয়।</span>
           </div>
 
           <button 
