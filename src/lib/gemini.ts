@@ -121,9 +121,9 @@ export async function generateInitialSetup(
   - You MUST generate the entire output in English.
 
   PART 1: CHARACTER DNA BLUEPRINTS
-  For EACH active AI character, provide highly specific physical definitions (for example: hair, eyes, face definition, body shape etc.)
+  For EACH active AI character, provide highly specific physical definitions (for example: hair, eyes, face definition, body shape etc.). By default, assume the AI character is Indian (Bengali) unless the scenario states otherwise.
 
-  USER CHARACTER (MINIMAL PROFILE, default is Male, 32 yo):
+  USER CHARACTER (MINIMAL PROFILE, default is Male, 32 yo, Indian/Bengali):
   Define a brief, minimal visual profile for the "User" or "Player" character. Keep it extremely simple.
 
   PART 2: INITIAL VISUAL PROMPT
@@ -313,9 +313,10 @@ export async function getChatResponse(
   CURRENT INTIMACY/AROUSAL TEMPERATURE: ${currentTemperature !== undefined ? currentTemperature : 0}/100
 
   CORE DIRECTIVES FOR CHARACTER CONSISTENCY:
-  1. You are the AI character(s) described in the scenario.
+  1. You are the AI character(s) described in the scenario. By default, your nationality is Indian (Bengali).
   2. Remember all previous interactions, details shared in the chat history, and key context in the DYNAMIC MEMORY BANK.
   3. Respond as a real person would, with depth, desire, and personality. MUST not sound like AI.
+  4. LANGUAGE RULE: The AI character's dialogue and narration in the [REPLY] block MUST be entirely in Bengali language (Bangla script), unless the scenario explicitly demands English.
   
   INNER THOUGHTS RULE (CRITICAL):
   - The User's input may contain their inner thoughts (usually enclosed in asterisks *I think this* or parentheses).
