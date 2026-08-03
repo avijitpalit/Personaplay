@@ -21,6 +21,7 @@ export interface Session {
   enableLora?: boolean;
   loraName?: string;
   loraStrength?: number;
+  temperature?: number;
   createdAt: number;
   updatedAt: number;
 }

@@ -43,6 +43,7 @@ export default function ChatInterface({
   const [enableLora, setEnableLora] = useState<boolean>(initialSession?.enableLora ?? true);
   const [loraName, setLoraName] = useState<string>(initialSession?.loraName || 'Krea2_HMNSFW_AIO.safetensors');
   const [loraStrength, setLoraStrength] = useState<number>(initialSession?.loraStrength ?? initialLoraStrength);
+  const [temperature, setTemperature] = useState<number>(initialSession?.temperature ?? 0);
   const [showChat, setShowChat] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [showLog, setShowLog] = useState(false);
@@ -133,7 +134,8 @@ export default function ChatInterface({
               dna: characterDNA || undefined,
               lastVisualPrompt: currentVisualPrompt
             },
-            currentVisualPrompt
+            currentVisualPrompt,
+            temperature
           );
 
           if (result.error) {
@@ -145,6 +147,10 @@ export default function ChatInterface({
 
           if (result.updatedMemories) {
             setMemoryBank(result.updatedMemories);
+          }
+          
+          if (result.temperatureDelta !== undefined) {
+            setTemperature(prev => Math.min(100, Math.max(0, prev + result.temperatureDelta!)));
           }
 
           const finalMessages: Message[] = [...messages, { role: 'model', text: result.reply }];
@@ -228,7 +234,8 @@ export default function ChatInterface({
         imageSteps,
         enableLora,
         loraName,
-        loraStrength
+        loraStrength,
+        temperature
       });
       setSessionId(saved.id);
       setSaveSuccess(true);
@@ -249,7 +256,7 @@ export default function ChatInterface({
       }, 5000); // Debounce auto-save
       return () => clearTimeout(timer);
     }
-  }, [messages, characterDNA, bgImage, currentVisualPrompt, apiBaseUrl, imageWidth, imageHeight, imageSteps, enableLora, loraName, loraStrength, memoryBank]);
+  }, [messages, characterDNA, bgImage, currentVisualPrompt, apiBaseUrl, imageWidth, imageHeight, imageSteps, enableLora, loraName, loraStrength, memoryBank, temperature]);
 
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -274,7 +281,8 @@ export default function ChatInterface({
         dna: characterDNA || undefined,
         lastVisualPrompt: currentVisualPrompt
       },
-      currentVisualPrompt
+      currentVisualPrompt,
+      temperature
     );
 
     if (result.error) {
@@ -286,6 +294,10 @@ export default function ChatInterface({
 
     if (result.updatedMemories) {
       setMemoryBank(result.updatedMemories);
+    }
+    
+    if (result.temperatureDelta !== undefined) {
+      setTemperature(prev => Math.min(100, Math.max(0, prev + result.temperatureDelta!)));
     }
 
     const finalMessages: Message[] = [...updatedMessages, { role: 'model', text: result.reply }];
@@ -448,6 +460,10 @@ export default function ChatInterface({
               <span className="text-[9px] uppercase tracking-[0.2em] text-accent font-bold mt-1">Mature & Immersive</span>
             </div>
             <div className="flex items-center gap-1 ml-auto">
+              <div className="hidden md:flex items-center gap-2 mr-4 bg-white/5 border border-white/10 rounded-full px-3 py-1" title="Intimacy/Arousal Temperature">
+                <span className="text-[10px] uppercase font-bold text-white/50 tracking-wider">Temp</span>
+                <span className="text-sm font-bold text-accent">{temperature}°</span>
+              </div>
               <button
                 onClick={() => setShowLog(!showLog)}
                 className={`p-2 rounded-lg transition-colors ${showLog ? 'bg-accent text-white' : 'hover:bg-white/5 text-white/60'}`}
@@ -701,6 +717,20 @@ export default function ChatInterface({
                         className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white disabled:opacity-50"
                       />
                     </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 p-3 bg-white/5 rounded-xl border border-white/10">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Debug Temperature (0-100)</label>
+                    <input 
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={temperature}
+                      onChange={e => setTemperature(parseInt(e.target.value) || 0)}
+                      className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white"
+                    />
                   </div>
                 </div>
 

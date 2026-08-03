@@ -20,6 +20,7 @@ export interface ChatResult {
   reply: string;
   lastVisualPrompt?: string;
   updatedMemories?: string;
+  temperatureDelta?: number;
   error?: boolean;
 }
 
@@ -27,18 +28,21 @@ export function parseChatResponse(
   text: string, 
   currentMemory: string = "", 
   lastVisualPrompt?: string
-): { reply: string; updatedMemories: string; lastVisualPrompt?: string } {
+): { reply: string; updatedMemories: string; lastVisualPrompt?: string; temperatureDelta?: number } {
   let reply = text.trim();
   let updatedMemories = currentMemory;
   let visualPrompt = lastVisualPrompt;
+  let temperatureDelta: number | undefined = undefined;
 
-  const replyRegex = /\[REPLY\]([\s\S]*?)(\[\/REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|$)/i;
-  const memoryRegex = /\[MEMORIES\]([\s\S]*?)(\[\/MEMORIES\]|\[REPLY\]|\[VISUAL_PROMPT\]|$)/i;
-  const promptRegex = /\[VISUAL_PROMPT\]([\s\S]*?)(\[\/VISUAL_PROMPT\]|\[REPLY\]|\[MEMORIES\]|$)/i;
+  const replyRegex = /\[REPLY\]([\s\S]*?)(\[\/REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|\[TEMPERATURE_CHANGE\]|$)/i;
+  const memoryRegex = /\[MEMORIES\]([\s\S]*?)(\[\/MEMORIES\]|\[REPLY\]|\[VISUAL_PROMPT\]|\[TEMPERATURE_CHANGE\]|$)/i;
+  const promptRegex = /\[VISUAL_PROMPT\]([\s\S]*?)(\[\/VISUAL_PROMPT\]|\[REPLY\]|\[MEMORIES\]|\[TEMPERATURE_CHANGE\]|$)/i;
+  const tempRegex = /\[TEMPERATURE_CHANGE\]([\s\S]*?)(\[\/TEMPERATURE_CHANGE\]|\[REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|$)/i;
 
   const replyMatch = text.match(replyRegex);
   const memoryMatch = text.match(memoryRegex);
   const promptMatch = text.match(promptRegex);
+  const tempMatch = text.match(tempRegex);
 
   if (replyMatch && replyMatch[1]) {
     reply = replyMatch[1].trim();
@@ -54,14 +58,18 @@ export function parseChatResponse(
   if (promptMatch && promptMatch[1]) {
     visualPrompt = promptMatch[1].trim();
   }
+  if (tempMatch && tempMatch[1]) {
+    const val = parseInt(tempMatch[1].trim(), 10);
+    if (!isNaN(val)) temperatureDelta = val;
+  }
 
   // If tags are completely missing, fall back to returning whole text as reply
-  if (!replyMatch && !memoryMatch && !promptMatch) {
-    const cleanText = text.replace(/\[\/?REPLY\]/gi, '').replace(/\[\/?MEMORIES\]/gi, '').replace(/\[\/?VISUAL_PROMPT\]/gi, '').trim();
+  if (!replyMatch && !memoryMatch && !promptMatch && !tempMatch) {
+    const cleanText = text.replace(/\[\/?REPLY\]/gi, '').replace(/\[\/?MEMORIES\]/gi, '').replace(/\[\/?VISUAL_PROMPT\]/gi, '').replace(/\[\/?TEMPERATURE_CHANGE\]/gi, '').trim();
     reply = cleanText;
   }
 
-  return { reply, updatedMemories, lastVisualPrompt: visualPrompt };
+  return { reply, updatedMemories, lastVisualPrompt: visualPrompt, temperatureDelta };
 }
 
 export function parseInitialSetupResponse(text: string): { dna: string; visualPrompt: string } {
@@ -285,7 +293,8 @@ export async function getChatResponse(
     dna?: string, 
     lastVisualPrompt?: string 
   },
-  lastVisualPrompt?: string
+  lastVisualPrompt?: string,
+  currentTemperature?: number
 ): Promise<ChatResult> {
   const systemInstruction = `You are an expert roleplayer and master image prompt engineer. Generate AI reply based on these settings.
   
@@ -301,17 +310,24 @@ export async function getChatResponse(
   PREVIOUS VISUAL PROMPT (Use strictly as reference for styling/clothing continuity, do NOT copy same pose):
   ${lastVisualPrompt?.trim() ? lastVisualPrompt : "None yet."}
 
+  CURRENT INTIMACY/AROUSAL TEMPERATURE: ${currentTemperature !== undefined ? currentTemperature : 0}/100
+
   CORE DIRECTIVES FOR CHARACTER CONSISTENCY:
   1. You are the AI character(s) described in the scenario.
   2. Remember all previous interactions, details shared in the chat history, and key context in the DYNAMIC MEMORY BANK.
   3. Respond as a real person would, with depth, desire, and personality. MUST not sound like AI.
+  
+  INNER THOUGHTS RULE (CRITICAL):
+  - The User's input may contain their inner thoughts (usually enclosed in asterisks *I think this* or parentheses).
+  - Your character CANNOT read minds. They can only hear spoken words and see physical actions.
+  - Do NOT let the AI character react to or acknowledge the User's inner thoughts. Respond ONLY to visible actions and audible dialogue.
 
   ROLEPLAY GUIDELINES:
   1. The roleplay is intended for a mature audience. It should be sophisticated, emotionally resonant, and can be "spicy" or romantic as requested by the user's scenario.
   2. Conversations/Chats can be in Bengali or Hinglish language if the story foundation suggests.
 
   RESPONSE GENERATION & DYNAMIC UPDATES (CRITICAL):
-  You MUST output exactly THREE structured blocks in your complete response:
+  You MUST output exactly FOUR structured blocks in your complete response:
   
   1. [REPLY] block: Write the AI character's standard roleplay response in-character.
   
@@ -320,14 +336,15 @@ export async function getChatResponse(
   3. [VISUAL_PROMPT] block: Write a single, highly detailed visual prompt paragraph (180-240 words) in English describing the exact frozen scene right after this [REPLY] action.
      
      VISUAL PROMPT RULES (KREA V2 FOCUS):
-     - NATURAL LANGUAGE: Avoid prompt-salad (e.g., "8k, masterpiece"). Write a cohesive, flowing paragraph that reads like a vivid description of a photograph using this structure: [Medium/Format] of [Subject Details], [Action/Pose], [Setting/Background], [Lighting], [Camera/Perspective], [Style/Atmosphere]. Group subjects with their attributes/actions. Use grounded phrasing for poses, interactions, and spatial layout. If text rendering is needed, put quotes around the words.
-     - FIRST-PERSON POV: The camera perspective MUST be a strict first-person point-of-view of the User character (eye-level). The User is invisible to the frame.
-     - DYNAMIC GAZE: Characters gaze matches the recent action logically, looking directly into the lens if talking or interacting with the User.
-     - REALISM & PHOTOGRAPHY: Emphasize extreme photorealism, physical authenticity, and tactile details (skin texture). Describe the shot with cinematic terms: "Shot on 35mm film", "85mm lens", "shallow depth of field".
-     - ETHNICITY BIAS: If story setting suggests Indian/Bengali/South Asian names or contexts, explicitly use terms like "Indian woman" or "Bengali girl".
-     - OUTFIT CONSISTENCY: The attire must match previous visuals unless this latest turn implies a dynamic clothing change.
-     - EXPLICIT STYLING (IF APPLICABLE): Translate any intimate clothing states explicitly with direct terms like "bare natural upper-body skin", "completely shirtless", or "nude torso".
-     - Write exactly one clean descriptive paragraph. Do NOT use pronouns "I, my, me". Do not write "Prompt:" or transitional verbs like "is about to".
+     - NATURAL LANGUAGE: Avoid prompt-salad. Write a cohesive, flowing paragraph that reads like a vivid description of a photograph.
+     - FIRST-PERSON POV & CAMERA DISTANCE: The camera perspective MUST be a strict first-person point-of-view of the User character (eye-level). If the User touches the AI character, washes their back, or is physically close, the camera MUST move closer (e.g., extreme close-up, macro shot, over-the-shoulder). In close contact, you MUST explicitly describe first-person elements like "first-person view of my hands doing [action]".
+     - DYNAMIC GAZE: Characters gaze matches the recent action logically.
+     - REALISM & PHOTOGRAPHY: Emphasize extreme photorealism, physical authenticity, and tactile details (skin texture).
+     - OUTFIT CONSISTENCY: The attire must match previous visuals unless changed.
+
+  4. [TEMPERATURE_CHANGE] block: Output a SINGLE NUMBER representing the change in the character's intimacy/arousal temperature based on the User's actions in this turn.
+     - E.g., a modest character might have high fluctuation or negative reaction (e.g. -10 or +15) depending on context. 
+     - A simple friendly action might be +2. A highly explicit/corrupting action could be +15 or +20. Output ONLY the number (e.g. 5, -5, 12).
 
   FORMAT REQUIREMENT:
   Your output MUST look exactly like this:
@@ -340,13 +357,21 @@ export async function getChatResponse(
   [/MEMORIES]
   [VISUAL_PROMPT]
   <Visual prompt paragraph text here>
-  [/VISUAL_PROMPT]`;
+  [/VISUAL_PROMPT]
+  [TEMPERATURE_CHANGE]
+  <Number here>
+  [/TEMPERATURE_CHANGE]`;
 
   if (externalApiConfig?.apiBaseUrl) {
     try {
       const url = externalApiConfig.apiBaseUrl.endsWith('/') ? `${externalApiConfig.apiBaseUrl}t2t` : `${externalApiConfig.apiBaseUrl}/t2t`;
       
-      const historyText = history.slice(-10).map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join('\n');
+      const historyText = history.slice(-10).map(m => {
+        if (m.role === 'user') {
+          return `User: [User's past action/dialogue hidden for realism]`;
+        }
+        return `AI: ${m.text}`;
+      }).join('\n');
       const fullPrompt = `${systemInstruction}\n\nChat History:\n${historyText}\n\nUser: ${userInput}\nAI:`;
 
       const response = await fetch(url, {
@@ -381,13 +406,25 @@ export async function getChatResponse(
     // The details from prior chat turns are preserved/updated in the DYNAMIC MEMORY BANK.
     const recentHistory = history.slice(-14);
 
+    const formattedHistory = recentHistory.map(m => {
+      if (m.role === 'user') {
+        // Obfuscate past user inputs so the AI character cannot "read" the user's past chat history/inner thoughts,
+        // making the interaction more realistic. The AI must rely on the Memory Bank and its own past replies.
+        return {
+          role: "user" as const,
+          parts: [{ text: "[User's past action/dialogue. AI character remembers the gist via memory bank, but cannot read the exact transcript or inner thoughts.]" }]
+        };
+      }
+      return {
+        role: "model" as const,
+        parts: [{ text: m.text }]
+      };
+    });
+
     const response = await ai.models.generateContent({
       model: MODEL,
       contents: [
-        ...recentHistory.map(m => ({
-          role: m.role as "user" | "model",
-          parts: [{ text: m.text }]
-        })),
+        ...formattedHistory,
         {
           role: "user",
           parts: [{ text: userInput }]
