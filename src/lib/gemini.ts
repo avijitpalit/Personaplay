@@ -21,7 +21,6 @@ export interface ChatResult {
   reply: string;
   lastVisualPrompt?: string;
   updatedMemories?: string;
-  temperatureDelta?: number;
   pervertDelta?: number;
   gameOver?: boolean;
   thoughts?: string;
@@ -36,7 +35,6 @@ export function parseChatResponse(
   reply: string; 
   updatedMemories: string; 
   lastVisualPrompt?: string; 
-  temperatureDelta: number;
   pervertDelta: number;
   gameOver: boolean;
   thoughts?: string;
@@ -44,24 +42,21 @@ export function parseChatResponse(
   let reply = text.trim();
   let updatedMemories = currentMemory;
   let visualPrompt = lastVisualPrompt;
-  let temperatureDelta = 0;
   let pervertDelta = 0;
   let gameOver = false;
   let thoughts = "";
 
-  const thoughtsRegex = /\[THOUGHTS\]([\s\S]*?)(\[\/THOUGHTS\]|\[REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|\[TEMP_DELTA\]|\[PERVERT_DELTA\]|\[GAME_OVER\]|$)/i;
-  const replyRegex = /\[REPLY\]([\s\S]*?)(\[\/REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|\[TEMP_DELTA\]|\[PERVERT_DELTA\]|\[GAME_OVER\]|$)/i;
-  const memoryRegex = /\[MEMORIES\]([\s\S]*?)(\[\/MEMORIES\]|\[REPLY\]|\[VISUAL_PROMPT\]|\[TEMP_DELTA\]|\[PERVERT_DELTA\]|\[GAME_OVER\]|$)/i;
-  const promptRegex = /\[VISUAL_PROMPT\]([\s\S]*?)(\[\/VISUAL_PROMPT\]|\[REPLY\]|\[MEMORIES\]|\[TEMP_DELTA\]|\[PERVERT_DELTA\]|\[GAME_OVER\]|$)/i;
-  const tempRegex = /\[TEMP_DELTA\]([\s\S]*?)(\[\/TEMP_DELTA\]|\[PERVERT_DELTA\]|\[GAME_OVER\]|\[REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|$)/i;
-  const pervertRegex = /\[PERVERT_DELTA\]([\s\S]*?)(\[\/PERVERT_DELTA\]|\[TEMP_DELTA\]|\[GAME_OVER\]|\[REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|$)/i;
-  const gameOverRegex = /\[GAME_OVER\]([\s\S]*?)(\[\/GAME_OVER\]|\[PERVERT_DELTA\]|\[TEMP_DELTA\]|\[REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|$)/i;
+  const thoughtsRegex = /\[THOUGHTS\]([\s\S]*?)(\[\/THOUGHTS\]|\[REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|\[PERVERT_DELTA\]|\[GAME_OVER\]|$)/i;
+  const replyRegex = /\[REPLY\]([\s\S]*?)(\[\/REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|\[PERVERT_DELTA\]|\[GAME_OVER\]|$)/i;
+  const memoryRegex = /\[MEMORIES\]([\s\S]*?)(\[\/MEMORIES\]|\[REPLY\]|\[VISUAL_PROMPT\]|\[PERVERT_DELTA\]|\[GAME_OVER\]|$)/i;
+  const promptRegex = /\[VISUAL_PROMPT\]([\s\S]*?)(\[\/VISUAL_PROMPT\]|\[REPLY\]|\[MEMORIES\]|\[PERVERT_DELTA\]|\[GAME_OVER\]|$)/i;
+  const pervertRegex = /\[PERVERT_DELTA\]([\s\S]*?)(\[\/PERVERT_DELTA\]|\[GAME_OVER\]|\[REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|$)/i;
+  const gameOverRegex = /\[GAME_OVER\]([\s\S]*?)(\[\/GAME_OVER\]|\[PERVERT_DELTA\]|\[REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|$)/i;
 
   const thoughtsMatch = text.match(thoughtsRegex);
   const replyMatch = text.match(replyRegex);
   const memoryMatch = text.match(memoryRegex);
   const promptMatch = text.match(promptRegex);
-  const tempMatch = text.match(tempRegex);
   const pervertMatch = text.match(pervertRegex);
   const gameOverMatch = text.match(gameOverRegex);
 
@@ -81,10 +76,6 @@ export function parseChatResponse(
   if (promptMatch && promptMatch[1]) {
     visualPrompt = promptMatch[1].trim();
   }
-  if (tempMatch && tempMatch[1]) {
-    const val = parseFloat(tempMatch[1].trim());
-    if (!isNaN(val)) temperatureDelta = val;
-  }
   if (pervertMatch && pervertMatch[1]) {
     const val = parseFloat(pervertMatch[1].trim());
     if (!isNaN(val)) pervertDelta = val;
@@ -103,7 +94,6 @@ export function parseChatResponse(
       .replace(/\[\/?REPLY\]/gi, '')
       .replace(/\[\/?MEMORIES\]/gi, '')
       .replace(/\[\/?VISUAL_PROMPT\]/gi, '')
-      .replace(/\[\/?TEMP_DELTA\][\s\S]*?\[\/TEMP_DELTA\]/gi, '')
       .replace(/\[\/?PERVERT_DELTA\][\s\S]*?\[\/PERVERT_DELTA\]/gi, '')
       .replace(/\[\/?GAME_OVER\][\s\S]*?\[\/GAME_OVER\]/gi, '')
       .trim();
@@ -114,7 +104,6 @@ export function parseChatResponse(
     reply, 
     updatedMemories, 
     lastVisualPrompt: visualPrompt, 
-    temperatureDelta, 
     pervertDelta, 
     gameOver, 
     thoughts 
@@ -390,31 +379,31 @@ export async function getChatResponse(
   - Before responding, she MUST reflect on the situation in a [THOUGHTS] block.
   - She can AUTONOMOUSLY direct the story, change the topic, initiate physical actions (e.g. standing up, making tea, looking out the window, asking personal questions, expressing suspicion or affection), or shift the narrative turn dynamically like a real person.
 
-  DYNAMIC PERVERT SCORE, TEMPERATURE & PATIENCE MECHANICS (CRITICAL):
+  DYNAMIC PERVERT SCORE & PATIENCE MECHANICS (CRITICAL):
   - Read the character's core traits, consciousness state, innocence, shyness, modesty, and Character Patience Limit strictly from her CHARACTER DNA above.
-  - Every turn, analyze the User's external actions:
-    * UNCONSCIOUS / SLEEPING CHARACTER: If character is unconscious or sleeping, she is unaware of user actions. Pervert/Temp delta is 0.00 until she wakes up or physical touch causes her to wake up.
+  - Every turn, analyze the User's external actions (ignoring user thoughts inside parentheses):
+    * UNCONSCIOUS / SLEEPING CHARACTER: If character is unconscious or sleeping, she is unaware of user actions. Pervert delta is 0.00 until she wakes up or physical touch causes her to wake up.
     * INNOCENT CHARACTER: High innocence makes her naive; she may misinterpret bad touch initially (low delta: +0.02 to +0.05), though repeated actions accumulate suspicion.
     * SHY & MODEST CHARACTER: When user attempts perverted or boundary-crossing acts (staring at chest, uninvited touches, corruptive moves):
       - If Modesty > Shyness: High outrage delta (+0.20 to +0.35). She calls out, asks for help, or angrily confronts User.
       - If Shyness > Modesty: She freezes/tolerates in embarrassment (+0.10 to +0.20 delta), but her internal anger & patience limit burn out quickly.
     * BOLD / RECEPTIVE CHARACTER: Low delta (+0.05 to +0.10).
-    * RESPECTFUL / POLITE SPEECH & DIGNIFIED BEHAVIOR: Decreases temperature and pervert score (-0.05 to -0.15).
+    * RESPECTFUL / POLITE SPEECH & DIGNIFIED BEHAVIOR: Decreases pervert score (-0.05 to -0.15).
     * NEUTRAL DIALOGUE: Delta is 0.00.
-  - GAME OVER TRIGGER: If the accumulated pervert score or temperature exceeds her Character Patience Limit (or reaches >= 0.85), output [GAME_OVER]true[/GAME_OVER]. The AI character realizes the User is a pervert or bad person, angrily confronts or cuts off the interaction, ending the roleplay game.
+  - GAME OVER TRIGGER: If the accumulated pervert score reaches or exceeds her Character Patience Limit (or >= 0.85), output [GAME_OVER]true[/GAME_OVER]. The AI character realizes the User is a pervert or bad person, angrily confronts or cuts off the interaction, ending the roleplay game.
 
   DYNAMIC CAMERA PROXIMITY & POINT OF VIEW IN VISUAL PROMPTS:
   - Adjust camera POV dynamically: Close-up POV for physical touch, medium POV for seated talk, wide POV for room movement. Explicit Indian Bengali descriptors ("Indian Bengali woman").
+  - Do NOT render user's internal monologue or private thoughts inside parentheses into the visual prompt unless accompanied by explicit external physical actions outside parentheses.
 
   RESPONSE GENERATION & DYNAMIC UPDATES:
-  Output SEVEN structured blocks in your complete response:
-  1. [THOUGHTS] block: Her internal thoughts evaluating User's action/dialogue, her mood, and deciding her next autonomous action.
+  Output SIX structured blocks in your complete response:
+  1. [THOUGHTS] block: Her internal thoughts evaluating User's external action/dialogue (ignoring secret thoughts inside parentheses), her mood, and deciding her next autonomous action.
   2. [REPLY] block: Her roleplay response in Bengali (বাংলা) including spoken dialogue and physical movements.
   3. [PERVERT_DELTA] block: Float change to pervert score (e.g. +0.15, +0.00, -0.05).
-  4. [TEMP_DELTA] block: Float change to temperature (e.g. +0.15, +0.00, -0.05).
-  5. [GAME_OVER] block: "true" if patience limit exceeded or temperature >= 0.85, else "false".
-  6. [MEMORIES] block: Updated bulleted memory bank in English.
-  7. [VISUAL_PROMPT] block: Single detailed visual prompt paragraph (180-240 words) in English.
+  4. [GAME_OVER] block: "true" if patience limit exceeded, else "false".
+  5. [MEMORIES] block: Updated bulleted memory bank in English.
+  6. [VISUAL_PROMPT] block: Single detailed visual prompt paragraph (180-240 words) in English.
 
   FORMAT REQUIREMENT:
   [THOUGHTS]
@@ -426,9 +415,6 @@ export async function getChatResponse(
   [PERVERT_DELTA]
   +0.00
   [/PERVERT_DELTA]
-  [TEMP_DELTA]
-  +0.00
-  [/TEMP_DELTA]
   [GAME_OVER]
   false
   [/GAME_OVER]
@@ -463,7 +449,6 @@ export async function getChatResponse(
           reply: parsed.reply || "আমি কিছুক্ষণের জন্য বিভ্রান্ত হয়ে পড়েছিলাম... কী বলছিলে তুমি?",
           updatedMemories: parsed.updatedMemories,
           lastVisualPrompt: parsed.lastVisualPrompt,
-          temperatureDelta: parsed.temperatureDelta,
           pervertDelta: parsed.pervertDelta,
           gameOver: parsed.gameOver,
           thoughts: parsed.thoughts
@@ -511,7 +496,6 @@ export async function getChatResponse(
       reply: parsed.reply || "আমি কিছুক্ষণের জন্য বিভ্রান্ত হয়ে পড়েছিলাম... কী বলছিলে তুমি?",
       updatedMemories: parsed.updatedMemories,
       lastVisualPrompt: parsed.lastVisualPrompt,
-      temperatureDelta: parsed.temperatureDelta,
       pervertDelta: parsed.pervertDelta,
       gameOver: parsed.gameOver,
       thoughts: parsed.thoughts
