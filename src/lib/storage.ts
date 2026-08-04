@@ -22,6 +22,8 @@ export interface Session {
   loraName?: string;
   loraStrength?: number;
   temperature?: number;
+  pervertScore?: number;
+  characterPatienceLimit?: number;
   createdAt: number;
   updatedAt: number;
 }

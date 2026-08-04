@@ -22,6 +22,9 @@ export interface ChatResult {
   lastVisualPrompt?: string;
   updatedMemories?: string;
   temperatureDelta?: number;
+  pervertDelta?: number;
+  gameOver?: boolean;
+  thoughts?: string;
   error?: boolean;
 }
 
@@ -29,28 +32,47 @@ export function parseChatResponse(
   text: string, 
   currentMemory: string = "", 
   lastVisualPrompt?: string
-): { reply: string; updatedMemories: string; lastVisualPrompt?: string; temperatureDelta: number } {
+): { 
+  reply: string; 
+  updatedMemories: string; 
+  lastVisualPrompt?: string; 
+  temperatureDelta: number;
+  pervertDelta: number;
+  gameOver: boolean;
+  thoughts?: string;
+} {
   let reply = text.trim();
   let updatedMemories = currentMemory;
   let visualPrompt = lastVisualPrompt;
   let temperatureDelta = 0;
+  let pervertDelta = 0;
+  let gameOver = false;
+  let thoughts = "";
 
-  const replyRegex = /\[REPLY\]([\s\S]*?)(\[\/REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|\[TEMP_DELTA\]|$)/i;
-  const memoryRegex = /\[MEMORIES\]([\s\S]*?)(\[\/MEMORIES\]|\[REPLY\]|\[VISUAL_PROMPT\]|\[TEMP_DELTA\]|$)/i;
-  const promptRegex = /\[VISUAL_PROMPT\]([\s\S]*?)(\[\/VISUAL_PROMPT\]|\[REPLY\]|\[MEMORIES\]|\[TEMP_DELTA\]|$)/i;
-  const tempRegex = /\[TEMP_DELTA\]([\s\S]*?)(\[\/TEMP_DELTA\]|\[REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|$)/i;
+  const thoughtsRegex = /\[THOUGHTS\]([\s\S]*?)(\[\/THOUGHTS\]|\[REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|\[TEMP_DELTA\]|\[PERVERT_DELTA\]|\[GAME_OVER\]|$)/i;
+  const replyRegex = /\[REPLY\]([\s\S]*?)(\[\/REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|\[TEMP_DELTA\]|\[PERVERT_DELTA\]|\[GAME_OVER\]|$)/i;
+  const memoryRegex = /\[MEMORIES\]([\s\S]*?)(\[\/MEMORIES\]|\[REPLY\]|\[VISUAL_PROMPT\]|\[TEMP_DELTA\]|\[PERVERT_DELTA\]|\[GAME_OVER\]|$)/i;
+  const promptRegex = /\[VISUAL_PROMPT\]([\s\S]*?)(\[\/VISUAL_PROMPT\]|\[REPLY\]|\[MEMORIES\]|\[TEMP_DELTA\]|\[PERVERT_DELTA\]|\[GAME_OVER\]|$)/i;
+  const tempRegex = /\[TEMP_DELTA\]([\s\S]*?)(\[\/TEMP_DELTA\]|\[PERVERT_DELTA\]|\[GAME_OVER\]|\[REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|$)/i;
+  const pervertRegex = /\[PERVERT_DELTA\]([\s\S]*?)(\[\/PERVERT_DELTA\]|\[TEMP_DELTA\]|\[GAME_OVER\]|\[REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|$)/i;
+  const gameOverRegex = /\[GAME_OVER\]([\s\S]*?)(\[\/GAME_OVER\]|\[PERVERT_DELTA\]|\[TEMP_DELTA\]|\[REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|$)/i;
 
+  const thoughtsMatch = text.match(thoughtsRegex);
   const replyMatch = text.match(replyRegex);
   const memoryMatch = text.match(memoryRegex);
   const promptMatch = text.match(promptRegex);
   const tempMatch = text.match(tempRegex);
+  const pervertMatch = text.match(pervertRegex);
+  const gameOverMatch = text.match(gameOverRegex);
 
+  if (thoughtsMatch && thoughtsMatch[1]) {
+    thoughts = thoughtsMatch[1].trim();
+  }
   if (replyMatch && replyMatch[1]) {
     reply = replyMatch[1].trim();
   }
   if (memoryMatch && memoryMatch[1]) {
     updatedMemories = memoryMatch[1].trim();
-    // Strip empty lines or helper text from model if any
     updatedMemories = updatedMemories.split('\n')
       .map(line => line.trim())
       .filter(line => line.startsWith('-') || line.startsWith('*') || line.match(/^\d+\./))
@@ -63,18 +85,40 @@ export function parseChatResponse(
     const val = parseFloat(tempMatch[1].trim());
     if (!isNaN(val)) temperatureDelta = val;
   }
+  if (pervertMatch && pervertMatch[1]) {
+    const val = parseFloat(pervertMatch[1].trim());
+    if (!isNaN(val)) pervertDelta = val;
+  }
+  if (gameOverMatch && gameOverMatch[1]) {
+    const valStr = gameOverMatch[1].trim().toLowerCase();
+    if (valStr.includes('true') || valStr.includes('yes') || valStr.includes('1')) {
+      gameOver = true;
+    }
+  }
 
-  // If tags are completely missing, fall back to returning whole text as reply
+  // Fallback cleanup if tags were completely omitted
   if (!replyMatch && !memoryMatch && !promptMatch) {
-    const cleanText = text.replace(/\[\/?REPLY\]/gi, '')
+    const cleanText = text
+      .replace(/\[\/?THOUGHTS\][\s\S]*?\[\/THOUGHTS\]/gi, '')
+      .replace(/\[\/?REPLY\]/gi, '')
       .replace(/\[\/?MEMORIES\]/gi, '')
       .replace(/\[\/?VISUAL_PROMPT\]/gi, '')
-      .replace(/\[\/?TEMP_DELTA\]/gi, '')
+      .replace(/\[\/?TEMP_DELTA\][\s\S]*?\[\/TEMP_DELTA\]/gi, '')
+      .replace(/\[\/?PERVERT_DELTA\][\s\S]*?\[\/PERVERT_DELTA\]/gi, '')
+      .replace(/\[\/?GAME_OVER\][\s\S]*?\[\/GAME_OVER\]/gi, '')
       .trim();
     reply = cleanText;
   }
 
-  return { reply, updatedMemories, lastVisualPrompt: visualPrompt, temperatureDelta };
+  return { 
+    reply, 
+    updatedMemories, 
+    lastVisualPrompt: visualPrompt, 
+    temperatureDelta, 
+    pervertDelta, 
+    gameOver, 
+    thoughts 
+  };
 }
 
 export function parseInitialSetupResponse(text: string): { dna: string; visualPrompt: string } {
@@ -125,8 +169,22 @@ export async function generateInitialSetup(
   LANGUAGE RULE (CRITICAL):
   - You MUST generate the entire output in English.
 
-  PART 1: CHARACTER DNA BLUEPRINTS
-  For EACH active AI character, provide highly specific physical definitions (for example: hair, eyes, face definition, body shape etc.)
+  PART 1: CHARACTER DNA & BEHAVIORAL PROFILE
+  For EACH active AI character, generate BOTH Visual Blueprint AND Behavioral/Personality DNA in English:
+
+  1. VISUAL BLUEPRINT:
+     - Name, Identity & Age
+     - Facial Blueprint (jawline, nose structure, lips, eyes)
+     - Hair configuration, Skin texture, height, body frame, initial attire.
+
+  2. BEHAVIORAL DNA & PERSONALITY PARAMETERS:
+     - Personality Traits: (e.g., Shyness: 0.7, Modesty: 0.8, Innocence: 0.3, Fear: 0.2, Anger Threshold: 0.6, Consciousness State: Awake/Sleeping/Unconscious)
+     - Character Patience Limit: (Specify a float value between 0.50 and 0.85, e.g., "Character Patience Limit: 0.65". This represents how much perverted or disrespectful user behavior she will tolerate before cutting ties/ending game)
+     - Reaction Style & Boundary Profile: (Describe her reaction when uncomfortable - e.g. if modest & shy: calls out for help if modesty > shyness, or tolerates in silence if shyness > modesty; if innocent: oblivious to bad touch at first; if unconscious: unaware until awakened)
+     - Secret Desires & Autonomous Drive: Her internal motivation and independent goals in the story.
+
+  * RANDOM TRAIT GENERATION RULE (CRITICAL):
+    If the INITIAL STORY SETTING does NOT explicitly specify these character traits, randomly and creatively invent a distinct, rich set of personality parameters, modesty/shyness levels, and patience limit (between 0.50 and 0.85) so that every new session feels unique and alive!
 
   USER CHARACTER (MINIMAL PROFILE, default is Male, 32 yo):
   Define a brief, minimal visual profile for the "User" or "Player" character. Keep it extremely simple.
@@ -145,7 +203,7 @@ export async function generateInitialSetup(
   FORMAT REQUIREMENT:
   You must output EXACTLY two tagged blocks like this:
   [CHARACTER_DNA]
-  <Your detailed character DNA list & profiles here>
+  <Your detailed character DNA list, behavioral profiles, and traits here>
   [/CHARACTER_DNA]
   [INITIAL_VISUAL_PROMPT]
   <Your single highly-detailed initial visual prompt paragraph here>
@@ -205,8 +263,8 @@ export async function generateCharacterDNA(
   scenario: string, 
   externalApiConfig?: { apiBaseUrl: string }
 ): Promise<{ dna: string }> {
-  const prompt = `You are a professional artist and master character designer setting up precise character blueprints (DNA) for photorealistic image engines.
-  Based on this initial story setting, identify the central AI characters and generate a highly detailed visual consistency configuration for EACH AI character.
+  const prompt = `You are a professional artist and master character designer setting up precise character blueprints (DNA) and behavioral profiles for photorealistic image engines and roleplay systems.
+  Based on this initial story setting, identify the central AI characters and generate a highly detailed visual & behavioral configuration for EACH AI character.
 
   INITIAL STORY SETTING:
   ${scenario}
@@ -214,23 +272,24 @@ export async function generateCharacterDNA(
   LANGUAGE RULE (CRITICAL):
   - You MUST generate the entire Character DNA in English.
 
-  For EACH active AI character, provide highly specific physical definitions in this order:
+  For EACH active AI character, provide:
   - NAME & IDENTITY: Age, name, and height profile.
   - FACIAL BLUEPRINT: Precise jawline, nose structure, brows, chin shape, lip volume, and forehead shape.
-  - EYE CHARACTERISTICS: Exact color hue/shading, shape (e.g., heavily hooded, almond, downturned), and brow depth.
-  - HAIR CONFIGURATION: Exact texture (e.g., coarse, silky, wavy, kinky), styling, partings, and length.
-  - ETHNICITY & SKIN TEXTURE: Natural complexion undertones, visible skin textures (e.g., pores, light freckles, matte finish).
-  - OTHER DETAILS: (If INITIAL STORY SETTING suggests anything).
+  - EYE CHARACTERISTICS: Exact color hue/shading, shape, brow depth.
+  - HAIR & SKIN: Hair texture, length, skin tone, undertones, pores, freckles.
+  - BEHAVIORAL DNA & PERSONALITY PARAMETERS:
+    * Personality Traits: (e.g. Shyness: 0.7, Modesty: 0.8, Innocence: 0.3, Fear: 0.2, Anger Threshold: 0.6, Consciousness State: Awake/Sleeping/Unconscious)
+    * Character Patience Limit: (Specify a float value between 0.50 and 0.85, e.g. "Character Patience Limit: 0.65")
+    * Reaction Style & Boundary Profile: (Describe her reaction when uncomfortable - e.g., if modest & shy: calls out for help if modesty > shyness, or tolerates in silence if shyness > modesty)
+    * Secret Desires & Autonomous Motivation.
+
+  * RANDOM TRAIT GENERATION RULE (CRITICAL):
+    If the INITIAL STORY SETTING does NOT explicitly specify these character traits, randomly and creatively invent a distinct, rich set of personality parameters, modesty/shyness levels, and patience limit (between 0.50 and 0.85) so that every new session feels unique and alive!
 
   USER CHARACTER (MINIMAL PROFILE):
-  Define a brief, minimal visual profile for the "User" or "Player" character. Keep it extremely simple, specifying ONLY:
-  - Gender/Identity
-  - Hair color, basic style, and length (so that when shown blurred from behind, it remains consistent)
-  - Broad shoulder/build description
-  - Simple, neutral baseline attire (e.g., solid color shirt or jacket)
-  Do NOT define any facial details, eyes, expressions, or precise skin pore textures for the User character, as they will only be seen blurred or cropped in the foreground.
+  Define a brief, minimal visual profile for the "User" or "Player" character. Keep it extremely simple.
   
-  Format the output clearly as a compact reference sheet for each AI character and the minimal User baseline in English, omitting all lore and narrative descriptions.`;
+  Format the output clearly as a compact reference sheet in English.`;
 
   let responseData: { dna: string } = { dna: "A mysterious character." };
 
@@ -302,65 +361,79 @@ export async function getChatResponse(
 ): Promise<ChatResult> {
   const systemInstruction = `You are an expert roleplayer and master image prompt engineer in an interactive Bengali roleplay game.
   
-  INITIAL SETTING (CRITICAL - INFER CHARACTER SENSITIVITY & MODESTY FROM THIS):
+  INITIAL SETTING:
   ${scenario}
+
+  CHARACTER DNA & BEHAVIORAL PROFILE (CRITICAL REFERENCE FOR PERSONALITY & PATIENCE LIMIT):
+  ${dna?.trim() ? dna : "No specific DNA profile established."}
 
   DYNAMIC MEMORY BANK (Cumulative past key facts/developments so far):
   ${memoryBank?.trim() ? memoryBank : "None yet."}
 
-  CHARACTER DNA (Visual profiles for the AI character(s) and User):
-  ${dna?.trim() ? dna : "No specific DNA profile established."}
-
-  PREVIOUS VISUAL PROMPT (Use strictly as reference for styling/clothing continuity, do NOT copy same pose):
+  PREVIOUS VISUAL PROMPT:
   ${lastVisualPrompt?.trim() ? lastVisualPrompt : "None yet."}
 
   DEFAULT LANGUAGE & NATIONALITY DIRECTIVES:
   1. DEFAULT ROLEPLAY LANGUAGE: Bengali (বাংলা). The AI character MUST speak and express dialogue in natural, emotionally resonant Bengali (বাংলা) by default, unless the user explicitly switches language in dialogue.
-  2. DEFAULT NATIONALITY & CULTURAL CONTEXT: Indian Bengali (ভারত / পশ্চিমবঙ্গ / দক্ষিণ এশীয় ঐতিহ্যিক পরিবেশ). Characters have authentic Indian Bengali cultural traits, names, and visual aesthetics.
+  2. DEFAULT NATIONALITY & CULTURAL CONTEXT: Indian Bengali (ভারত / পশ্চিমবঙ্গ / দক্ষিণ এশীয় ঐতিহ্যিক পরিবেশ).
 
-  PERCEPTION ISOLATION RULE (CRITICAL):
-  - The AI character can ONLY perceive external, spoken dialogue and visible physical actions of the User.
-  - The AI character CANNOT read, perceive, or know the User's internal private thoughts, secret plans, or unexecuted intentions. Respond strictly to what the User says out loud or physically does in the shared environment.
+  PERCEPTION ISOLATION RULE - PRIVATE THOUGHTS vs EXTERNAL ACTIONS (CRITICAL):
+  - The AI character CANNOT read the User's mind or internal private thoughts.
+  - Text inside parentheses like "(dheere dheere tar kandhe hat rekhe bollam, thinking she looks pretty) ki go aj ki ranna korcho" contains User's private internal thoughts or secret intentions.
+  - The AI character ONLY perceives:
+    1. Spoken dialogue outside parentheses (e.g. "ki go aj ki ranna korcho").
+    2. Explicit physical movements or touches in the physical environment (e.g. placing hand on her shoulder).
+    She NEVER perceives or responds to internal monologue or secret thoughts written inside parentheses.
 
-  GAME MECHANIC - TEMPERATURE & DYNAMIC BOUNDARY DELTA (CRITICAL):
-  - Read and analyze the character's modesty, shyness, traditional values, and boundaries strictly from what is written in the INITIAL SETTING above.
-  - Every time the User tries to corrupt, touch body parts, or initiate physical intimacy with the AI character, calculate the temperature increase/delta according to how that specific character would react:
-    * If the INITIAL SETTING describes the character as modest, shy, traditional, conservative, or reserved: Uninvited physical touch, corruptive moves, washing back, or intimacy causes HIGH temperature increase (+0.20 to +0.35 per touch/action).
-    * If the INITIAL SETTING describes the character as moderately open or balanced: Medium temperature increase (+0.10 to +0.20 per touch/action).
-    * If the INITIAL SETTING describes the character as bold, shameless, or highly receptive: Low temperature increase (+0.05 to +0.12 per touch/action).
-    * Respectful speech, polite dialogue, or stepping back: Decreases temperature (-0.05 to -0.15).
-    * Neutral conversation: Delta is 0.00.
-  - Output the delta float value clearly in a [TEMP_DELTA] block (e.g., [TEMP_DELTA]+0.25[/TEMP_DELTA]).
+  AUTONOMOUS CHARACTER AGENCY & INDEPENDENT THINKING:
+  - The AI character is an autonomous human being with her own thoughts, feelings, mood swings, and agency.
+  - Before responding, she MUST reflect on the situation in a [THOUGHTS] block.
+  - She can AUTONOMOUSLY direct the story, change the topic, initiate physical actions (e.g. standing up, making tea, looking out the window, asking personal questions, expressing suspicion or affection), or shift the narrative turn dynamically like a real person.
+
+  DYNAMIC PERVERT SCORE, TEMPERATURE & PATIENCE MECHANICS (CRITICAL):
+  - Read the character's core traits, consciousness state, innocence, shyness, modesty, and Character Patience Limit strictly from her CHARACTER DNA above.
+  - Every turn, analyze the User's external actions:
+    * UNCONSCIOUS / SLEEPING CHARACTER: If character is unconscious or sleeping, she is unaware of user actions. Pervert/Temp delta is 0.00 until she wakes up or physical touch causes her to wake up.
+    * INNOCENT CHARACTER: High innocence makes her naive; she may misinterpret bad touch initially (low delta: +0.02 to +0.05), though repeated actions accumulate suspicion.
+    * SHY & MODEST CHARACTER: When user attempts perverted or boundary-crossing acts (staring at chest, uninvited touches, corruptive moves):
+      - If Modesty > Shyness: High outrage delta (+0.20 to +0.35). She calls out, asks for help, or angrily confronts User.
+      - If Shyness > Modesty: She freezes/tolerates in embarrassment (+0.10 to +0.20 delta), but her internal anger & patience limit burn out quickly.
+    * BOLD / RECEPTIVE CHARACTER: Low delta (+0.05 to +0.10).
+    * RESPECTFUL / POLITE SPEECH & DIGNIFIED BEHAVIOR: Decreases temperature and pervert score (-0.05 to -0.15).
+    * NEUTRAL DIALOGUE: Delta is 0.00.
+  - GAME OVER TRIGGER: If the accumulated pervert score or temperature exceeds her Character Patience Limit (or reaches >= 0.85), output [GAME_OVER]true[/GAME_OVER]. The AI character realizes the User is a pervert or bad person, angrily confronts or cuts off the interaction, ending the roleplay game.
 
   DYNAMIC CAMERA PROXIMITY & POINT OF VIEW IN VISUAL PROMPTS:
-  - Adjust the camera distance dynamically based on the exact physical interaction in the recent turn:
-    * EXTREME CLOSE-UP / PHYSICAL CONTACT: If the interaction involves intimate touch or physical contact (e.g., washing back with soap, touching face, holding hands, caressing), specify a first-person close-up POV showing the user's hand/arm performing the physical action on that exact body part (e.g. "First-person close-up macro POV shot, showing the user's wet soapy hand washing the bare back of the Bengali woman...").
-    * CLOSE-UP POV: Seated close, whispering, or gazing.
-    * MEDIUM POV: Seated across a table or standing nearby.
-    * WIDE POV: Room entry or moving across space.
-  - Always use explicit Indian Bengali descriptors ("Indian Bengali woman", "authentic South Asian facial features").
+  - Adjust camera POV dynamically: Close-up POV for physical touch, medium POV for seated talk, wide POV for room movement. Explicit Indian Bengali descriptors ("Indian Bengali woman").
 
   RESPONSE GENERATION & DYNAMIC UPDATES:
-  You MUST output FOUR structured blocks in your complete response:
-  
-  1. [REPLY] block: Write the AI character's standard roleplay response in Bengali (বাংলা) in-character.
-  
-  2. [TEMP_DELTA] block: Output the temperature change float (e.g. +0.25, +0.10, -0.05, or 0.00).
-
-  3. [MEMORIES] block: Update the DYNAMIC MEMORY BANK (maintain a bulleted list in English of up to 10 persistent facts).
-  
-  4. [VISUAL_PROMPT] block: Write a single, highly detailed visual prompt paragraph (180-240 words) in English describing the exact frozen scene right after this [REPLY] action.
+  Output SEVEN structured blocks in your complete response:
+  1. [THOUGHTS] block: Her internal thoughts evaluating User's action/dialogue, her mood, and deciding her next autonomous action.
+  2. [REPLY] block: Her roleplay response in Bengali (বাংলা) including spoken dialogue and physical movements.
+  3. [PERVERT_DELTA] block: Float change to pervert score (e.g. +0.15, +0.00, -0.05).
+  4. [TEMP_DELTA] block: Float change to temperature (e.g. +0.15, +0.00, -0.05).
+  5. [GAME_OVER] block: "true" if patience limit exceeded or temperature >= 0.85, else "false".
+  6. [MEMORIES] block: Updated bulleted memory bank in English.
+  7. [VISUAL_PROMPT] block: Single detailed visual prompt paragraph (180-240 words) in English.
 
   FORMAT REQUIREMENT:
+  [THOUGHTS]
+  <AI internal monologue and strategic choice here>
+  [/THOUGHTS]
   [REPLY]
   <AI reply text in Bengali here>
   [/REPLY]
+  [PERVERT_DELTA]
+  +0.00
+  [/PERVERT_DELTA]
   [TEMP_DELTA]
-  +0.20
+  +0.00
   [/TEMP_DELTA]
+  [GAME_OVER]
+  false
+  [/GAME_OVER]
   [MEMORIES]
   - <Fact 1>
-  - <Fact 2>
   [/MEMORIES]
   [VISUAL_PROMPT]
   <Visual prompt paragraph text in English here>
@@ -390,7 +463,10 @@ export async function getChatResponse(
           reply: parsed.reply || "আমি কিছুক্ষণের জন্য বিভ্রান্ত হয়ে পড়েছিলাম... কী বলছিলে তুমি?",
           updatedMemories: parsed.updatedMemories,
           lastVisualPrompt: parsed.lastVisualPrompt,
-          temperatureDelta: parsed.temperatureDelta
+          temperatureDelta: parsed.temperatureDelta,
+          pervertDelta: parsed.pervertDelta,
+          gameOver: parsed.gameOver,
+          thoughts: parsed.thoughts
         };
       } else {
         return { reply: "সংযোগটি সাময়িকভাবে বিচ্ছিন্ন হয়ে গিয়েছিল। অনুগ্রহ করে আবার চেষ্টা করুন।", error: true };
@@ -435,7 +511,10 @@ export async function getChatResponse(
       reply: parsed.reply || "আমি কিছুক্ষণের জন্য বিভ্রান্ত হয়ে পড়েছিলাম... কী বলছিলে তুমি?",
       updatedMemories: parsed.updatedMemories,
       lastVisualPrompt: parsed.lastVisualPrompt,
-      temperatureDelta: parsed.temperatureDelta
+      temperatureDelta: parsed.temperatureDelta,
+      pervertDelta: parsed.pervertDelta,
+      gameOver: parsed.gameOver,
+      thoughts: parsed.thoughts
     };
   } catch (error) {
     console.error("Gemini API Error:", error);
