@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Message, getChatResponse, generateImage, generateCharacterDNA, generateVisualPrompt, generateInitialSetup, getUserAutomatedReply, setGlobalModel } from '../lib/gemini';
-import { Send, ArrowLeft, Loader2, User, Sparkles, Image as ImageIcon, Eye, EyeOff, Save, CheckCircle2, Settings, Info, Clock, FileText, X, Play, Pause, AlertTriangle, RotateCcw, ShieldAlert } from 'lucide-react';
+import { Send, ArrowLeft, Loader2, User, Sparkles, Image as ImageIcon, Eye, EyeOff, Save, CheckCircle2, Settings, Info, Clock, FileText, X, Play, Pause } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
 import { Session, saveSession as persistSession } from '../lib/storage';
@@ -43,11 +43,6 @@ export default function ChatInterface({
   const [enableLora, setEnableLora] = useState<boolean>(initialSession?.enableLora ?? true);
   const [loraName, setLoraName] = useState<string>(initialSession?.loraName || 'Krea2_HMNSFW_AIO.safetensors');
   const [loraStrength, setLoraStrength] = useState<number>(initialSession?.loraStrength ?? initialLoraStrength);
-  const [pervertScore, setPervertScore] = useState<number>(initialSession?.pervertScore ?? 0.0);
-  const [characterPatienceLimit, setCharacterPatienceLimit] = useState<number>(initialSession?.characterPatienceLimit ?? 0.65);
-  const [isGameOver, setIsGameOver] = useState<boolean>((initialSession?.pervertScore ?? 0.0) >= (initialSession?.characterPatienceLimit ?? 0.65));
-  const [showDnaModal, setShowDnaModal] = useState<boolean>(false);
-  const [lastThoughts, setLastThoughts] = useState<string>('');
   const [showChat, setShowChat] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [showLog, setShowLog] = useState(false);
@@ -60,19 +55,6 @@ export default function ChatInterface({
   });
   const [logFilter, setLogFilter] = useState<'all' | 'info' | 'warn' | 'error'>('all');
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  // Parse patience limit from DNA if provided
-  useEffect(() => {
-    if (characterDNA) {
-      const match = characterDNA.match(/patience\s*limit:\s*(0\.\d+)/i);
-      if (match && match[1]) {
-        const val = parseFloat(match[1]);
-        if (!isNaN(val) && val > 0 && val <= 1) {
-          setCharacterPatienceLimit(val);
-        }
-      }
-    }
-  }, [characterDNA]);
 
   useEffect(() => {
     const registerListener = (window as any).__register_log_listener;
@@ -161,27 +143,8 @@ export default function ChatInterface({
             return;
           }
 
-          if (result.thoughts) {
-            setLastThoughts(result.thoughts);
-          }
-
           if (result.updatedMemories) {
             setMemoryBank(result.updatedMemories);
-          }
-
-          if (result.pervertDelta !== undefined) {
-            setPervertScore(prev => {
-              const nextScore = Math.max(0, Math.min(1.0, prev + (result.pervertDelta || 0)));
-              const rounded = parseFloat(nextScore.toFixed(2));
-              if (rounded >= characterPatienceLimit) {
-                setIsGameOver(true);
-              }
-              return rounded;
-            });
-          }
-
-          if (result.gameOver) {
-            setIsGameOver(true);
           }
 
           const finalMessages: Message[] = [...messages, { role: 'model', text: result.reply }];
@@ -265,9 +228,7 @@ export default function ChatInterface({
         imageSteps,
         enableLora,
         loraName,
-        loraStrength,
-        pervertScore,
-        characterPatienceLimit
+        loraStrength
       });
       setSessionId(saved.id);
       setSaveSuccess(true);
@@ -292,13 +253,10 @@ export default function ChatInterface({
 
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!input.trim() || isLoading || isGameOver) return;
+    if (!input.trim() || isLoading) return;
 
     setLastSendFailed(false);
-    const userMessage: Message = { 
-      role: 'user', 
-      text: input.trim()
-    };
+    const userMessage: Message = { role: 'user', text: input.trim() };
     const updatedMessages: Message[] = [...messages, userMessage];
     setMessages(updatedMessages);
     setInput('');
@@ -326,27 +284,8 @@ export default function ChatInterface({
       return;
     }
 
-    if (result.thoughts) {
-      setLastThoughts(result.thoughts);
-    }
-
     if (result.updatedMemories) {
       setMemoryBank(result.updatedMemories);
-    }
-
-    if (result.pervertDelta !== undefined) {
-      setPervertScore(prev => {
-        const nextScore = Math.max(0, Math.min(1.0, prev + (result.pervertDelta || 0)));
-        const rounded = parseFloat(nextScore.toFixed(2));
-        if (rounded >= characterPatienceLimit) {
-          setIsGameOver(true);
-        }
-        return rounded;
-      });
-    }
-
-    if (result.gameOver) {
-      setIsGameOver(true);
     }
 
     const finalMessages: Message[] = [...updatedMessages, { role: 'model', text: result.reply }];
@@ -378,7 +317,7 @@ export default function ChatInterface({
   };
 
   const handleRetry = async () => {
-    if (messages.length === 0 || isLoading || isGameOver) return;
+    if (messages.length === 0 || isLoading) return;
     const lastMessage = messages[messages.length - 1];
     if (lastMessage.role !== 'user') return;
 
@@ -408,27 +347,8 @@ export default function ChatInterface({
       return;
     }
 
-    if (result.thoughts) {
-      setLastThoughts(result.thoughts);
-    }
-
     if (result.updatedMemories) {
       setMemoryBank(result.updatedMemories);
-    }
-
-    if (result.pervertDelta !== undefined) {
-      setPervertScore(prev => {
-        const nextScore = Math.max(0, Math.min(1.0, prev + (result.pervertDelta || 0)));
-        const rounded = parseFloat(nextScore.toFixed(2));
-        if (rounded >= characterPatienceLimit) {
-          setIsGameOver(true);
-        }
-        return rounded;
-      });
-    }
-
-    if (result.gameOver) {
-      setIsGameOver(true);
     }
 
     const finalMessages: Message[] = [...messages, { role: 'model', text: result.reply }];
@@ -525,22 +445,13 @@ export default function ChatInterface({
             </button>
             <div className="flex flex-col">
               <h2 className="font-serif font-bold text-white text-lg leading-none">Roleplay Session</h2>
+              <span className="text-[9px] uppercase tracking-[0.2em] text-accent font-bold mt-1">Mature & Immersive</span>
             </div>
-
-            {/* Character DNA & Behavioral Traits Button */}
-            <div className="flex items-center gap-2 ml-auto">
-              <button
-                onClick={() => setShowDnaModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-xs font-bold text-accent transition-all cursor-pointer"
-                title="Inspect Character Behavioral DNA & Personality Traits"
-              >
-                <Sparkles size={14} className="text-accent" />
-                <span className="hidden sm:inline">Traits</span>
-              </button>
+            <div className="flex items-center gap-1 ml-auto">
               <button
                 onClick={() => setShowLog(!showLog)}
                 className={`p-2 rounded-lg transition-colors ${showLog ? 'bg-accent text-white' : 'hover:bg-white/5 text-white/60'}`}
-                title="View Logs & Game Metrics"
+                title="View Logs"
               >
                 <FileText size={24} />
               </button>
@@ -583,44 +494,11 @@ export default function ChatInterface({
             >
               <div className="p-6 bg-black/40 backdrop-blur-2xl space-y-6 max-h-[70vh] overflow-y-auto border border-white/10 rounded-2xl mb-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-accent">System Logs & Game Indicators</h3>
+                  <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-accent">System Logs</h3>
                   <button onClick={() => setShowLog(false)} className="text-white/40 hover:text-white">
                     <X size={16} />
                   </button>
                 </div>
-
-                {/* GAME METRICS & INDICATORS */}
-                <section className="space-y-2">
-                  <div className="text-white/40 uppercase tracking-widest font-bold font-mono text-[10px]">Game Indicators</div>
-                  <div className="bg-white/5 border border-white/10 p-3.5 rounded-xl font-sans">
-                    {/* Pervert Indicator */}
-                    <div className="flex flex-col gap-2 bg-black/40 border border-white/10 p-3.5 rounded-xl">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <ShieldAlert size={20} className={pervertScore >= characterPatienceLimit ? "text-red-400 animate-pulse" : pervertScore > characterPatienceLimit * 0.6 ? "text-yellow-400" : "text-purple-400"} />
-                          <div className="flex flex-col">
-                            <span className="text-xs font-bold uppercase tracking-wider text-white">Pervert Score Metric</span>
-                            <span className="text-[10px] text-white/40">Boundary-crossing behavior vs Patience limit</span>
-                          </div>
-                        </div>
-                        <span className={`text-sm font-mono font-bold ${pervertScore >= characterPatienceLimit ? "text-red-400" : pervertScore > characterPatienceLimit * 0.6 ? "text-yellow-400" : "text-purple-300"}`}>
-                          {pervertScore.toFixed(2)} / {characterPatienceLimit.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="w-full h-2.5 bg-white/10 rounded-full overflow-hidden mt-1">
-                        <div 
-                          className={`h-full transition-all duration-500 rounded-full ${pervertScore >= characterPatienceLimit ? "bg-red-500" : pervertScore > characterPatienceLimit * 0.6 ? "bg-yellow-400" : "bg-purple-500"}`}
-                          style={{ width: `${Math.min(100, (pervertScore / characterPatienceLimit) * 100)}%` }}
-                        />
-                      </div>
-                      {pervertScore >= characterPatienceLimit && (
-                        <span className="text-[9px] bg-red-500/30 text-red-300 px-2 py-0.5 rounded font-bold uppercase tracking-wider animate-pulse self-start mt-1">
-                          Patience Limit Exceeded — Game Over
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </section>
 
                 <div className="space-y-4 font-mono text-[10px]">
                   <section className="space-y-2">
@@ -780,54 +658,6 @@ export default function ChatInterface({
                       onChange={e => setImageSteps(parseInt(e.target.value) || 8)}
                       className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white"
                     />
-                  </div>
-                </div>
-
-                {/* Pervert Score Controls & Debugging */}
-                <div className="flex flex-col gap-3 p-4 bg-purple-950/20 border border-purple-500/20 rounded-2xl">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <ShieldAlert size={16} className="text-purple-400" />
-                      <span className="text-xs font-bold uppercase tracking-wider text-white">Pervert Score Controls (Debug)</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPervertScore(0.0);
-                        setIsGameOver(false);
-                      }}
-                      className="flex items-center gap-1.5 text-[10px] bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 font-bold px-2.5 py-1 rounded-lg border border-purple-500/30 transition-all cursor-pointer"
-                    >
-                      <RotateCcw size={12} />
-                      Reset Score to 0.0
-                    </button>
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-white/60">Current Pervert Score:</span>
-                      <span className={`font-mono font-bold ${pervertScore >= characterPatienceLimit ? 'text-red-400 animate-pulse' : pervertScore > characterPatienceLimit * 0.6 ? 'text-yellow-400' : 'text-purple-300'}`}>
-                        {pervertScore.toFixed(2)} / {characterPatienceLimit.toFixed(2)}
-                      </span>
-                    </div>
-                    <input 
-                      type="range"
-                      min="0.0"
-                      max="1.0"
-                      step="0.02"
-                      value={pervertScore}
-                      onChange={e => {
-                        const val = parseFloat(e.target.value);
-                        setPervertScore(val);
-                        if (val >= characterPatienceLimit) {
-                          setIsGameOver(true);
-                        } else {
-                          setIsGameOver(false);
-                        }
-                      }}
-                      className="w-full accent-purple-500 h-2 bg-black/40 rounded-lg cursor-pointer"
-                    />
-                    <p className="text-[9px] text-white/30 italic">If pervert score reaches or exceeds character patience limit ({characterPatienceLimit.toFixed(2)}), game over is triggered.</p>
                   </div>
                 </div>
 
@@ -1035,19 +865,6 @@ export default function ChatInterface({
 
       {/* Input */}
       <footer className={`p-6 z-10 transition-transform duration-500 ${showChat ? 'translate-y-0' : 'translate-y-[200%]'}`}>
-        {/* Input Header Tools */}
-        {lastThoughts && (
-          <div className="flex items-center justify-end mb-2.5 px-2">
-            <button
-              type="button"
-              onClick={() => setShowDnaModal(true)}
-              className="text-[10px] text-white/40 hover:text-accent font-mono truncate max-w-[280px]"
-              title={lastThoughts}
-            >
-              AI Thought: "{lastThoughts.slice(0, 35)}..."
-            </button>
-          </div>
-        )}
         
         <form 
           onSubmit={handleSend}
@@ -1058,11 +875,7 @@ export default function ChatInterface({
             value={input}
             onChange={e => setInput(e.target.value)}
             disabled={isAutoReplyEnabled || isLoading || isGeneratingAutoReply}
-            placeholder={
-              isAutoReplyEnabled 
-                ? "Auto-playing roleplay... Click Pause to type" 
-                : "Type your action or dialogue... (use parentheses for private thoughts)"
-            }
+            placeholder={isAutoReplyEnabled ? "Auto-playing roleplay... Click Pause to type" : "Type your action or dialogue..."}
             className={`w-full bg-white/5 border border-white/10 rounded-[2rem] px-8 py-5 pr-20 focus:outline-none focus:border-accent/50 transition-all glass-panel text-lg ${
               (isAutoReplyEnabled || isLoading || isGeneratingAutoReply) ? 'opacity-50 cursor-not-allowed' : ''
             }`}
@@ -1070,125 +883,12 @@ export default function ChatInterface({
           <button 
             type="submit"
             disabled={!input.trim() || isLoading || isAutoReplyEnabled || isGeneratingAutoReply}
-            className="absolute right-4 p-4 text-white rounded-2xl bg-accent hover:bg-accent/90 shadow-accent/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg"
+            className="absolute right-4 p-4 bg-accent text-white rounded-2xl hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-accent/20"
           >
             <Send size={24} />
           </button>
         </form>
       </footer>
-
-      {/* Character DNA & Traits Modal */}
-      <AnimatePresence>
-        {showDnaModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 md:p-6"
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="max-w-2xl w-full bg-neutral-900 border border-white/15 rounded-3xl p-6 shadow-2xl space-y-5 max-h-[85vh] overflow-y-auto"
-            >
-              <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                <div className="flex items-center gap-2 text-accent">
-                  <Sparkles size={20} />
-                  <h3 className="font-serif font-bold text-lg text-white">Character DNA & Behavioral Traits</h3>
-                </div>
-                <button
-                  onClick={() => setShowDnaModal(false)}
-                  className="p-1 hover:bg-white/10 rounded-full text-white/60 hover:text-white transition-colors"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              {/* Stats Overview */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-white/5 border border-white/10 p-3.5 rounded-2xl flex flex-col">
-                  <span className="text-[10px] uppercase font-bold text-white/40">Pervert Score</span>
-                  <span className="text-xl font-mono font-bold text-purple-300 mt-1">{pervertScore.toFixed(2)}</span>
-                </div>
-                <div className="bg-white/5 border border-white/10 p-3.5 rounded-2xl flex flex-col">
-                  <span className="text-[10px] uppercase font-bold text-white/40">Patience Limit</span>
-                  <span className="text-xl font-mono font-bold text-amber-300 mt-1">{characterPatienceLimit.toFixed(2)}</span>
-                </div>
-              </div>
-
-              {/* Character Thoughts */}
-              {lastThoughts && (
-                <div className="bg-purple-950/30 border border-purple-500/20 p-4 rounded-2xl space-y-1">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-purple-300 flex items-center gap-1.5">
-                    <Sparkles size={12} /> Recent AI Internal Monologue
-                  </span>
-                  <p className="text-xs text-purple-100/90 italic leading-relaxed">{lastThoughts}</p>
-                </div>
-              )}
-
-              {/* Character DNA Blueprint & Traits */}
-              <div className="space-y-2">
-                <span className="text-xs uppercase font-bold tracking-wider text-white/40">Full Character DNA & Traits Configuration</span>
-                <div className="bg-black/40 border border-white/10 rounded-2xl p-4 text-xs font-mono text-white/80 whitespace-pre-wrap leading-relaxed max-h-[300px] overflow-y-auto">
-                  {characterDNA || "No character DNA configured yet."}
-                </div>
-              </div>
-
-              <button
-                onClick={() => setShowDnaModal(false)}
-                className="w-full py-3 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl transition-all cursor-pointer text-xs uppercase tracking-wider"
-              >
-                Close
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Game Over Modal */}
-      <AnimatePresence>
-        {isGameOver && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-6"
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="max-w-md w-full bg-neutral-900 border border-red-500/40 rounded-3xl p-6 shadow-2xl text-center space-y-4"
-            >
-              <div className="w-16 h-16 bg-red-500/20 border border-red-500/40 rounded-full flex items-center justify-center mx-auto text-red-400">
-                <AlertTriangle size={32} />
-              </div>
-              <h2 className="text-xl font-bold text-white uppercase tracking-wide">Story Ended — Boundary Exceeded</h2>
-              <p className="text-xs text-white/70 leading-relaxed">
-                The AI character recognized perverted behavior or reached her character patience limit (Patience Limit: {characterPatienceLimit.toFixed(2)}). She has cut off or confronted the interaction.
-              </p>
-              <div className="pt-2 flex flex-col gap-2">
-                <button
-                  onClick={() => {
-                    setPervertScore(0.0);
-                    setIsGameOver(false);
-                  }}
-                  className="w-full py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl transition-all cursor-pointer shadow-lg shadow-red-600/20 text-xs uppercase tracking-wider"
-                >
-                  Forgive & Reset Game State
-                </button>
-                <button
-                  onClick={onBack}
-                  className="w-full py-2.5 bg-white/10 hover:bg-white/20 text-white/80 font-bold rounded-xl transition-all cursor-pointer text-xs uppercase tracking-wider"
-                >
-                  Back to Main Menu
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

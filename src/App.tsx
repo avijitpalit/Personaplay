@@ -10,12 +10,7 @@ export default function App() {
   const [useInternalApi, setUseInternalApi] = useState(false);
   const [selectedModel, setSelectedModel] = useState('gemma-4-31b-it');
 
-  const handleStart = (
-    newScenario: string, 
-    internalMode: boolean, 
-    baseUrl: string, 
-    model: string
-  ) => {
+  const handleStart = (newScenario: string, internalMode: boolean, baseUrl: string, model: string) => {
     setScenario(newScenario);
     setUseInternalApi(internalMode);
     setApiBaseUrl(baseUrl);

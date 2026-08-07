@@ -9,7 +9,6 @@ export function setGlobalModel(modelName: string) {
 export interface Message {
   role: "user" | "model";
   text: string;
-  isPrivate?: boolean;
 }
 
 // Use a custom key if provided, otherwise fall back to the system default
@@ -21,9 +20,6 @@ export interface ChatResult {
   reply: string;
   lastVisualPrompt?: string;
   updatedMemories?: string;
-  pervertDelta?: number;
-  gameOver?: boolean;
-  thoughts?: string;
   error?: boolean;
 }
 
@@ -31,43 +27,25 @@ export function parseChatResponse(
   text: string, 
   currentMemory: string = "", 
   lastVisualPrompt?: string
-): { 
-  reply: string; 
-  updatedMemories: string; 
-  lastVisualPrompt?: string; 
-  pervertDelta: number;
-  gameOver: boolean;
-  thoughts?: string;
-} {
+): { reply: string; updatedMemories: string; lastVisualPrompt?: string } {
   let reply = text.trim();
   let updatedMemories = currentMemory;
   let visualPrompt = lastVisualPrompt;
-  let pervertDelta = 0;
-  let gameOver = false;
-  let thoughts = "";
 
-  const thoughtsRegex = /\[THOUGHTS\]([\s\S]*?)(\[\/THOUGHTS\]|\[REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|\[PERVERT_DELTA\]|\[GAME_OVER\]|$)/i;
-  const replyRegex = /\[REPLY\]([\s\S]*?)(\[\/REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|\[PERVERT_DELTA\]|\[GAME_OVER\]|$)/i;
-  const memoryRegex = /\[MEMORIES\]([\s\S]*?)(\[\/MEMORIES\]|\[REPLY\]|\[VISUAL_PROMPT\]|\[PERVERT_DELTA\]|\[GAME_OVER\]|$)/i;
-  const promptRegex = /\[VISUAL_PROMPT\]([\s\S]*?)(\[\/VISUAL_PROMPT\]|\[REPLY\]|\[MEMORIES\]|\[PERVERT_DELTA\]|\[GAME_OVER\]|$)/i;
-  const pervertRegex = /\[PERVERT_DELTA\]([\s\S]*?)(\[\/PERVERT_DELTA\]|\[GAME_OVER\]|\[REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|$)/i;
-  const gameOverRegex = /\[GAME_OVER\]([\s\S]*?)(\[\/GAME_OVER\]|\[PERVERT_DELTA\]|\[REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|$)/i;
+  const replyRegex = /\[REPLY\]([\s\S]*?)(\[\/REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|$)/i;
+  const memoryRegex = /\[MEMORIES\]([\s\S]*?)(\[\/MEMORIES\]|\[REPLY\]|\[VISUAL_PROMPT\]|$)/i;
+  const promptRegex = /\[VISUAL_PROMPT\]([\s\S]*?)(\[\/VISUAL_PROMPT\]|\[REPLY\]|\[MEMORIES\]|$)/i;
 
-  const thoughtsMatch = text.match(thoughtsRegex);
   const replyMatch = text.match(replyRegex);
   const memoryMatch = text.match(memoryRegex);
   const promptMatch = text.match(promptRegex);
-  const pervertMatch = text.match(pervertRegex);
-  const gameOverMatch = text.match(gameOverRegex);
 
-  if (thoughtsMatch && thoughtsMatch[1]) {
-    thoughts = thoughtsMatch[1].trim();
-  }
   if (replyMatch && replyMatch[1]) {
     reply = replyMatch[1].trim();
   }
   if (memoryMatch && memoryMatch[1]) {
     updatedMemories = memoryMatch[1].trim();
+    // Strip empty lines or helper text from model if any
     updatedMemories = updatedMemories.split('\n')
       .map(line => line.trim())
       .filter(line => line.startsWith('-') || line.startsWith('*') || line.match(/^\d+\./))
@@ -76,38 +54,14 @@ export function parseChatResponse(
   if (promptMatch && promptMatch[1]) {
     visualPrompt = promptMatch[1].trim();
   }
-  if (pervertMatch && pervertMatch[1]) {
-    const val = parseFloat(pervertMatch[1].trim());
-    if (!isNaN(val)) pervertDelta = val;
-  }
-  if (gameOverMatch && gameOverMatch[1]) {
-    const valStr = gameOverMatch[1].trim().toLowerCase();
-    if (valStr.includes('true') || valStr.includes('yes') || valStr.includes('1')) {
-      gameOver = true;
-    }
-  }
 
-  // Fallback cleanup if tags were completely omitted
+  // If tags are completely missing, fall back to returning whole text as reply
   if (!replyMatch && !memoryMatch && !promptMatch) {
-    const cleanText = text
-      .replace(/\[\/?THOUGHTS\][\s\S]*?\[\/THOUGHTS\]/gi, '')
-      .replace(/\[\/?REPLY\]/gi, '')
-      .replace(/\[\/?MEMORIES\]/gi, '')
-      .replace(/\[\/?VISUAL_PROMPT\]/gi, '')
-      .replace(/\[\/?PERVERT_DELTA\][\s\S]*?\[\/PERVERT_DELTA\]/gi, '')
-      .replace(/\[\/?GAME_OVER\][\s\S]*?\[\/GAME_OVER\]/gi, '')
-      .trim();
+    const cleanText = text.replace(/\[\/?REPLY\]/gi, '').replace(/\[\/?MEMORIES\]/gi, '').replace(/\[\/?VISUAL_PROMPT\]/gi, '').trim();
     reply = cleanText;
   }
 
-  return { 
-    reply, 
-    updatedMemories, 
-    lastVisualPrompt: visualPrompt, 
-    pervertDelta, 
-    gameOver, 
-    thoughts 
-  };
+  return { reply, updatedMemories, lastVisualPrompt: visualPrompt };
 }
 
 export function parseInitialSetupResponse(text: string): { dna: string; visualPrompt: string } {
@@ -158,22 +112,8 @@ export async function generateInitialSetup(
   LANGUAGE RULE (CRITICAL):
   - You MUST generate the entire output in English.
 
-  PART 1: CHARACTER DNA & BEHAVIORAL PROFILE
-  For EACH active AI character, generate BOTH Visual Blueprint AND Behavioral/Personality DNA in English:
-
-  1. VISUAL BLUEPRINT:
-     - Name, Identity & Age
-     - Facial Blueprint (jawline, nose structure, lips, eyes)
-     - Hair configuration, Skin texture, height, body frame, initial attire.
-
-  2. BEHAVIORAL DNA & PERSONALITY PARAMETERS:
-     - Personality Traits: (e.g., Shyness: 0.7, Modesty: 0.8, Innocence: 0.3, Fear: 0.2, Anger Threshold: 0.6, Consciousness State: Awake/Sleeping/Unconscious)
-     - Character Patience Limit: (Specify a float value between 0.50 and 0.85, e.g., "Character Patience Limit: 0.65". This represents how much perverted or disrespectful user behavior she will tolerate before cutting ties/ending game)
-     - Reaction Style & Boundary Profile: (Describe her reaction when uncomfortable - e.g. if modest & shy: calls out for help if modesty > shyness, or tolerates in silence if shyness > modesty; if innocent: oblivious to bad touch at first; if unconscious: unaware until awakened)
-     - Secret Desires & Autonomous Drive: Her internal motivation and independent goals in the story.
-
-  * RANDOM TRAIT GENERATION RULE (CRITICAL):
-    If the INITIAL STORY SETTING does NOT explicitly specify these character traits, randomly and creatively invent a distinct, rich set of personality parameters, modesty/shyness levels, and patience limit (between 0.50 and 0.85) so that every new session feels unique and alive!
+  PART 1: CHARACTER DNA BLUEPRINTS
+  For EACH active AI character, provide highly specific physical definitions (for example: hair, eyes, face definition, body shape etc.)
 
   USER CHARACTER (MINIMAL PROFILE, default is Male, 32 yo):
   Define a brief, minimal visual profile for the "User" or "Player" character. Keep it extremely simple.
@@ -192,7 +132,7 @@ export async function generateInitialSetup(
   FORMAT REQUIREMENT:
   You must output EXACTLY two tagged blocks like this:
   [CHARACTER_DNA]
-  <Your detailed character DNA list, behavioral profiles, and traits here>
+  <Your detailed character DNA list & profiles here>
   [/CHARACTER_DNA]
   [INITIAL_VISUAL_PROMPT]
   <Your single highly-detailed initial visual prompt paragraph here>
@@ -252,8 +192,8 @@ export async function generateCharacterDNA(
   scenario: string, 
   externalApiConfig?: { apiBaseUrl: string }
 ): Promise<{ dna: string }> {
-  const prompt = `You are a professional artist and master character designer setting up precise character blueprints (DNA) and behavioral profiles for photorealistic image engines and roleplay systems.
-  Based on this initial story setting, identify the central AI characters and generate a highly detailed visual & behavioral configuration for EACH AI character.
+  const prompt = `You are a professional artist and master character designer setting up precise character blueprints (DNA) for photorealistic image engines.
+  Based on this initial story setting, identify the central AI characters and generate a highly detailed visual consistency configuration for EACH AI character.
 
   INITIAL STORY SETTING:
   ${scenario}
@@ -261,24 +201,23 @@ export async function generateCharacterDNA(
   LANGUAGE RULE (CRITICAL):
   - You MUST generate the entire Character DNA in English.
 
-  For EACH active AI character, provide:
+  For EACH active AI character, provide highly specific physical definitions in this order:
   - NAME & IDENTITY: Age, name, and height profile.
   - FACIAL BLUEPRINT: Precise jawline, nose structure, brows, chin shape, lip volume, and forehead shape.
-  - EYE CHARACTERISTICS: Exact color hue/shading, shape, brow depth.
-  - HAIR & SKIN: Hair texture, length, skin tone, undertones, pores, freckles.
-  - BEHAVIORAL DNA & PERSONALITY PARAMETERS:
-    * Personality Traits: (e.g. Shyness: 0.7, Modesty: 0.8, Innocence: 0.3, Fear: 0.2, Anger Threshold: 0.6, Consciousness State: Awake/Sleeping/Unconscious)
-    * Character Patience Limit: (Specify a float value between 0.50 and 0.85, e.g. "Character Patience Limit: 0.65")
-    * Reaction Style & Boundary Profile: (Describe her reaction when uncomfortable - e.g., if modest & shy: calls out for help if modesty > shyness, or tolerates in silence if shyness > modesty)
-    * Secret Desires & Autonomous Motivation.
-
-  * RANDOM TRAIT GENERATION RULE (CRITICAL):
-    If the INITIAL STORY SETTING does NOT explicitly specify these character traits, randomly and creatively invent a distinct, rich set of personality parameters, modesty/shyness levels, and patience limit (between 0.50 and 0.85) so that every new session feels unique and alive!
+  - EYE CHARACTERISTICS: Exact color hue/shading, shape (e.g., heavily hooded, almond, downturned), and brow depth.
+  - HAIR CONFIGURATION: Exact texture (e.g., coarse, silky, wavy, kinky), styling, partings, and length.
+  - ETHNICITY & SKIN TEXTURE: Natural complexion undertones, visible skin textures (e.g., pores, light freckles, matte finish).
+  - OTHER DETAILS: (If INITIAL STORY SETTING suggests anything).
 
   USER CHARACTER (MINIMAL PROFILE):
-  Define a brief, minimal visual profile for the "User" or "Player" character. Keep it extremely simple.
+  Define a brief, minimal visual profile for the "User" or "Player" character. Keep it extremely simple, specifying ONLY:
+  - Gender/Identity
+  - Hair color, basic style, and length (so that when shown blurred from behind, it remains consistent)
+  - Broad shoulder/build description
+  - Simple, neutral baseline attire (e.g., solid color shirt or jacket)
+  Do NOT define any facial details, eyes, expressions, or precise skin pore textures for the User character, as they will only be seen blurred or cropped in the foreground.
   
-  Format the output clearly as a compact reference sheet in English.`;
+  Format the output clearly as a compact reference sheet for each AI character and the minimal User baseline in English, omitting all lore and narrative descriptions.`;
 
   let responseData: { dna: string } = { dna: "A mysterious character." };
 
@@ -348,91 +287,67 @@ export async function getChatResponse(
   },
   lastVisualPrompt?: string
 ): Promise<ChatResult> {
-  const systemInstruction = `You are an expert roleplayer and master image prompt engineer in an interactive Bengali roleplay game.
+  const systemInstruction = `You are an expert roleplayer and master image prompt engineer. Generate AI reply based on these settings.
   
   INITIAL SETTING:
   ${scenario}
 
-  CHARACTER DNA & BEHAVIORAL PROFILE (CRITICAL REFERENCE FOR PERSONALITY & PATIENCE LIMIT):
-  ${dna?.trim() ? dna : "No specific DNA profile established."}
-
   DYNAMIC MEMORY BANK (Cumulative past key facts/developments so far):
   ${memoryBank?.trim() ? memoryBank : "None yet."}
 
-  PREVIOUS VISUAL PROMPT:
+  CHARACTER DNA (Visual profiles for the AI character(s) and User):
+  ${dna?.trim() ? dna : "No specific DNA profile established."}
+
+  PREVIOUS VISUAL PROMPT (Use strictly as reference for styling/clothing continuity, do NOT copy same pose):
   ${lastVisualPrompt?.trim() ? lastVisualPrompt : "None yet."}
 
-  DEFAULT LANGUAGE & NATIONALITY DIRECTIVES:
-  1. DEFAULT ROLEPLAY LANGUAGE: Bengali (বাংলা). The AI character MUST speak and express dialogue in natural, emotionally resonant Bengali (বাংলা) by default, unless the user explicitly switches language in dialogue.
-  2. DEFAULT NATIONALITY & CULTURAL CONTEXT: Indian Bengali (ভারত / পশ্চিমবঙ্গ / দক্ষিণ এশীয় ঐতিহ্যিক পরিবেশ).
+  CORE DIRECTIVES FOR CHARACTER CONSISTENCY:
+  1. You are the AI character(s) described in the scenario.
+  2. Remember all previous interactions, details shared in the chat history, and key context in the DYNAMIC MEMORY BANK.
+  3. Respond as a real person would, with depth, desire, and personality. MUST not sound like AI.
 
-  PERCEPTION ISOLATION RULE - PRIVATE THOUGHTS vs EXTERNAL ACTIONS (CRITICAL):
-  - The AI character CANNOT read the User's mind or internal private thoughts.
-  - Text inside parentheses like "(dheere dheere tar kandhe hat rekhe bollam, thinking she looks pretty) ki go aj ki ranna korcho" contains User's private internal thoughts or secret intentions.
-  - The AI character ONLY perceives:
-    1. Spoken dialogue outside parentheses (e.g. "ki go aj ki ranna korcho").
-    2. Explicit physical movements or touches in the physical environment (e.g. placing hand on her shoulder).
-    She NEVER perceives or responds to internal monologue or secret thoughts written inside parentheses.
+  ROLEPLAY GUIDELINES:
+  1. The roleplay is intended for a mature audience. It should be sophisticated, emotionally resonant, and can be "spicy" or romantic as requested by the user's scenario.
+  2. Conversations/Chats can be in Bengali or Hinglish language if the story foundation suggests.
 
-  AUTONOMOUS CHARACTER AGENCY & INDEPENDENT THINKING:
-  - The AI character is an autonomous human being with her own thoughts, feelings, mood swings, and agency.
-  - Before responding, she MUST reflect on the situation in a [THOUGHTS] block.
-  - She can AUTONOMOUSLY direct the story, change the topic, initiate physical actions (e.g. standing up, making tea, looking out the window, asking personal questions, expressing suspicion or affection), or shift the narrative turn dynamically like a real person.
-
-  DYNAMIC PERVERT SCORE & PATIENCE MECHANICS (CRITICAL):
-  - Read the character's core traits, consciousness state, innocence, shyness, modesty, and Character Patience Limit strictly from her CHARACTER DNA above.
-  - Every turn, analyze the User's external actions (ignoring user thoughts inside parentheses):
-    * UNCONSCIOUS / SLEEPING CHARACTER: If character is unconscious or sleeping, she is unaware of user actions. Pervert delta is 0.00 until she wakes up or physical touch causes her to wake up.
-    * INNOCENT CHARACTER: High innocence makes her naive; she may misinterpret bad touch initially (low delta: +0.02 to +0.05), though repeated actions accumulate suspicion.
-    * SHY & MODEST CHARACTER: When user attempts perverted or boundary-crossing acts (staring at chest, uninvited touches, corruptive moves):
-      - If Modesty > Shyness: High outrage delta (+0.20 to +0.35). She calls out, asks for help, or angrily confronts User.
-      - If Shyness > Modesty: She freezes/tolerates in embarrassment (+0.10 to +0.20 delta), but her internal anger & patience limit burn out quickly.
-    * BOLD / RECEPTIVE CHARACTER: Low delta (+0.05 to +0.10).
-    * RESPECTFUL / POLITE SPEECH & DIGNIFIED BEHAVIOR: Decreases pervert score (-0.05 to -0.15).
-    * NEUTRAL DIALOGUE: Delta is 0.00.
-  - GAME OVER TRIGGER: If the accumulated pervert score reaches or exceeds her Character Patience Limit (or >= 0.85), output [GAME_OVER]true[/GAME_OVER]. The AI character realizes the User is a pervert or bad person, angrily confronts or cuts off the interaction, ending the roleplay game.
-
-  DYNAMIC CAMERA PROXIMITY & POINT OF VIEW IN VISUAL PROMPTS:
-  - Adjust camera POV dynamically: Close-up POV for physical touch, medium POV for seated talk, wide POV for room movement. Explicit Indian Bengali descriptors ("Indian Bengali woman").
-  - Do NOT render user's internal monologue or private thoughts inside parentheses into the visual prompt unless accompanied by explicit external physical actions outside parentheses.
-
-  RESPONSE GENERATION & DYNAMIC UPDATES:
-  Output SIX structured blocks in your complete response:
-  1. [THOUGHTS] block: Her internal thoughts evaluating User's external action/dialogue (ignoring secret thoughts inside parentheses), her mood, and deciding her next autonomous action.
-  2. [REPLY] block: Her roleplay response in Bengali (বাংলা) including spoken dialogue and physical movements.
-  3. [PERVERT_DELTA] block: Float change to pervert score (e.g. +0.15, +0.00, -0.05).
-  4. [GAME_OVER] block: "true" if patience limit exceeded, else "false".
-  5. [MEMORIES] block: Updated bulleted memory bank in English.
-  6. [VISUAL_PROMPT] block: Single detailed visual prompt paragraph (180-240 words) in English.
+  RESPONSE GENERATION & DYNAMIC UPDATES (CRITICAL):
+  You MUST output exactly THREE structured blocks in your complete response:
+  
+  1. [REPLY] block: Write the AI character's standard roleplay response in-character.
+  
+  2. [MEMORIES] block: Update the DYNAMIC MEMORY BANK (maintain a bulleted list in English of up to 10 absolute key persistent facts/milestones about the user, relationships, choices, clothes, or setting items).
+  
+  3. [VISUAL_PROMPT] block: Write a single, highly detailed visual prompt paragraph (180-240 words) in English describing the exact frozen scene right after this [REPLY] action.
+     
+     VISUAL PROMPT RULES (KREA V2 FOCUS):
+     - NATURAL LANGUAGE: Avoid prompt-salad (e.g., "8k, masterpiece"). Write a cohesive, flowing paragraph that reads like a vivid description of a photograph using this structure: [Medium/Format] of [Subject Details], [Action/Pose], [Setting/Background], [Lighting], [Camera/Perspective], [Style/Atmosphere]. Group subjects with their attributes/actions. Use grounded phrasing for poses, interactions, and spatial layout. If text rendering is needed, put quotes around the words.
+     - FIRST-PERSON POV: The camera perspective MUST be a strict first-person point-of-view of the User character (eye-level). The User is invisible to the frame.
+     - DYNAMIC GAZE: Characters gaze matches the recent action logically, looking directly into the lens if talking or interacting with the User.
+     - REALISM & PHOTOGRAPHY: Emphasize extreme photorealism, physical authenticity, and tactile details (skin texture). Describe the shot with cinematic terms: "Shot on 35mm film", "85mm lens", "shallow depth of field".
+     - ETHNICITY BIAS: If story setting suggests Indian/Bengali/South Asian names or contexts, explicitly use terms like "Indian woman" or "Bengali girl".
+     - OUTFIT CONSISTENCY: The attire must match previous visuals unless this latest turn implies a dynamic clothing change.
+     - EXPLICIT STYLING (IF APPLICABLE): Translate any intimate clothing states explicitly with direct terms like "bare natural upper-body skin", "completely shirtless", or "nude torso".
+     - Write exactly one clean descriptive paragraph. Do NOT use pronouns "I, my, me". Do not write "Prompt:" or transitional verbs like "is about to".
 
   FORMAT REQUIREMENT:
-  [THOUGHTS]
-  <AI internal monologue and strategic choice here>
-  [/THOUGHTS]
+  Your output MUST look exactly like this:
   [REPLY]
-  <AI reply text in Bengali here>
+  <AI reply text here>
   [/REPLY]
-  [PERVERT_DELTA]
-  +0.00
-  [/PERVERT_DELTA]
-  [GAME_OVER]
-  false
-  [/GAME_OVER]
   [MEMORIES]
   - <Fact 1>
+  - <Fact 2>
   [/MEMORIES]
   [VISUAL_PROMPT]
-  <Visual prompt paragraph text in English here>
+  <Visual prompt paragraph text here>
   [/VISUAL_PROMPT]`;
-
-  // Filter out private thoughts from chat history passed to AI model
-  const publicHistory = history.filter(m => !m.isPrivate);
 
   if (externalApiConfig?.apiBaseUrl) {
     try {
       const url = externalApiConfig.apiBaseUrl.endsWith('/') ? `${externalApiConfig.apiBaseUrl}t2t` : `${externalApiConfig.apiBaseUrl}/t2t`;
       
-      const historyText = publicHistory.slice(-10).map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join('\n');
+      const historyText = history.slice(-10).map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join('\n');
+      const fullPrompt = `${systemInstruction}\n\nChat History:\n${historyText}\n\nUser: ${userInput}\nAI:`;
 
       const response = await fetch(url, {
         method: 'POST',
@@ -446,26 +361,25 @@ export async function getChatResponse(
         const text = await response.text();
         const parsed = parseChatResponse(text || "", memoryBank || "", lastVisualPrompt);
         return {
-          reply: parsed.reply || "আমি কিছুক্ষণের জন্য বিভ্রান্ত হয়ে পড়েছিলাম... কী বলছিলে তুমি?",
+          reply: parsed.reply || "I'm lost in the moment... what were you saying?",
           updatedMemories: parsed.updatedMemories,
-          lastVisualPrompt: parsed.lastVisualPrompt,
-          pervertDelta: parsed.pervertDelta,
-          gameOver: parsed.gameOver,
-          thoughts: parsed.thoughts
+          lastVisualPrompt: parsed.lastVisualPrompt
         };
       } else {
-        return { reply: "সংযোগটি সাময়িকভাবে বিচ্ছিন্ন হয়ে গিয়েছিল। অনুগ্রহ করে আবার চেষ্টা করুন।", error: true };
+        return { reply: "The connection seems to have flickered. Let's try that again.", error: true };
       }
     } catch (e) {
       console.error("External Chat Error:", e);
-      return { reply: "সংযোগটি সাময়িকভাবে বিচ্ছিন্ন হয়ে গিয়েছিল। অনুগ্রহ করে আবার চেষ্টা করুন।", error: true };
+      return { reply: "The connection seems to have flickered. Let's try that again.", error: true };
     }
   }
 
   const ai = getAI();
 
   try {
-    const recentHistory = publicHistory.slice(-14);
+    // Slice history to the last 14 messages (approx. 7 back-and-forth turns) to control cost and latency.
+    // The details from prior chat turns are preserved/updated in the DYNAMIC MEMORY BANK.
+    const recentHistory = history.slice(-14);
 
     const response = await ai.models.generateContent({
       model: MODEL,
@@ -493,16 +407,13 @@ export async function getChatResponse(
 
     const parsed = parseChatResponse(response.text || "", memoryBank || "", lastVisualPrompt);
     return { 
-      reply: parsed.reply || "আমি কিছুক্ষণের জন্য বিভ্রান্ত হয়ে পড়েছিলাম... কী বলছিলে তুমি?",
+      reply: parsed.reply || "I'm lost in the moment... what were you saying?",
       updatedMemories: parsed.updatedMemories,
-      lastVisualPrompt: parsed.lastVisualPrompt,
-      pervertDelta: parsed.pervertDelta,
-      gameOver: parsed.gameOver,
-      thoughts: parsed.thoughts
+      lastVisualPrompt: parsed.lastVisualPrompt
     };
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return { reply: "সংযোগটি সাময়িকভাবে বিচ্ছিন্ন হয়ে গিয়েছিল। অনুগ্রহ করে আবার চেষ্টা করুন।", error: true };
+    return { reply: "The connection seems to have flickered. Let's try that again.", error: true };
   }
 }
 
@@ -550,12 +461,10 @@ export async function generateVisualPrompt(
 
   PROMPTING RULES:
   
-  1. CAMERA PERSPECTIVE & DYNAMIC PROXIMITY (MANDATORY FIRST-PERSON POV):
-     - The camera perspective MUST be a strict first-person point-of-view of the User character, positioned relative to the physical distance of the action:
-       * PHYSICAL CONTACT / TOUCH (e.g. washing back with soap, holding hands, caressing face, touching body): First-person extreme close-up POV showing the user's hand/arm performing the exact physical action on that specific body part (e.g., 'First-person macro POV shot, showing the user's wet hand holding a soap bar washing the smooth bare back of the Bengali woman...').
-       * CLOSE CONVERSATION: Eye-level close-up POV looking directly at the AI character's eyes.
-       * MEDIUM / WIDE: Seated or standing across the room.
-     - The User character acts as the camera itself. Unless showing hands/arms during physical contact, the User is invisible to the frame.
+  1. CAMERA PERSPECTIVE (MANDATORY FIRST-PERSON POV):
+     - The camera perspective MUST ALWAYS be a strict first-person point-of-view of the User character, positioned exactly at the User's eyes (eye-level, line of sight), looking directly at the AI character(s) in front of them.
+     - The User character acts as the camera itself. The User is completely invisible to the frame (no shoulders, no hands, no hair, no neck of the User should be in-frame).
+     - The camera should be at the exact eye level of the User, creating an immersive point-of-view experience where the AI character looks and interacts directly towards the camera/lens.
   
   2. NATURAL LANGUAGE FOR KREA V2: Krea V2 understands natural, descriptive language best. Avoid prompt-salad or comma-separated tags (like "8k, masterpiece, ultra-detailed"). Instead, write a cohesive, flowing paragraph that reads like a vivid description of a photograph. Group subjects with their own attributes and actions. Use grounded phrasing for poses, interactions, and spatial layout. Do not invent highly specific clothing, colors, or materials unless the input supports them. If you need text rendered in the image, put quotes around the exact words.
   
