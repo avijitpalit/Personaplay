@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Message, getChatResponse, generateImage, generateCharacterDNA, generateVisualPrompt, generateInitialSetup, getUserAutomatedReply, setGlobalModel } from '../lib/gemini';
-import { Send, ArrowLeft, Loader2, User, Sparkles, Image as ImageIcon, Eye, EyeOff, Save, CheckCircle2, Settings, Info, Clock, FileText, X, Play, Pause } from 'lucide-react';
+import { Send, ArrowLeft, Loader2, User, Sparkles, Image as ImageIcon, Eye, EyeOff, Save, CheckCircle2, Settings, Info, Clock, FileText, X, Play, Pause, Brain, Heart, Sun, Moon, Sunset, Sunrise } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
 import { Session, saveSession as persistSession } from '../lib/storage';
@@ -43,6 +43,8 @@ export default function ChatInterface({
   const [enableLora, setEnableLora] = useState<boolean>(initialSession?.enableLora ?? true);
   const [loraName, setLoraName] = useState<string>(initialSession?.loraName || 'Krea2_HMNSFW_AIO.safetensors');
   const [loraStrength, setLoraStrength] = useState<number>(initialSession?.loraStrength ?? initialLoraStrength);
+  const [selectedTimeOfDay, setSelectedTimeOfDay] = useState<string>('Auto');
+  const [expandedThoughts, setExpandedThoughts] = useState<Record<number, boolean>>({});
   const [showChat, setShowChat] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [showLog, setShowLog] = useState(false);
@@ -55,6 +57,15 @@ export default function ChatInterface({
   });
   const [logFilter, setLogFilter] = useState<'all' | 'info' | 'warn' | 'error'>('all');
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const getTimeOfDayString = () => {
+    if (selectedTimeOfDay !== 'Auto') return selectedTimeOfDay;
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return 'Morning';
+    if (hour >= 12 && hour < 17) return 'Afternoon';
+    if (hour >= 17 && hour < 21) return 'Sunset / Dusk';
+    return 'Late Night / Midnight';
+  };
 
   useEffect(() => {
     const registerListener = (window as any).__register_log_listener;
@@ -90,7 +101,8 @@ export default function ChatInterface({
         characterDNA || "",
         currentMessages,
         memoryBank,
-        useInternalApi ? undefined : { apiBaseUrl }
+        useInternalApi ? undefined : { apiBaseUrl },
+        getTimeOfDayString()
       );
 
       if (userReplyText) {
@@ -119,7 +131,7 @@ export default function ChatInterface({
     } else if (lastMessage.role === 'user') {
       const triggerAiReply = async () => {
         setIsLoading(true);
-        setStatusBarMessage("AI is replying...");
+        setStatusBarMessage("AI is thinking & replying...");
         try {
           const previousHistory = messages.slice(0, -1);
           const result = await getChatResponse(
@@ -133,7 +145,8 @@ export default function ChatInterface({
               dna: characterDNA || undefined,
               lastVisualPrompt: currentVisualPrompt
             },
-            currentVisualPrompt
+            currentVisualPrompt,
+            getTimeOfDayString()
           );
 
           if (result.error) {
@@ -147,7 +160,13 @@ export default function ChatInterface({
             setMemoryBank(result.updatedMemories);
           }
 
-          const finalMessages: Message[] = [...messages, { role: 'model', text: result.reply }];
+          const modelMessage: Message = { 
+            role: 'model', 
+            text: result.reply,
+            thoughts: result.thoughts,
+            emotions: result.emotions
+          };
+          const finalMessages: Message[] = [...messages, modelMessage];
           setMessages(finalMessages);
           setIsLoading(false);
           setStatusBarMessage(null);
@@ -165,7 +184,8 @@ export default function ChatInterface({
               currentVisualPrompt, 
               useInternalApi ? undefined : { apiBaseUrl }, 
               undefined,
-              result.updatedMemories || memoryBank
+              result.updatedMemories || memoryBank,
+              getTimeOfDayString()
             );
             setCurrentVisualPrompt(nextPrompt);
             setIsGeneratingPrompt(false);
@@ -180,7 +200,7 @@ export default function ChatInterface({
       };
       triggerAiReply();
     }
-  }, [isAutoReplyEnabled, messages, isLoading, isGeneratingAutoReply, isGeneratingPrompt, isGeneratingImage, lastSendFailed]);
+  }, [isAutoReplyEnabled, messages, isLoading, isGeneratingAutoReply, isGeneratingPrompt, isGeneratingImage, lastSendFailed, selectedTimeOfDay]);
 
   useEffect(() => {
     setGlobalModel(currentSelectedModel);
@@ -199,7 +219,7 @@ export default function ChatInterface({
     const initSession = async () => {
       setStatusBarMessage("Initializing scene & character setup...");
       setIsGeneratingPrompt(true);
-      const setup = await generateInitialSetup(scenario, useInternalApi ? undefined : { apiBaseUrl });
+      const setup = await generateInitialSetup(scenario, useInternalApi ? undefined : { apiBaseUrl }, getTimeOfDayString());
       setCharacterDNA(setup.dna);
       setCurrentVisualPrompt(setup.visualPrompt);
       setIsGeneratingPrompt(false);
@@ -261,7 +281,7 @@ export default function ChatInterface({
     setMessages(updatedMessages);
     setInput('');
     setIsLoading(true);
-    setStatusBarMessage("AI is replying...");
+    setStatusBarMessage("AI is thinking & replying...");
 
     const result = await getChatResponse(
       scenario, 
@@ -274,7 +294,8 @@ export default function ChatInterface({
         dna: characterDNA || undefined,
         lastVisualPrompt: currentVisualPrompt
       },
-      currentVisualPrompt
+      currentVisualPrompt,
+      getTimeOfDayString()
     );
 
     if (result.error) {
@@ -288,7 +309,13 @@ export default function ChatInterface({
       setMemoryBank(result.updatedMemories);
     }
 
-    const finalMessages: Message[] = [...updatedMessages, { role: 'model', text: result.reply }];
+    const modelMessage: Message = { 
+      role: 'model', 
+      text: result.reply,
+      thoughts: result.thoughts,
+      emotions: result.emotions
+    };
+    const finalMessages: Message[] = [...updatedMessages, modelMessage];
     
     setMessages(finalMessages);
     setIsLoading(false);
@@ -308,7 +335,8 @@ export default function ChatInterface({
         currentVisualPrompt, 
         useInternalApi ? undefined : { apiBaseUrl }, 
         undefined,
-        result.updatedMemories || memoryBank
+        result.updatedMemories || memoryBank,
+        getTimeOfDayString()
       );
       setCurrentVisualPrompt(nextPrompt);
       setIsGeneratingPrompt(false);
@@ -337,7 +365,8 @@ export default function ChatInterface({
         dna: characterDNA || undefined,
         lastVisualPrompt: currentVisualPrompt
       },
-      currentVisualPrompt
+      currentVisualPrompt,
+      getTimeOfDayString()
     );
 
     if (result.error) {
@@ -351,7 +380,13 @@ export default function ChatInterface({
       setMemoryBank(result.updatedMemories);
     }
 
-    const finalMessages: Message[] = [...messages, { role: 'model', text: result.reply }];
+    const modelMessage: Message = { 
+      role: 'model', 
+      text: result.reply,
+      thoughts: result.thoughts,
+      emotions: result.emotions
+    };
+    const finalMessages: Message[] = [...messages, modelMessage];
     setMessages(finalMessages);
     setIsLoading(false);
     setStatusBarMessage(null);
@@ -448,6 +483,22 @@ export default function ChatInterface({
               <span className="text-[9px] uppercase tracking-[0.2em] text-accent font-bold mt-1">Mature & Immersive</span>
             </div>
             <div className="flex items-center gap-1 ml-auto">
+              <div className="flex items-center gap-1.5 bg-black/40 border border-white/10 rounded-full px-3 py-1 text-xs text-white/80 mr-1">
+                <Clock size={13} className="text-accent" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-white/40 hidden sm:inline">Time:</span>
+                <select
+                  value={selectedTimeOfDay}
+                  onChange={(e) => setSelectedTimeOfDay(e.target.value)}
+                  className="bg-transparent text-xs text-accent font-semibold focus:outline-none cursor-pointer"
+                >
+                  <option value="Auto" className="bg-neutral-900 text-white">Auto ({getTimeOfDayString()})</option>
+                  <option value="Morning" className="bg-neutral-900 text-white">🌅 Morning</option>
+                  <option value="Afternoon" className="bg-neutral-900 text-white">☀️ Afternoon</option>
+                  <option value="Sunset / Dusk" className="bg-neutral-900 text-white">🌇 Sunset / Dusk</option>
+                  <option value="Late Night / Midnight" className="bg-neutral-900 text-white">🌙 Late Night / Midnight</option>
+                </select>
+              </div>
+
               <button
                 onClick={() => setShowLog(!showLog)}
                 className={`p-2 rounded-lg transition-colors ${showLog ? 'bg-accent text-white' : 'hover:bg-white/5 text-white/60'}`}
@@ -798,30 +849,67 @@ export default function ChatInterface({
                 }`}>
                   {msg.role === 'user' ? <User size={14} className="md:w-[18px] md:h-[18px]" /> : <Sparkles size={14} className="text-accent md:w-[18px] md:h-[18px]" />}
                 </div>
-                <div className="flex items-center gap-3">
-                  {msg.role === 'user' && i === messages.length - 1 && lastSendFailed && (
-                    <div className="flex items-center gap-2 mr-1">
-                      <span className="text-[10px] text-red-400 font-bold uppercase tracking-wider flex items-center gap-1 bg-red-950/40 border border-red-500/20 px-2.5 py-1 rounded-lg">
-                        <X size={12} className="text-red-400 animate-pulse" />
-                        Flickered
-                      </span>
-                      <button
-                        onClick={handleRetry}
-                        disabled={isLoading}
-                        className="flex items-center gap-1.5 text-xs text-accent hover:text-white bg-accent/20 hover:bg-accent/40 border border-accent/30 hover:border-accent/50 px-3 py-1.5 rounded-xl transition-all font-bold shadow-md shadow-accent/10 cursor-pointer"
-                      >
-                        <Play size={10} className="fill-accent text-accent group-hover:fill-white" />
-                        Retry
-                      </button>
+                <div className="flex flex-col gap-2 w-full">
+                  {msg.role === 'model' && (msg.emotions || msg.thoughts) && (
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      {msg.emotions && (
+                        <div className="flex items-center gap-1.5 px-3 py-1 bg-pink-500/15 border border-pink-500/30 rounded-full text-[11px] text-pink-200 font-medium shadow-sm">
+                          <Heart size={12} className="text-pink-400 fill-pink-400/30" />
+                          <span>{msg.emotions}</span>
+                        </div>
+                      )}
+                      {msg.thoughts && (
+                        <button
+                          onClick={() => setExpandedThoughts(prev => ({ ...prev, [i]: !prev[i] }))}
+                          className="flex items-center gap-1.5 text-xs text-purple-300 hover:text-purple-100 bg-purple-950/40 hover:bg-purple-900/50 border border-purple-500/30 px-3 py-1 rounded-full transition-all cursor-pointer font-medium shadow-sm"
+                        >
+                          <Brain size={12} className="text-purple-400 animate-pulse" />
+                          <span>{expandedThoughts[i] ? "Hide Private Thoughts" : "Read Private Thoughts"}</span>
+                        </button>
+                      )}
                     </div>
                   )}
-                  <div className={`p-4 md:p-5 rounded-2xl md:rounded-3xl ${
-                    msg.role === 'user' 
-                      ? 'bg-accent text-white' 
-                      : 'glass-panel text-white/90'
-                  }`}>
-                    <div className="markdown-body text-sm md:text-base leading-snug md:leading-relaxed">
-                      <Markdown>{msg.text}</Markdown>
+
+                  {msg.role === 'model' && msg.thoughts && expandedThoughts[i] && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="p-3.5 mb-2 bg-purple-950/40 border border-purple-500/30 rounded-2xl text-xs text-purple-200/95 italic font-serif leading-relaxed shadow-lg shadow-purple-950/40 flex gap-2.5 items-start max-w-[90%]"
+                    >
+                      <Sparkles size={14} className="text-purple-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <div className="text-[10px] uppercase font-sans font-bold tracking-wider text-purple-400/80 mb-1">Character Inner Monologue</div>
+                        "{msg.thoughts}"
+                      </div>
+                    </motion.div>
+                  )}
+
+                  <div className="flex items-center gap-3">
+                    {msg.role === 'user' && i === messages.length - 1 && lastSendFailed && (
+                      <div className="flex items-center gap-2 mr-1">
+                        <span className="text-[10px] text-red-400 font-bold uppercase tracking-wider flex items-center gap-1 bg-red-950/40 border border-red-500/20 px-2.5 py-1 rounded-lg">
+                          <X size={12} className="text-red-400 animate-pulse" />
+                          Flickered
+                        </span>
+                        <button
+                          onClick={handleRetry}
+                          disabled={isLoading}
+                          className="flex items-center gap-1.5 text-xs text-accent hover:text-white bg-accent/20 hover:bg-accent/40 border border-accent/30 hover:border-accent/50 px-3 py-1.5 rounded-xl transition-all font-bold shadow-md shadow-accent/10 cursor-pointer"
+                        >
+                          <Play size={10} className="fill-accent text-accent group-hover:fill-white" />
+                          Retry
+                        </button>
+                      </div>
+                    )}
+                    <div className={`p-4 md:p-5 rounded-2xl md:rounded-3xl ${
+                      msg.role === 'user' 
+                        ? 'bg-accent text-white' 
+                        : 'glass-panel text-white/90'
+                    }`}>
+                      <div className="markdown-body text-sm md:text-base leading-snug md:leading-relaxed">
+                        <Markdown>{msg.text}</Markdown>
+                      </div>
                     </div>
                   </div>
                 </div>

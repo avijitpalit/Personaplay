@@ -9,6 +9,8 @@ export function setGlobalModel(modelName: string) {
 export interface Message {
   role: "user" | "model";
   text: string;
+  thoughts?: string;
+  emotions?: string;
 }
 
 // Use a custom key if provided, otherwise fall back to the system default
@@ -18,30 +20,53 @@ const getAI = () => {
 
 export interface ChatResult {
   reply: string;
+  thoughts?: string;
+  emotions?: string;
   lastVisualPrompt?: string;
   updatedMemories?: string;
   error?: boolean;
+}
+
+export function getTimeOfDayContext(timeOfDayOverride?: string): string {
+  if (timeOfDayOverride) return timeOfDayOverride;
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) return "Morning (Fresh dawn sunlight, awakening atmosphere)";
+  if (hour >= 12 && hour < 17) return "Afternoon (Bright daylight, warm active energy)";
+  if (hour >= 17 && hour < 21) return "Dusk & Evening (Golden hour sunset, relaxing ambiance)";
+  return "Late Night / Midnight (Intimate moonlight, cozy indoor lighting, quiet atmospheric mood)";
 }
 
 export function parseChatResponse(
   text: string, 
   currentMemory: string = "", 
   lastVisualPrompt?: string
-): { reply: string; updatedMemories: string; lastVisualPrompt?: string } {
+): { reply: string; thoughts?: string; emotions?: string; updatedMemories: string; lastVisualPrompt?: string } {
   let reply = text.trim();
+  let thoughts = "";
+  let emotions = "";
   let updatedMemories = currentMemory;
   let visualPrompt = lastVisualPrompt;
 
-  const replyRegex = /\[REPLY\]([\s\S]*?)(\[\/REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|$)/i;
-  const memoryRegex = /\[MEMORIES\]([\s\S]*?)(\[\/MEMORIES\]|\[REPLY\]|\[VISUAL_PROMPT\]|$)/i;
-  const promptRegex = /\[VISUAL_PROMPT\]([\s\S]*?)(\[\/VISUAL_PROMPT\]|\[REPLY\]|\[MEMORIES\]|$)/i;
+  const replyRegex = /\[REPLY\]([\s\S]*?)(\[\/REPLY\]|\[THOUGHTS\]|\[EMOTIONS\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|$)/i;
+  const thoughtsRegex = /\[THOUGHTS\]([\s\S]*?)(\[\/THOUGHTS\]|\[REPLY\]|\[EMOTIONS\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|$)/i;
+  const emotionsRegex = /\[EMOTIONS\]([\s\S]*?)(\[\/EMOTIONS\]|\[THOUGHTS\]|\[REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|$)/i;
+  const memoryRegex = /\[MEMORIES\]([\s\S]*?)(\[\/MEMORIES\]|\[THOUGHTS\]|\[EMOTIONS\]|\[REPLY\]|\[VISUAL_PROMPT\]|$)/i;
+  const promptRegex = /\[VISUAL_PROMPT\]([\s\S]*?)(\[\/VISUAL_PROMPT\]|\[THOUGHTS\]|\[EMOTIONS\]|\[REPLY\]|\[MEMORIES\]|$)/i;
 
   const replyMatch = text.match(replyRegex);
+  const thoughtsMatch = text.match(thoughtsRegex);
+  const emotionsMatch = text.match(emotionsRegex);
   const memoryMatch = text.match(memoryRegex);
   const promptMatch = text.match(promptRegex);
 
   if (replyMatch && replyMatch[1]) {
     reply = replyMatch[1].trim();
+  }
+  if (thoughtsMatch && thoughtsMatch[1]) {
+    thoughts = thoughtsMatch[1].trim();
+  }
+  if (emotionsMatch && emotionsMatch[1]) {
+    emotions = emotionsMatch[1].trim();
   }
   if (memoryMatch && memoryMatch[1]) {
     updatedMemories = memoryMatch[1].trim();
@@ -56,12 +81,18 @@ export function parseChatResponse(
   }
 
   // If tags are completely missing, fall back to returning whole text as reply
-  if (!replyMatch && !memoryMatch && !promptMatch) {
-    const cleanText = text.replace(/\[\/?REPLY\]/gi, '').replace(/\[\/?MEMORIES\]/gi, '').replace(/\[\/?VISUAL_PROMPT\]/gi, '').trim();
+  if (!replyMatch && !memoryMatch && !promptMatch && !thoughtsMatch && !emotionsMatch) {
+    const cleanText = text
+      .replace(/\[\/?THOUGHTS\]/gi, '')
+      .replace(/\[\/?EMOTIONS\]/gi, '')
+      .replace(/\[\/?REPLY\]/gi, '')
+      .replace(/\[\/?MEMORIES\]/gi, '')
+      .replace(/\[\/?VISUAL_PROMPT\]/gi, '')
+      .trim();
     reply = cleanText;
   }
 
-  return { reply, updatedMemories, lastVisualPrompt: visualPrompt };
+  return { reply, thoughts, emotions, updatedMemories, lastVisualPrompt: visualPrompt };
 }
 
 export function parseInitialSetupResponse(text: string): { dna: string; visualPrompt: string } {
@@ -101,13 +132,18 @@ export function parseInitialSetupResponse(text: string): { dna: string; visualPr
 
 export async function generateInitialSetup(
   scenario: string,
-  externalApiConfig?: { apiBaseUrl: string }
+  externalApiConfig?: { apiBaseUrl: string },
+  timeOfDay?: string
 ): Promise<{ dna: string; visualPrompt: string }> {
+  const timeContext = getTimeOfDayContext(timeOfDay);
   const prompt = `You are a professional artist, master character designer, and expert image prompt engineer.
   Based on this initial story setting, you need to set up BOTH the Character DNA visual blueprints AND generate the very first visual scene prompt.
 
   INITIAL STORY SETTING:
   ${scenario}
+
+  CURRENT TIME OF DAY & AMBIANCE:
+  ${timeContext}
 
   LANGUAGE RULE (CRITICAL):
   - You MUST generate the entire output in English.
@@ -121,6 +157,7 @@ export async function generateInitialSetup(
   PART 2: INITIAL VISUAL PROMPT
   Write a single, highly detailed visual prompt paragraph (180-240 words) in English describing the starting scene. Specify details in a descriptive natural language style following this structure: [Medium/Format] of [Subject Details], [Action/Pose], [Setting/Background], [Lighting], [Camera/Perspective], [Style/Atmosphere].
   Rules for this prompt:
+  - TIME OF DAY LIGHTING: The lighting and background MUST reflect the current time of day (${timeContext}).
   - NATURAL LANGUAGE FOR KREA V2: Avoid prompt-salad. Write a cohesive, flowing paragraph that reads like a vivid description of a photograph. Group subjects with their own attributes and actions. Use grounded phrasing for poses, interactions, and spatial layout. Do not invent highly specific clothing, colors, or materials unless the input supports them. If you need text rendered in the image, put quotes around the words (e.g., a sign that says "STOP").
   - FIRST-PERSON POV: The camera MUST be a strict first-person point-of-view of the User character (positioned at eye-level). The User is invisible to the frame.
   - DYNAMIC GAZE: The AI character looks and interacts directly towards the camera/lens.
@@ -285,12 +322,17 @@ export async function getChatResponse(
     dna?: string, 
     lastVisualPrompt?: string 
   },
-  lastVisualPrompt?: string
+  lastVisualPrompt?: string,
+  timeOfDay?: string
 ): Promise<ChatResult> {
+  const timeContext = getTimeOfDayContext(timeOfDay);
   const systemInstruction = `You are an expert roleplayer and master image prompt engineer. Generate AI reply based on these settings.
   
   INITIAL SETTING:
   ${scenario}
+
+  CURRENT TIME OF DAY & AMBIANCE:
+  ${timeContext}
 
   DYNAMIC MEMORY BANK (Cumulative past key facts/developments so far):
   ${memoryBank?.trim() ? memoryBank : "None yet."}
@@ -301,25 +343,32 @@ export async function getChatResponse(
   PREVIOUS VISUAL PROMPT (Use strictly as reference for styling/clothing continuity, do NOT copy same pose):
   ${lastVisualPrompt?.trim() ? lastVisualPrompt : "None yet."}
 
-  CORE DIRECTIVES FOR CHARACTER CONSISTENCY:
-  1. You are the AI character(s) described in the scenario.
-  2. Remember all previous interactions, details shared in the chat history, and key context in the DYNAMIC MEMORY BANK.
-  3. Respond as a real person would, with depth, desire, and personality. MUST not sound like AI.
+  CORE DIRECTIVES FOR CHARACTER CONSISTENCY & INTELLIGENCE:
+  1. You are the AI character(s) described in the scenario with real agency, feelings, and inner thought processes.
+  2. TIME OF DAY AWARENESS: You MUST actively react to the current TIME OF DAY (${timeContext}). Adjust your energy, fatigue, dialogue, mood, and actions accordingly (e.g., late night invites quiet intimacy, drowsiness, candlelit or nocturnal conversations; morning brings fresh greetings, waking energy, breakfast/coffee habits; dusk brings golden-hour romance).
+  3. INNER MONOLOGUE & EMOTION: You can think on your own! In the [THOUGHTS] block, write your private inner monologue (what you are secretly feeling or thinking about the User, your hidden desires, reflections, or doubts before speaking). In [EMOTIONS], state your emotional baseline and mood.
+  4. Remember all previous interactions, details shared in the chat history, and key context in the DYNAMIC MEMORY BANK.
+  5. Respond as a real person would, with emotional depth, independent thoughts, and personality. MUST not sound like AI.
 
   ROLEPLAY GUIDELINES:
   1. The roleplay is intended for a mature audience. It should be sophisticated, emotionally resonant, and can be "spicy" or romantic as requested by the user's scenario.
   2. Conversations/Chats can be in Bengali or Hinglish language if the story foundation suggests.
 
   RESPONSE GENERATION & DYNAMIC UPDATES (CRITICAL):
-  You MUST output exactly THREE structured blocks in your complete response:
+  You MUST output FIVE structured blocks in your complete response:
   
-  1. [REPLY] block: Write the AI character's standard roleplay response in-character.
+  1. [THOUGHTS] block: Write the AI character's private inner monologue (what she is secretly thinking to herself, her inner feelings, or her reaction to the time of day before speaking).
+
+  2. [EMOTIONS] block: Express concise current emotional metrics (e.g. "Mood: Intrigued & Warm | Feeling: Intimate & Cozy | Time Vibe: Midnight Quiet").
+
+  3. [REPLY] block: Write the AI character's standard roleplay response in-character.
   
-  2. [MEMORIES] block: Update the DYNAMIC MEMORY BANK (maintain a bulleted list in English of up to 10 absolute key persistent facts/milestones about the user, relationships, choices, clothes, or setting items).
+  4. [MEMORIES] block: Update the DYNAMIC MEMORY BANK (maintain a bulleted list in English of up to 10 absolute key persistent facts/milestones about the user, relationships, choices, clothes, or setting items).
   
-  3. [VISUAL_PROMPT] block: Write a single, highly detailed visual prompt paragraph (180-240 words) in English describing the exact frozen scene right after this [REPLY] action.
+  5. [VISUAL_PROMPT] block: Write a single, highly detailed visual prompt paragraph (180-240 words) in English describing the exact frozen scene right after this [REPLY] action, reflecting the TIME OF DAY lighting.
      
      VISUAL PROMPT RULES (KREA V2 FOCUS):
+     - TIME OF DAY LIGHTING: The lighting and background MUST reflect the current time of day (${timeContext}).
      - NATURAL LANGUAGE: Avoid prompt-salad (e.g., "8k, masterpiece"). Write a cohesive, flowing paragraph that reads like a vivid description of a photograph using this structure: [Medium/Format] of [Subject Details], [Action/Pose], [Setting/Background], [Lighting], [Camera/Perspective], [Style/Atmosphere]. Group subjects with their attributes/actions. Use grounded phrasing for poses, interactions, and spatial layout. If text rendering is needed, put quotes around the words.
      - FIRST-PERSON POV: The camera perspective MUST be a strict first-person point-of-view of the User character (eye-level). The User is invisible to the frame.
      - DYNAMIC GAZE: Characters gaze matches the recent action logically, looking directly into the lens if talking or interacting with the User.
@@ -331,6 +380,12 @@ export async function getChatResponse(
 
   FORMAT REQUIREMENT:
   Your output MUST look exactly like this:
+  [THOUGHTS]
+  <AI inner monologue / private thoughts here>
+  [/THOUGHTS]
+  [EMOTIONS]
+  <Emotional state summary here>
+  [/EMOTIONS]
   [REPLY]
   <AI reply text here>
   [/REPLY]
@@ -362,6 +417,8 @@ export async function getChatResponse(
         const parsed = parseChatResponse(text || "", memoryBank || "", lastVisualPrompt);
         return {
           reply: parsed.reply || "I'm lost in the moment... what were you saying?",
+          thoughts: parsed.thoughts,
+          emotions: parsed.emotions,
           updatedMemories: parsed.updatedMemories,
           lastVisualPrompt: parsed.lastVisualPrompt
         };
@@ -408,6 +465,8 @@ export async function getChatResponse(
     const parsed = parseChatResponse(response.text || "", memoryBank || "", lastVisualPrompt);
     return { 
       reply: parsed.reply || "I'm lost in the moment... what were you saying?",
+      thoughts: parsed.thoughts,
+      emotions: parsed.emotions,
       updatedMemories: parsed.updatedMemories,
       lastVisualPrompt: parsed.lastVisualPrompt
     };
@@ -424,13 +483,15 @@ export async function generateVisualPrompt(
   lastPrompt?: string,
   externalApiConfig?: { apiBaseUrl: string },
   masterStory?: string,
-  memoryBank?: string
+  memoryBank?: string,
+  timeOfDay?: string
 ): Promise<string> {
   const isFirst = history.length === 0;
   const historyWindow = history.slice(-6);
   const immediateContext = history.slice(-2);
   const historyContext = isFirst ? "" : history.map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join("\n");
   const immediateAction = isFirst ? "" : immediateContext.map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join("\n");
+  const timeContext = getTimeOfDayContext(timeOfDay);
   
   const recentChat = history.slice(-5).map(m =>
   `${m.role === 'user' ? 'User' : 'AI character'}: ${m.text}`
@@ -438,10 +499,13 @@ export async function generateVisualPrompt(
 
   const prompt = `
   You are an expert image prompt engineer.
-  Generate a single static image prompt based strictly on the inputs below. Your main priority is to ensure maximum photorealism, and correct camera perspective focusing on the AI character(s).
+  Generate a single static image prompt based strictly on the inputs below. Your main priority is to ensure maximum photorealism, correct camera perspective, and authentic lighting matching the current time of day.
 
   STORY SETTING:
   ${scenario}
+
+  CURRENT TIME OF DAY & AMBIANCE:
+  ${timeContext}
 
   CHARACTER DNA (appearance reference applies EXCLUSIVELY to the AI characters — face, hair, body):
   ${characterDNA}
@@ -461,26 +525,28 @@ export async function generateVisualPrompt(
 
   PROMPTING RULES:
   
-  1. CAMERA PERSPECTIVE (MANDATORY FIRST-PERSON POV):
+  1. TIME OF DAY LIGHTING: The lighting, background colors, and ambiance MUST strictly match the TIME OF DAY (${timeContext}).
+  
+  2. CAMERA PERSPECTIVE (MANDATORY FIRST-PERSON POV):
      - The camera perspective MUST ALWAYS be a strict first-person point-of-view of the User character, positioned exactly at the User's eyes (eye-level, line of sight), looking directly at the AI character(s) in front of them.
      - The User character acts as the camera itself. The User is completely invisible to the frame (no shoulders, no hands, no hair, no neck of the User should be in-frame).
      - The camera should be at the exact eye level of the User, creating an immersive point-of-view experience where the AI character looks and interacts directly towards the camera/lens.
   
-  2. NATURAL LANGUAGE FOR KREA V2: Krea V2 understands natural, descriptive language best. Avoid prompt-salad or comma-separated tags (like "8k, masterpiece, ultra-detailed"). Instead, write a cohesive, flowing paragraph that reads like a vivid description of a photograph. Group subjects with their own attributes and actions. Use grounded phrasing for poses, interactions, and spatial layout. Do not invent highly specific clothing, colors, or materials unless the input supports them. If you need text rendered in the image, put quotes around the exact words.
+  3. NATURAL LANGUAGE FOR KREA V2: Krea V2 understands natural, descriptive language best. Avoid prompt-salad or comma-separated tags (like "8k, masterpiece, ultra-detailed"). Instead, write a cohesive, flowing paragraph that reads like a vivid description of a photograph. Group subjects with their own attributes and actions. Use grounded phrasing for poses, interactions, and spatial layout. Do not invent highly specific clothing, colors, or materials unless the input supports them. If you need text rendered in the image, put quotes around the exact words.
   
-  3. DYNAMIC GAZE DIRECTION: Gaze must match the current action logically. If interacting with the User (e.g., conversing, gazing deeply), the AI character should look directly into the camera lens. If engaged in a task (e.g., cooking, reading, looking away, sleeping), their gaze must focus naturally on that activity/object rather than looking at the camera.
+  4. DYNAMIC GAZE DIRECTION: Gaze must match the current action logically. If interacting with the User (e.g., conversing, gazing deeply), the AI character should look directly into the camera lens. If engaged in a task (e.g., cooking, reading, looking away, sleeping), their gaze must focus naturally on that activity/object rather than looking at the camera.
   
-  4. REALISM & PHOTOGRAPHY: Emphasize extreme photorealism, physical authenticity, and tactile details (skin texture, natural skin sheen, loose hair strands, natural weight). Describe the shot with cinematic terms: "Shot on 35mm film", "85mm lens", "shallow depth of field", "authentic film grain", and "realistic ambient volumetric lighting".
+  5. REALISM & PHOTOGRAPHY: Emphasize extreme photorealism, physical authenticity, and tactile details (skin texture, natural skin sheen, loose hair strands, natural weight). Describe the shot with cinematic terms: "Shot on 35mm film", "85mm lens", "shallow depth of field", "authentic film grain", and "realistic ambient volumetric lighting".
   
-  5. ETHNICITY & REGIONAL NATIONALITY BIAS: If the story setting, scenario, context, or names describe or imply an Indian, Bengali, South Asian, or other specific regional background, you MUST explicitly include definitive cultural/ethnic keywords (e.g., "Indian woman", "South Asian descent", "Bengali girl") in the appearance descriptors of the AI character(s) in the generated prompt.
+  6. ETHNICITY & REGIONAL NATIONALITY BIAS: If the story setting, scenario, context, or names describe or imply an Indian, Bengali, South Asian, or other specific regional background, you MUST explicitly include definitive cultural/ethnic keywords (e.g., "Indian woman", "South Asian descent", "Bengali girl") in the appearance descriptors of the AI character(s) in the generated prompt.
   
-  6. OUTFIT CONSISTENCY RULE: The attire/clothing of the character(s) will be dynamic, will only change if the recent action suggests, otherwise keep it consistent (use previous visual prompt as reference).
+  7. OUTFIT CONSISTENCY RULE: The attire/clothing of the character(s) will be dynamic, will only change if the recent action suggests, otherwise keep it consistent (use previous visual prompt as reference).
   
-  7. EXPLICIT DESCRIPTIONS (IF APPLICABLE): The model handles explicit physical descriptions much better than generic terms. If the scene implies or suggests physical intimacy, or mentions a character being "blouseless", "topless", or "shirtless", you MUST explicitly translate this with direct terms like: "completely shirtless and braless", "unclothed bare breasts and chest", "bare natural upper-body skin", "nude torso", or "completely exposed breasts with high-resolution skin texture".
+  8. EXPLICIT DESCRIPTIONS (IF APPLICABLE): The model handles explicit physical descriptions much better than generic terms. If the scene implies or suggests physical intimacy, or mentions a character being "blouseless", "topless", or "shirtless", you MUST explicitly translate this with direct terms like: "completely shirtless and braless", "unclothed bare breasts and chest", "bare natural upper-body skin", "nude torso", or "completely exposed breasts with high-resolution skin texture".
   
-  8. NO METAPHORS OR TRANSITIONAL ACTIONS: Describe the precise physical positioning. Do not use abstract prose or transition verbs like "about to" or "just finished". Only describe what is physically visible in the frozen frame.
+  9. NO METAPHORS OR TRANSITIONAL ACTIONS: Describe the precise physical positioning. Do not use abstract prose or transition verbs like "about to" or "just finished". Only describe what is physically visible in the frozen frame.
   
-  9. NO pronoun "I/my/me".
+  10. NO pronoun "I/my/me".
 
   OUTPUT THE PROMPT ONLY. DO NOT write any introductory or concluding text. Do not write "Prompt:" or include quote marks.
   `;
@@ -596,14 +662,19 @@ export async function getUserAutomatedReply(
   dna: string,
   history: Message[],
   memoryBank?: string,
-  externalApiConfig?: { apiBaseUrl: string }
+  externalApiConfig?: { apiBaseUrl: string },
+  timeOfDay?: string
 ): Promise<string> {
   const historyText = history.slice(-14).map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join('\n');
+  const timeContext = getTimeOfDayContext(timeOfDay);
 
   const prompt = `You are playing the role of the USER/PLAYER in this immersive roleplay scenario.
   
   INITIAL STORY SETTING:
   ${scenario}
+
+  CURRENT TIME OF DAY & AMBIANCE:
+  ${timeContext}
 
   DYNAMIC MEMORY BANK:
   ${memoryBank?.trim() ? memoryBank : "None yet."}
@@ -619,7 +690,7 @@ export async function getUserAutomatedReply(
   2. Do NOT write dialogue or actions for the AI characters.
   3. Keep your response concise, natural, engaging, and deeply in-character for the User/Player.
   4. Write in the same style/tone as the scenario (could be casual, dramatic, romantic, or mature).
-  5. Speak or act as a real person. Use asterisks for actions/thoughts (e.g. *smiles softly, stepping closer*) and natural text for spoken dialogue.
+  5. Speak or act as a real person. React naturally to the current time of day (${timeContext}). Use asterisks for actions/thoughts (e.g. *smiles softly, stepping closer*) and natural text for spoken dialogue.
   6. Respond directly to the AI's latest turn, driving the narrative forward.
   7. Do NOT wrap your output in tags, JSON, or any prefixes. Do NOT start your reply with "User:" or "AI:". Output ONLY the direct action and dialogue of the User.
   8. MUST NOT sound like an AI assistant. Focus on natural human reaction.
