@@ -54,12 +54,13 @@ export default function CharacterSetup({
       >
         <div className="space-y-6">
           <div>
-            <label className="block text-[10px] uppercase tracking-[0.3em] text-white/40 mb-4 font-bold">Roleplay Scenario & Character Details</label>
+            <label className="block text-[10px] uppercase tracking-[0.3em] text-white/40 font-bold mb-4">Roleplay Scenario & Character Details</label>
+
             <textarea 
               value={scenario}
               onChange={e => setScenario(e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-5 focus:outline-none focus:border-accent/50 min-h-[250px] text-lg leading-relaxed placeholder:text-white/20 transition-all resize-none"
-              placeholder="Example: I'm meeting a mysterious stranger at a dimly lit jazz club for our first date. They are sophisticated, slightly dangerous, and very charming. The air is thick with the smell of rain and expensive perfume..."
+              placeholder="Example: Ananya is a warm, charming woman. We are sitting together at home enjoying a quiet evening with tea..."
             />
           </div>
 

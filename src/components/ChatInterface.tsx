@@ -480,25 +480,8 @@ export default function ChatInterface({
             </button>
             <div className="flex flex-col">
               <h2 className="font-serif font-bold text-white text-lg leading-none">Roleplay Session</h2>
-              <span className="text-[9px] uppercase tracking-[0.2em] text-accent font-bold mt-1">Mature & Immersive</span>
             </div>
             <div className="flex items-center gap-1 ml-auto">
-              <div className="flex items-center gap-1.5 bg-black/40 border border-white/10 rounded-full px-3 py-1 text-xs text-white/80 mr-1">
-                <Clock size={13} className="text-accent" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-white/40 hidden sm:inline">Time:</span>
-                <select
-                  value={selectedTimeOfDay}
-                  onChange={(e) => setSelectedTimeOfDay(e.target.value)}
-                  className="bg-transparent text-xs text-accent font-semibold focus:outline-none cursor-pointer"
-                >
-                  <option value="Auto" className="bg-neutral-900 text-white">Auto ({getTimeOfDayString()})</option>
-                  <option value="Morning" className="bg-neutral-900 text-white">🌅 Morning</option>
-                  <option value="Afternoon" className="bg-neutral-900 text-white">☀️ Afternoon</option>
-                  <option value="Sunset / Dusk" className="bg-neutral-900 text-white">🌇 Sunset / Dusk</option>
-                  <option value="Late Night / Midnight" className="bg-neutral-900 text-white">🌙 Late Night / Midnight</option>
-                </select>
-              </div>
-
               <button
                 onClick={() => setShowLog(!showLog)}
                 className={`p-2 rounded-lg transition-colors ${showLog ? 'bg-accent text-white' : 'hover:bg-white/5 text-white/60'}`}
@@ -645,6 +628,24 @@ export default function ChatInterface({
                 </div>
 
                 <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2 p-3 bg-black/30 rounded-xl border border-white/10">
+                    <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold flex items-center gap-1.5">
+                      <Clock size={12} className="text-accent" /> Time of Day & Ambiance
+                    </label>
+                    <select
+                      value={selectedTimeOfDay}
+                      onChange={(e) => setSelectedTimeOfDay(e.target.value)}
+                      className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent/50 text-white cursor-pointer font-medium"
+                    >
+                      <option value="Auto" className="bg-neutral-900 text-white">Auto System Local Time ({getTimeOfDayString()})</option>
+                      <option value="Morning" className="bg-neutral-900 text-white">🌅 Morning (Fresh dawn sunlight)</option>
+                      <option value="Afternoon" className="bg-neutral-900 text-white">☀️ Afternoon (Bright daylight)</option>
+                      <option value="Sunset / Dusk" className="bg-neutral-900 text-white">🌇 Sunset / Dusk (Golden hour)</option>
+                      <option value="Late Night / Midnight" className="bg-neutral-900 text-white">🌙 Late Night / Midnight (Cozy nocturnal mood)</option>
+                    </select>
+                    <p className="text-[10px] text-white/40 italic">Influences the character's energy, dialogue, and photo lighting.</p>
+                  </div>
+
                   <div className="flex flex-col gap-2">
                     <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Roleplay Model</label>
                     <select
