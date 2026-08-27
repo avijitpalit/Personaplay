@@ -1,0 +1,20 @@
+{
+  "name": "PersonaPlay AI",
+  "short_name": "PersonaPlay",
+  "description": "An immersive AI roleplay application where you can interact with lifelike digital personas.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0a0a0c",
+  "theme_color": "#0a0a0c",
+  "categories": ["entertainment", "roleplay", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512 any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

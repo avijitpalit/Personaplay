@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Sparkles, Wand2, Flame, History, Trash2, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Session, getSessions, deleteSession } from '../lib/storage';
+import PwaInstallButton from './PwaInstallButton';
 
 interface CharacterSetupProps {
   onStart: (scenario: string, useInternalApi: boolean, apiBaseUrl: string, selectedModel: string) => void;
@@ -31,7 +32,11 @@ export default function CharacterSetup({
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-20 min-h-screen flex flex-col justify-center">
+    <div className="max-w-3xl mx-auto px-6 py-20 min-h-screen flex flex-col justify-center relative">
+      <div className="absolute top-6 right-6 z-20">
+        <PwaInstallButton />
+      </div>
+
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

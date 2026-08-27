@@ -18,6 +18,19 @@ createRoot(document.getElementById('root')!).render(
   // </StrictMode>,
 );
 
+// Register PWA Service Worker for standalone installability
+if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((err) => {
+      console.log('SW registration note:', err);
+    });
+  });
+} else if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
 // Console interceptor for in-app mobile logging
 const originalLog = console.log;
 const originalError = console.error;

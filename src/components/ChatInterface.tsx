@@ -4,6 +4,7 @@ import { Send, ArrowLeft, Loader2, User, Sparkles, Image as ImageIcon, Eye, EyeO
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
 import { Session, saveSession as persistSession } from '../lib/storage';
+import PwaInstallButton from './PwaInstallButton';
 
 interface ChatInterfaceProps {
   scenario: string;
@@ -617,14 +618,17 @@ export default function ChatInterface({
               <div className="flex flex-col gap-4 p-4 bg-white/5 rounded-2xl border border-white/10">
                 <div className="flex items-center justify-between">
                   <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Session Settings</label>
-                  <button
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${saveSuccess ? 'bg-green-500/20 text-green-400 border border-green-500/50' : 'bg-accent text-white hover:bg-accent/90 shadow-lg shadow-accent/20'}`}
-                  >
-                    {isSaving ? <Loader2 size={14} className="animate-spin" /> : saveSuccess ? <CheckCircle2 size={14} /> : <Save size={14} />}
-                    {saveSuccess ? "Saved" : "Save Session"}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <PwaInstallButton />
+                    <button
+                      onClick={handleSave}
+                      disabled={isSaving}
+                      className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${saveSuccess ? 'bg-green-500/20 text-green-400 border border-green-500/50' : 'bg-accent text-white hover:bg-accent/90 shadow-lg shadow-accent/20'}`}
+                    >
+                      {isSaving ? <Loader2 size={14} className="animate-spin" /> : saveSuccess ? <CheckCircle2 size={14} /> : <Save size={14} />}
+                      {saveSuccess ? "Saved" : "Save Session"}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex flex-col gap-4">
