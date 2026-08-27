@@ -406,7 +406,8 @@ export default function ChatInterface({
         currentVisualPrompt, 
         useInternalApi ? undefined : { apiBaseUrl }, 
         undefined,
-        result.updatedMemories || memoryBank
+        result.updatedMemories || memoryBank,
+        getTimeOfDayString()
       );
       setCurrentVisualPrompt(nextPrompt);
       setIsGeneratingPrompt(false);
