@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Message, getChatResponse, generateImage, generateCharacterDNA, generateVisualPrompt, generateInitialSetup, getUserAutomatedReply, setGlobalModel } from '../lib/gemini';
-import { Send, ArrowLeft, Loader2, User, Sparkles, Image as ImageIcon, Eye, EyeOff, Save, CheckCircle2, Settings, Info, Clock, FileText, X, Play, Pause, Brain, Heart, Sun, Moon, Sunset, Sunrise } from 'lucide-react';
+import { Send, ArrowLeft, Loader2, User, Sparkles, Image as ImageIcon, Eye, EyeOff, Save, CheckCircle2, Settings, Info, Clock, FileText, X, Play, Pause, Brain, Heart, Sun, Moon, Sunset, Sunrise, Copy, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
 import { Session, saveSession as persistSession } from '../lib/storage';
@@ -58,7 +58,32 @@ export default function ChatInterface({
     return (window as any).__captured_logs || [];
   });
   const [logFilter, setLogFilter] = useState<'all' | 'info' | 'warn' | 'error'>('all');
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const handleCopyMessage = async (text: string, index: number) => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setCopiedIndex(index);
+      setTimeout(() => {
+        setCopiedIndex(null);
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy text:', err);
+    }
+  };
 
   const getTimeOfDayString = () => {
     if (selectedTimeOfDay !== 'Auto') return selectedTimeOfDay;
@@ -905,7 +930,25 @@ export default function ChatInterface({
                     </motion.div>
                   )}
 
-                  <div className="flex items-center gap-3">
+                  <div className={`flex items-center gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    {msg.role === 'user' && (
+                      <button
+                        onClick={() => handleCopyMessage(msg.text, i)}
+                        className={`p-2 rounded-xl border transition-all cursor-pointer flex-shrink-0 flex items-center justify-center ${
+                          copiedIndex === i
+                            ? 'bg-green-500/20 text-green-400 border-green-500/40'
+                            : 'bg-white/5 hover:bg-white/10 text-white/50 hover:text-white border-white/10 hover:border-white/20'
+                        }`}
+                        title={copiedIndex === i ? "Copied to clipboard!" : "Copy user reply"}
+                        aria-label="Copy user reply"
+                      >
+                        {copiedIndex === i ? (
+                          <Check size={14} className="text-green-400" />
+                        ) : (
+                          <Copy size={14} />
+                        )}
+                      </button>
+                    )}
                     {msg.role === 'user' && i === messages.length - 1 && lastSendFailed && (
                       <div className="flex items-center gap-2 mr-1">
                         <span className="text-[10px] text-red-400 font-bold uppercase tracking-wider flex items-center gap-1 bg-red-950/40 border border-red-500/20 px-2.5 py-1 rounded-lg">
