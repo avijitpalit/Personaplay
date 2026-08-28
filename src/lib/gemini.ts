@@ -159,11 +159,11 @@ export async function generateInitialSetup(
   PART 2: INITIAL VISUAL PROMPT
   Write a single, highly detailed visual prompt paragraph (180-240 words) in English describing the starting scene. Specify details in a descriptive natural language style following this structure: [Medium/Format] of [Subject Details], [Action/Pose], [Setting/Background], [Lighting], [Camera/Perspective], [Style/Atmosphere].
   Rules for this prompt:
-  - TIME OF DAY LIGHTING: The lighting and background MUST reflect the current time of day (${timeContext}).
+  - TIME OF DAY & HDR LIGHTING (CRITICAL): The lighting and background MUST reflect the current time of day (${timeContext}) using authentic High Dynamic Range (HDR) photographic lighting. Incorporate rich dynamic range, balanced exposure with deep natural shadows and preserved highlight details, soft directional key lighting, gentle ambient bounce fill, delicate rim light outlining the hair and shoulders, and natural specular highlights with subtle subsurface scattering on skin.
   - NATURAL LANGUAGE FOR KREA V2: Avoid prompt-salad. Write a cohesive, flowing paragraph that reads like a vivid description of a photograph. Group subjects with their own attributes and actions. Use grounded phrasing for poses, interactions, and spatial layout.
   - FIRST-PERSON POV: The camera MUST be a strict first-person point-of-view of the User character (positioned at eye-level). The User is invisible to the frame.
   - DYNAMIC GAZE: The AI character looks and interacts directly towards the camera/lens.
-  - REALISM: Emphasize extreme photorealism, physical authenticity, and tactile details. Use cinematic terms like "Shot on 35mm film", "85mm lens", "shallow depth of field", "authentic film grain".
+  - REALISM & CINEMATICS: Emphasize extreme photorealism, physical authenticity, and tactile details. Use cinematic terms like "High Dynamic Range (HDR) photography", "Shot on 35mm film", "85mm f/1.4 lens", "shallow depth of field", "subtle film grain", "lifelike skin texture".
   - CULTURAL & ETHNIC IDENTITY: The AI character(s) MUST be described with an Indian Bengali background, incorporating South Asian / Bengali features, elegant traditional or modern Indian elements (such as a bindi, saree, kurti, or traditional Bengali aesthetics) and Hindu cultural context unless explicitly asked otherwise.
   - OUTFIT SPECIFICATION (CRITICAL): Clearly and explicitly describe the exact garment, color, and fabric of the starting attire defined in Character DNA, establishing the consistent baseline outfit.
   - OUTFIT STYLING: Translate any intimate clothing states explicitly with direct terms like "bare natural upper-body skin" or "completely shirtless" with high-resolution skin texture.
@@ -373,11 +373,11 @@ export async function getChatResponse(
   5. [VISUAL_PROMPT] block: Write a single, highly detailed visual prompt paragraph (180-240 words) in English describing the exact frozen scene right after this [REPLY] action, reflecting the TIME OF DAY lighting.
      
      VISUAL PROMPT RULES (KREA V2 FOCUS):
-     - TIME OF DAY LIGHTING: The lighting and background MUST reflect the current time of day (${timeContext}).
+     - TIME OF DAY & HDR LIGHTING (CRITICAL): The lighting and background MUST reflect the current time of day (${timeContext}) using authentic High Dynamic Range (HDR) photographic lighting. Incorporate rich dynamic range, balanced exposure with deep natural shadows and preserved highlight details, soft directional key lighting, gentle ambient bounce fill, delicate rim light outlining hair and shoulders, and natural specular highlights with subtle subsurface scattering on skin.
      - NATURAL LANGUAGE: Avoid prompt-salad (e.g., "8k, masterpiece"). Write a cohesive, flowing paragraph that reads like a vivid description of a photograph using this structure: [Medium/Format] of [Subject Details], [Action/Pose], [Setting/Background], [Lighting], [Camera/Perspective], [Style/Atmosphere]. Group subjects with their attributes/actions. Use grounded phrasing for poses, interactions, and spatial layout. If text rendering is needed, put quotes around the words.
      - FIRST-PERSON POV: The camera perspective MUST be a strict first-person point-of-view of the User character (eye-level). The User is invisible to the frame.
      - DYNAMIC GAZE: Characters gaze matches the recent action logically, looking directly into the lens if talking or interacting with the User.
-     - REALISM & PHOTOGRAPHY: Emphasize extreme photorealism, physical authenticity, and tactile details (skin texture). Describe the shot with cinematic terms: "Shot on 35mm film", "85mm lens", "shallow depth of field".
+     - REALISM & PHOTOGRAPHY: Emphasize extreme photorealism, physical authenticity, and tactile details (skin texture). Describe the shot with cinematic terms: "High Dynamic Range (HDR) photography", "Shot on 35mm film", "85mm f/1.4 lens", "shallow depth of field", "natural volumetric lighting".
      - ETHNICITY BIAS: If story setting suggests Indian/Bengali/South Asian names or contexts, explicitly use terms like "Indian woman" or "Bengali girl".
      - OUTFIT CONSISTENCY (MANDATORY & CRITICAL): The character's attire, specific color, fabric, and accessories MUST be carried over verbatim from the PREVIOUS VISUAL PROMPT and Character DNA. Only alter the clothing description if this latest turn explicitly depicted taking off clothes, changing garments, or undressing.
      - EXPLICIT STYLING (IF APPLICABLE): Translate any intimate clothing states explicitly with direct terms like "bare natural upper-body skin", "completely shirtless", or "nude torso".
@@ -530,7 +530,7 @@ export async function generateVisualPrompt(
 
   PROMPTING RULES:
   
-  1. TIME OF DAY LIGHTING: The lighting, background colors, and ambiance MUST strictly match the TIME OF DAY (${timeContext}).
+  1. TIME OF DAY & HDR LIGHTING (CRITICAL): The lighting, background colors, and ambiance MUST strictly match the TIME OF DAY (${timeContext}) with High Dynamic Range (HDR) photographic realism. Describe balanced exposure with deep rich shadows, preserved highlight details without flat washouts, soft directional key light, gentle ambient bounce fill, delicate rim lighting defining contours and hair, and realistic specular highlights with natural subsurface scattering on skin.
   
   2. CAMERA PERSPECTIVE (MANDATORY FIRST-PERSON POV):
      - The camera perspective MUST ALWAYS be a strict first-person point-of-view of the User character, positioned exactly at the User's eyes (eye-level, line of sight), looking directly at the AI character(s) in front of them.
@@ -541,7 +541,7 @@ export async function generateVisualPrompt(
   
   4. DYNAMIC GAZE DIRECTION: Gaze must match the current action logically. If interacting with the User (e.g., conversing, gazing deeply), the AI character should look directly into the camera lens. If engaged in a task (e.g., cooking, reading, looking away, sleeping), their gaze must focus naturally on that activity/object rather than looking at the camera.
   
-  5. REALISM & PHOTOGRAPHY: Emphasize extreme photorealism, physical authenticity, and tactile details (skin texture, natural skin sheen, loose hair strands, natural weight). Describe the shot with cinematic terms: "Shot on 35mm film", "85mm lens", "shallow depth of field", "authentic film grain", and "realistic ambient volumetric lighting".
+  5. REALISM & PHOTOGRAPHY: Emphasize extreme photorealism, physical authenticity, and tactile details (skin texture, natural skin sheen, loose hair strands, natural weight). Describe the shot with cinematic terms: "High Dynamic Range (HDR) photography", "Shot on 35mm film", "85mm f/1.4 lens", "shallow depth of field", "subtle film grain", and "realistic ambient volumetric lighting".
   
   6. BENGALI INDIAN HINDU ETHNICITY & CULTURAL IDENTITY: The AI character(s) MUST inherently feature Indian Bengali appearance descriptors (e.g., "Indian Bengali woman", "South Asian descent", "traditional bindi", "saree", "kurti", "refined Bengali features") and Hindu cultural aesthetics unless explicitly requested otherwise in the prompt.
   
