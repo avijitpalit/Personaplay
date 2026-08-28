@@ -13,6 +13,7 @@ export interface Session {
   apiBaseUrl: string;
   useInternalApi: boolean;
   selectedModel?: string;
+  imageModelUrl?: string;
   useExternalApi?: boolean;
   useXaiForImages?: boolean;
   imageWidth: number;

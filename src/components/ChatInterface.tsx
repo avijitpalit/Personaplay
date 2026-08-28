@@ -38,6 +38,7 @@ export default function ChatInterface({
   const [apiBaseUrl, setApiBaseUrl] = useState<string>(initialSession?.apiBaseUrl || initialApiBaseUrl);
   const [useInternalApi, setUseInternalApi] = useState<boolean>(initialSession?.useInternalApi ?? initialUseInternalApi);
   const [currentSelectedModel, setCurrentSelectedModel] = useState<string>(initialSession?.selectedModel || selectedModel);
+  const [imageModelUrl, setImageModelUrl] = useState<string>(initialSession?.imageModelUrl || 'https://avijitpalit3--krea2-inference-krea2service-fastapi-app.modal.run/generate');
   const [imageWidth, setImageWidth] = useState<number>(initialSession?.imageWidth || 720);
   const [imageHeight, setImageHeight] = useState<number>(initialSession?.imageHeight || 1280);
   const [imageSteps, setImageSteps] = useState<number>(initialSession?.imageSteps || 8);
@@ -244,6 +245,7 @@ export default function ChatInterface({
         apiBaseUrl,
         useInternalApi,
         selectedModel: currentSelectedModel,
+        imageModelUrl,
         imageWidth,
         imageHeight,
         imageSteps,
@@ -270,7 +272,7 @@ export default function ChatInterface({
       }, 5000); // Debounce auto-save
       return () => clearTimeout(timer);
     }
-  }, [messages, characterDNA, bgImage, currentVisualPrompt, apiBaseUrl, imageWidth, imageHeight, imageSteps, enableLora, loraName, loraStrength, memoryBank]);
+  }, [messages, characterDNA, bgImage, currentVisualPrompt, apiBaseUrl, imageModelUrl, imageWidth, imageHeight, imageSteps, enableLora, loraName, loraStrength, memoryBank]);
 
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -431,7 +433,7 @@ export default function ChatInterface({
     setError(null);
 
     try {
-      const result = await generateImage(apiBaseUrl, currentVisualPrompt, imageWidth, imageHeight, imageSteps, loraStrength, enableLora, loraName);
+      const result = await generateImage(apiBaseUrl, currentVisualPrompt, imageWidth, imageHeight, imageSteps, loraStrength, enableLora, loraName, imageModelUrl);
       if (result) {
         setBgImage(result.url);
       }
@@ -686,6 +688,18 @@ export default function ChatInterface({
                       </div>
                     </div>
                   )}
+
+                  <div className="flex flex-col gap-2">
+                    <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Image Generation Model</label>
+                    <select
+                      value={imageModelUrl}
+                      onChange={(e) => setImageModelUrl(e.target.value)}
+                      className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 text-white cursor-pointer font-medium"
+                    >
+                      <option value="https://avijitpalit3--krea2-inference-krea2service-fastapi-app.modal.run/generate" className="bg-neutral-900 text-white">Krea 2</option>
+                      <option value="https://avijitpalit3--z-image-turbo-zimageservice-fastapi-app.modal.run/generate" className="bg-neutral-900 text-white">Z-image turbo (ZiT)</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">

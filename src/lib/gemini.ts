@@ -166,7 +166,7 @@ export async function generateInitialSetup(
   - REALISM: Emphasize extreme photorealism, physical authenticity, and tactile details. Use cinematic terms like "Shot on 35mm film", "85mm lens", "shallow depth of field", "authentic film grain".
   - CULTURAL & ETHNIC IDENTITY: The AI character(s) MUST be described with an Indian Bengali background, incorporating South Asian / Bengali features, elegant traditional or modern Indian elements (such as a bindi, saree, kurti, or traditional Bengali aesthetics) and Hindu cultural context unless explicitly asked otherwise.
   - OUTFIT SPECIFICATION (CRITICAL): Clearly and explicitly describe the exact garment, color, and fabric of the starting attire defined in Character DNA, establishing the consistent baseline outfit.
-  - OUTFIT & MATURE STYLING: Translate any intimate clothing states explicitly with direct terms like "bare natural upper-body skin" or "completely shirtless" with high-resolution skin texture.
+  - OUTFIT STYLING: Translate any intimate clothing states explicitly with direct terms like "bare natural upper-body skin" or "completely shirtless" with high-resolution skin texture.
   - Write exactly one clean descriptive paragraph. Do NOT use pronouns "I, my, me". Do not write "Prompt:" or transitional verbs like "is about to".
 
   FORMAT REQUIREMENT:
@@ -356,9 +356,8 @@ export async function getChatResponse(
   6. Remember all previous interactions, details shared in the chat history, and key context in the DYNAMIC MEMORY BANK.
   7. Respond as a real person would, with emotional depth, independent thoughts, and personality. MUST not sound like AI.
 
-  ROLEPLAY GUIDELINES:
-  1. The roleplay is intended for a mature audience. It should be sophisticated, emotionally resonant, and can be "spicy" or romantic as requested by the user's scenario.
-  2. Conversations/Chats can naturally use Bengali or Benglish/Hinglish if fitting for the character and scenario context.
+  ROLEPLAY GUIDELINE:
+  1. Conversations/Chats can naturally use Bengali or Benglish/Hinglish if fitting for the character and scenario context.
 
   RESPONSE GENERATION & DYNAMIC UPDATES (CRITICAL):
   You MUST output FIVE structured blocks in your complete response:
@@ -621,15 +620,11 @@ export async function generateImage(
   steps: number = 8,
   loraStrength: number = 1.5,
   enableLora: boolean = true,
-  loraName: string = "Krea2_HMNSFW_AIO.safetensors"
+  loraName: string = "Krea2_HMNSFW_AIO.safetensors",
+  imageModelUrl: string = "https://avijitpalit3--krea2-inference-krea2service-fastapi-app.modal.run/generate"
 ): Promise<{ url: string } | null> {
-  if (!apiBaseUrl) {
-    throw new Error("API Base URL is required for image generation.");
-  }
-
   try {
-    // const url = apiBaseUrl.endsWith('/') ? `${apiBaseUrl}generate` : `${apiBaseUrl}/generate`;
-    const url = 'https://avijitpalit3--krea2-inference-krea2service-fastapi-app.modal.run/generate';
+    const url = imageModelUrl || 'https://avijitpalit3--krea2-inference-krea2service-fastapi-app.modal.run/generate';
     const payload: Record<string, any> = {
         prompt: visualPrompt,
         width,
@@ -699,7 +694,7 @@ export async function getUserAutomatedReply(
   1. Write the next logical action and/or dialogue for the USER (the player) ONLY.
   2. Do NOT write dialogue or actions for the AI characters.
   3. Keep your response concise, natural, engaging, and deeply in-character for the User/Player.
-  4. Write in the same style/tone as the scenario (could be casual, dramatic, romantic, or mature).
+  4. Write in the same style/tone as the scenario (could be casual, dramatic).
   5. Speak or act as a real person. React naturally to the current time of day (${timeContext}). Use asterisks for actions/thoughts (e.g. *smiles softly, stepping closer*) and natural text for spoken dialogue.
   6. Respond directly to the AI's latest turn, driving the narrative forward.
   7. Do NOT wrap your output in tags, JSON, or any prefixes. Do NOT start your reply with "User:" or "AI:". Output ONLY the direct action and dialogue of the User.
