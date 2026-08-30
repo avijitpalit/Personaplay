@@ -65,7 +65,7 @@ export default function CharacterSetup({
               value={scenario}
               onChange={e => setScenario(e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-5 focus:outline-none focus:border-accent/50 min-h-[250px] text-lg leading-relaxed placeholder:text-white/20 transition-all resize-none"
-              placeholder="Example: Ananya is a warm, charming woman. We are sitting together at home enjoying a quiet evening with tea..."
+              placeholder="Example: Elena is a warm, charming woman with hazel eyes and wavy hair. We are sitting together enjoying a quiet, relaxing evening..."
             />
           </div>
 

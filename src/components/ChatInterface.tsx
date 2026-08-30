@@ -781,6 +781,7 @@ export default function ChatInterface({
                       >
                         <option value="Krea2_HMNSFW_AIO.safetensors" className="bg-neutral-900">Krea2_HMNSFW_AIO.safetensors</option>
                         <option value="Krea2-realism-V2.safetensors" className="bg-neutral-900">Krea2-realism-V2.safetensors</option>
+                        <option value="realism_engine_krea2_v3.1.safetensors" className="bg-neutral-900">realism_engine_krea2_v3.1.safetensors</option>
                       </select>
                     </div>
 

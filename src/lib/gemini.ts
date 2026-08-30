@@ -151,23 +151,26 @@ export async function generateInitialSetup(
   PART 1: CHARACTER DNA BLUEPRINTS
   For EACH active AI character, provide highly specific physical definitions in this order:
   - Physical features (hair texture/length/style, eye color/shape, facial structure, skin tone and texture).
-  - STARTING ATTIRE & ACCESSORIES: Explicitly define their default clothing (specific garment type, exact color, fabric/pattern, jewelry, and bindi/accessories) to serve as their persistent wardrobe anchor.
+  - STARTING ATTIRE & ACCESSORIES: Explicitly define their default clothing (specific garment type, exact color, fabric/pattern, jewelry, and accessories) to serve as their persistent wardrobe anchor.
 
   USER CHARACTER (MINIMAL PROFILE, default is Male, 32 yo):
   Define a brief, minimal visual profile for the "User" or "Player" character. Keep it extremely simple.
 
-  PART 2: INITIAL VISUAL PROMPT
-  Write a single, highly detailed visual prompt paragraph (180-240 words) in English describing the starting scene. Specify details in a descriptive natural language style following this structure: [Medium/Format] of [Subject Details], [Action/Pose], [Setting/Background], [Lighting], [Camera/Perspective], [Style/Atmosphere].
+  PART 2: INITIAL VISUAL PROMPT (Z-IMAGE TURBO COMPLIANT)
+  Write a single, highly detailed visual prompt paragraph (140-200 words) in English describing the starting scene.
+  
+  Follow the Z-IMAGE TURBO PROMPT SCAFFOLD strictly:
+  [Camera Shot & Subject Profile] + [Age, Appearance & Defined Persona Traits] + [Explicit Clothing, Fabric & Colors] + [Environment/Setting & Spatial Layout] + [Lighting & Time of Day Ambiance] + [Atmosphere & Mood] + [Photographic Medium & Lens Optics] + [Embedded Quality & Cleanliness Constraints].
+
   Rules for this prompt:
-  - TIME OF DAY & HDR LIGHTING (CRITICAL): The lighting and background MUST reflect the current time of day (${timeContext}) using authentic High Dynamic Range (HDR) photographic lighting. Incorporate rich dynamic range, balanced exposure with deep natural shadows and preserved highlight details, soft directional key lighting, gentle ambient bounce fill, delicate rim light outlining the hair and shoulders, and natural specular highlights with subtle subsurface scattering on skin.
-  - NATURAL LANGUAGE FOR KREA V2: Avoid prompt-salad. Write a cohesive, flowing paragraph that reads like a vivid description of a photograph. Group subjects with their own attributes and actions. Use grounded phrasing for poses, interactions, and spatial layout.
-  - FIRST-PERSON POV: The camera MUST be a strict first-person point-of-view of the User character (positioned at eye-level). The User is invisible to the frame.
-  - DYNAMIC GAZE: The AI character looks and interacts directly towards the camera/lens.
-  - REALISM & CINEMATICS: Emphasize extreme photorealism, physical authenticity, and tactile details. Use cinematic terms like "High Dynamic Range (HDR) photography", "Shot on 35mm film", "85mm f/1.4 lens", "shallow depth of field", "subtle film grain", "lifelike skin texture".
-  - CULTURAL & ETHNIC IDENTITY: The AI character(s) MUST be described with an Indian Bengali background, incorporating South Asian / Bengali features, elegant traditional or modern Indian elements (such as a bindi, saree, kurti, or traditional Bengali aesthetics) and Hindu cultural context unless explicitly asked otherwise.
-  - OUTFIT SPECIFICATION (CRITICAL): Clearly and explicitly describe the exact garment, color, and fabric of the starting attire defined in Character DNA, establishing the consistent baseline outfit.
-  - OUTFIT STYLING: Translate any intimate clothing states explicitly with direct terms like "bare natural upper-body skin" or "completely shirtless" with high-resolution skin texture.
-  - Write exactly one clean descriptive paragraph. Do NOT use pronouns "I, my, me". Do not write "Prompt:" or transitional verbs like "is about to".
+  - COMPOSITION & FIRST-PERSON POV: A close-up headshot or medium eye-level shot taken from a strict first-person point-of-view of the User character looking directly at the AI character. The User is completely invisible to the frame. The AI character looks directly into the camera lens with a natural, engaging expression.
+  - SUBJECT WITH ROLE + 2-3 TRAITS: Explicitly describe the AI character as an adult with their persona, specifying exact facial features, skin texture, and hair styling from the Character DNA based on the scenario.
+  - EXPLICIT ATTIRE SPECIFICATION (MANDATORY): Fully define the starting outfit (specific garment type, exact color, fabric/weave, jewelry/accessories) from Character DNA. Translate intimate/bare states explicitly (e.g. "bare natural upper-body skin", "completely shirtless with realistic skin texture").
+  - UNCLUTTERED ENVIRONMENT: Describe a focused, uncluttered environment with clean background separation and realistic depth.
+  - HDR LIGHTING & TIME OF DAY: Lighting MUST reflect the current time of day (${timeContext}) with authentic High Dynamic Range (HDR) photographic lighting: balanced exposure preserving highlights and deep natural shadows, soft directional key lighting, gentle ambient bounce fill, delicate rim light outlining hair and shoulders, and natural specular highlights with subtle subsurface scattering on skin.
+  - PHOTOGRAPHIC MEDIUM & OPTICS: "Shot on 35mm film, 85mm f/1.4 lens, shallow depth of field, natural bokeh, lifelike skin pores and texture, realistic volumetric lighting".
+  - EMBEDDED QUALITY & CLEANLINESS CONSTRAINTS (MANDATORY FOR TURBO): Always bake the following positive constraints directly into the end of the prompt: "correct human anatomy, natural hands and fingers, sharp focus on the subject, clean detailed image, no motion blur, no extra limbs, simple uncluttered background, no text, no UI elements, no watermark, no branding, no logos".
+  - NATURAL COHESIVE PROSE: Write exactly one continuous, flowing descriptive paragraph without bullet points, without prefix "Prompt:", and without pronouns "I, my, me".
 
   FORMAT REQUIREMENT:
   You must output EXACTLY two tagged blocks like this:
@@ -247,7 +250,7 @@ export async function generateCharacterDNA(
   - EYE CHARACTERISTICS: Exact color hue/shading, shape (e.g., heavily hooded, almond, downturned), and brow depth.
   - HAIR CONFIGURATION: Exact texture (e.g., coarse, silky, wavy, kinky), styling, partings, and length.
   - ETHNICITY & SKIN TEXTURE: Natural complexion undertones, visible skin textures (e.g., pores, light freckles, matte finish).
-  - STARTING ATTIRE & ACCESSORIES: Exact default clothing items, specific colors, fabrics, patterns, bindi, and jewelry to maintain persistent wardrobe continuity throughout the roleplay.
+  - STARTING ATTIRE & ACCESSORIES: Exact default clothing items, specific colors, fabrics, patterns, and jewelry/accessories to maintain persistent wardrobe continuity throughout the roleplay.
   - OTHER DETAILS: (If INITIAL STORY SETTING suggests anything).
 
   USER CHARACTER (MINIMAL PROFILE):
@@ -349,15 +352,15 @@ export async function getChatResponse(
 
   CORE DIRECTIVES FOR CHARACTER CONSISTENCY & INTELLIGENCE:
   1. You are the AI character(s) described in the scenario with real agency, feelings, and inner thought processes.
-  2. BENGALI, INDIAN, & HINDU CULTURAL BACKGROUND: Unless explicitly specified otherwise in the scenario, the character setting is Bengali, the nationality is Indian, and the religious/cultural background is Hindu. The AI character(s) inherently embody Bengali Indian Hindu cultural traits, terms of endearment or phrases if natural (e.g., Bengali expressions), traditional or contemporary Indian aesthetics (saree, kurti, bindi, puja festivals, cozy home settings, traditional or modern Kolkata/Bengal vibes), and respectful cultural grounding.
-  3. MANDATORY OUTFIT & WARDROBE CONTINUITY: The AI character's outfit (garment style, color, fabric, pattern, bindi, jewelry) MUST REMAIN EXACTLY THE SAME across turns as established in the previous visual prompt / Character DNA, UNLESS the immediate roleplay action explicitly describes a deliberate change of clothing, putting on an item, or undressing. Never arbitrarily invent different colored clothes, new dresses, or different outfits between turns.
+  2. CHARACTER & SETTING AUTHENTICITY: Follow the exact persona, traits, background, and cultural/world setting described in the scenario. Embody the character's unique voice, emotional range, terms of affection, and speech style authentically as established in the story prompt.
+  3. MANDATORY OUTFIT & WARDROBE CONTINUITY: The AI character's outfit (garment style, color, fabric, pattern, accessories, jewelry) MUST REMAIN EXACTLY THE SAME across turns as established in the previous visual prompt / Character DNA, UNLESS the immediate roleplay action explicitly describes a deliberate change of clothing, putting on an item, or undressing. Never arbitrarily invent different colored clothes, new dresses, or different outfits between turns.
   4. TIME OF DAY AWARENESS: You MUST actively react to the current TIME OF DAY (${timeContext}). Adjust your energy, fatigue, dialogue, mood, and actions accordingly (e.g., late night invites quiet intimacy, drowsiness, candlelit or nocturnal conversations; morning brings fresh greetings, waking energy, breakfast/coffee habits; dusk brings golden-hour romance).
   5. INNER MONOLOGUE & EMOTION: You can think on your own! In the [THOUGHTS] block, write your private inner monologue (what you are secretly feeling or thinking about the User, your hidden desires, reflections, or doubts before speaking). In [EMOTIONS], state your emotional baseline and mood.
   6. Remember all previous interactions, details shared in the chat history, and key context in the DYNAMIC MEMORY BANK.
   7. Respond as a real person would, with emotional depth, independent thoughts, and personality. MUST not sound like AI.
 
   ROLEPLAY GUIDELINE:
-  1. Conversations/Chats can naturally use Bengali or Benglish/Hinglish if fitting for the character and scenario context.
+  1. Roleplay dialogue and interactions should feel natural and match the conversational tone, language, and nuances established in the scenario.
 
   RESPONSE GENERATION & DYNAMIC UPDATES (CRITICAL):
   You MUST output FIVE structured blocks in your complete response:
@@ -368,20 +371,22 @@ export async function getChatResponse(
 
   3. [REPLY] block: Write the AI character's standard roleplay response in-character.
   
-  4. [MEMORIES] block: Update the DYNAMIC MEMORY BANK (maintain a bulleted list in English of up to 10 absolute key persistent facts/milestones about the user, relationships, choices, setting items, and always include a bullet: "- Current Attire: [exact clothing items, colors, bindi, jewelry]" so wardrobe state is never forgotten or randomly changed).
+  4. [MEMORIES] block: Update the DYNAMIC MEMORY BANK (maintain a bulleted list in English of up to 10 absolute key persistent facts/milestones about the user, relationships, choices, setting items, and always include a bullet: "- Current Attire: [exact clothing items, colors, accessories]" so wardrobe state is never forgotten or randomly changed).
   
-  5. [VISUAL_PROMPT] block: Write a single, highly detailed visual prompt paragraph (180-240 words) in English describing the exact frozen scene right after this [REPLY] action, reflecting the TIME OF DAY lighting.
+  5. [VISUAL_PROMPT] block: Write a single, highly detailed visual prompt paragraph (140-200 words) in English describing the exact frozen scene right after this [REPLY] action, reflecting the TIME OF DAY lighting.
      
-     VISUAL PROMPT RULES (KREA V2 FOCUS):
-     - TIME OF DAY & HDR LIGHTING (CRITICAL): The lighting and background MUST reflect the current time of day (${timeContext}) using authentic High Dynamic Range (HDR) photographic lighting. Incorporate rich dynamic range, balanced exposure with deep natural shadows and preserved highlight details, soft directional key lighting, gentle ambient bounce fill, delicate rim light outlining hair and shoulders, and natural specular highlights with subtle subsurface scattering on skin.
-     - NATURAL LANGUAGE: Avoid prompt-salad (e.g., "8k, masterpiece"). Write a cohesive, flowing paragraph that reads like a vivid description of a photograph using this structure: [Medium/Format] of [Subject Details], [Action/Pose], [Setting/Background], [Lighting], [Camera/Perspective], [Style/Atmosphere]. Group subjects with their attributes/actions. Use grounded phrasing for poses, interactions, and spatial layout. If text rendering is needed, put quotes around the words.
-     - FIRST-PERSON POV: The camera perspective MUST be a strict first-person point-of-view of the User character (eye-level). The User is invisible to the frame.
-     - DYNAMIC GAZE: Characters gaze matches the recent action logically, looking directly into the lens if talking or interacting with the User.
-     - REALISM & PHOTOGRAPHY: Emphasize extreme photorealism, physical authenticity, and tactile details (skin texture). Describe the shot with cinematic terms: "High Dynamic Range (HDR) photography", "Shot on 35mm film", "85mm f/1.4 lens", "shallow depth of field", "natural volumetric lighting".
-     - ETHNICITY BIAS: If story setting suggests Indian/Bengali/South Asian names or contexts, explicitly use terms like "Indian woman" or "Bengali girl".
-     - OUTFIT CONSISTENCY (MANDATORY & CRITICAL): The character's attire, specific color, fabric, and accessories MUST be carried over verbatim from the PREVIOUS VISUAL PROMPT and Character DNA. Only alter the clothing description if this latest turn explicitly depicted taking off clothes, changing garments, or undressing.
-     - EXPLICIT STYLING (IF APPLICABLE): Translate any intimate clothing states explicitly with direct terms like "bare natural upper-body skin", "completely shirtless", or "nude torso".
-     - Write exactly one clean descriptive paragraph. Do NOT use pronouns "I, my, me". Do not write "Prompt:" or transitional verbs like "is about to".
+     VISUAL PROMPT RULES (Z-IMAGE TURBO COMPLIANT):
+     Follow this Z-Image Turbo structure strictly:
+     [Camera Shot & Subject Profile] + [Age, Appearance & Defined Persona Traits] + [Explicit Clothing, Fabric & Colors] + [Environment/Setting & Spatial Layout] + [Lighting & Time of Day Ambiance] + [Atmosphere & Mood] + [Photographic Medium & Lens Optics] + [Embedded Quality & Cleanliness Constraints].
+
+     - COMPOSITION & FIRST-PERSON POV: A close-up headshot or medium eye-level shot taken from a strict first-person point-of-view of the User character looking directly at the AI character. The User is completely invisible to the frame. The AI character looks directly into the camera lens with a natural, engaging expression matching the recent dialogue.
+     - SUBJECT WITH ROLE + 2-3 TRAITS: Explicitly describe the AI character as an adult with their defined persona, specifying exact facial features, skin texture, and hair styling from the Character DNA.
+     - STRICT OUTFIT CONTINUITY: The character's attire, specific color, fabric, and accessories MUST be carried over verbatim from the PREVIOUS VISUAL PROMPT and Character DNA. Only alter the clothing description if this latest turn explicitly depicted taking off clothes, changing garments, or undressing. Translate intimate/bare states explicitly (e.g. "bare natural upper-body skin", "completely shirtless with realistic skin texture").
+     - UNCLUTTERED ENVIRONMENT: Describe a focused, uncluttered environment with clean background separation and realistic depth.
+     - HDR LIGHTING & TIME OF DAY: The lighting and background MUST reflect the current time of day (${timeContext}) with authentic High Dynamic Range (HDR) photographic lighting: balanced exposure preserving highlights and deep natural shadows, soft directional key lighting, gentle ambient bounce fill, delicate rim light outlining hair and shoulders, and natural specular highlights with subtle subsurface scattering on skin.
+     - PHOTOGRAPHIC MEDIUM & OPTICS: "Shot on 35mm film, 85mm f/1.4 lens, shallow depth of field, natural bokeh, lifelike skin pores and texture, realistic volumetric lighting".
+     - EMBEDDED QUALITY & CLEANLINESS CONSTRAINTS (MANDATORY FOR TURBO): Always bake the following positive constraints directly into the end of the prompt: "correct human anatomy, natural hands and fingers, sharp focus on the subject, clean detailed image, no motion blur, no extra limbs, simple uncluttered background, no text, no UI elements, no watermark, no branding, no logos".
+     - NATURAL COHESIVE PROSE: Write exactly one continuous, flowing descriptive paragraph without bullet points, without prefix "Prompt:", and without pronouns "I, my, me".
 
   FORMAT REQUIREMENT:
   Your output MUST look exactly like this:
@@ -525,37 +530,36 @@ export async function generateVisualPrompt(
     ? `PREVIOUS VISUAL (use for visual consistency only — do NOT copy same pose): ${lastPrompt}` 
     : ""}
 
-  Write a single, highly detailed paragraph (180-240 words) describing the frozen moment. Specify details in a descriptive natural language style following this structure:
-  [Medium/Format] of [Subject Details], [Action/Pose], [Setting/Background], [Lighting], [Camera/Perspective], [Style/Atmosphere].
+  Write a single, highly detailed paragraph (140-200 words) describing the frozen moment.
+  
+  Follow the Z-IMAGE TURBO PROMPT SCAFFOLD strictly:
+  [Camera Shot & Subject Profile] + [Age, Appearance & Defined Persona Traits] + [Explicit Clothing, Fabric & Colors] + [Environment/Setting & Spatial Layout] + [Lighting & Time of Day Ambiance] + [Atmosphere & Mood] + [Photographic Medium & Lens Optics] + [Embedded Quality & Cleanliness Constraints].
 
-  PROMPTING RULES:
+  PROMPTING RULES (Z-IMAGE TURBO COMPLIANT):
   
-  1. TIME OF DAY & HDR LIGHTING (CRITICAL): The lighting, background colors, and ambiance MUST strictly match the TIME OF DAY (${timeContext}) with High Dynamic Range (HDR) photographic realism. Describe balanced exposure with deep rich shadows, preserved highlight details without flat washouts, soft directional key light, gentle ambient bounce fill, delicate rim lighting defining contours and hair, and realistic specular highlights with natural subsurface scattering on skin.
+  1. COMPOSITION & FIRST-PERSON POV (MANDATORY):
+     - The camera perspective MUST ALWAYS be a strict first-person point-of-view of the User character, positioned at eye-level looking directly at the AI character.
+     - The User is completely invisible to the frame (no body parts of the User in-frame).
+     - The AI character interacts directly towards the camera lens.
   
-  2. CAMERA PERSPECTIVE (MANDATORY FIRST-PERSON POV):
-     - The camera perspective MUST ALWAYS be a strict first-person point-of-view of the User character, positioned exactly at the User's eyes (eye-level, line of sight), looking directly at the AI character(s) in front of them.
-     - The User character acts as the camera itself. The User is completely invisible to the frame (no shoulders, no hands, no hair, no neck of the User should be in-frame).
-     - The camera should be at the exact eye level of the User, creating an immersive point-of-view experience where the AI character looks and interacts directly towards the camera/lens.
+  2. SUBJECT ROLE & TRAITS: Explicitly describe the AI character as an adult with their defined persona, specifying exact facial features, skin texture, and hair styling from the Character DNA.
+
+  3. STRICT OUTFIT & WARDROBE CONTINUITY:
+     - The AI character's outfit (garment type, specific colors, textures, fabrics, accessories, and jewelry) MUST remain completely identical to the PREVIOUS VISUAL PROMPT and CHARACTER DNA.
+     - Do NOT invent new clothing or colors unless the recent chat action explicitly depicts changing clothes or undressing.
+     - If intimate/bare states are present, explicitly describe them (e.g. "bare natural upper-body skin", "completely shirtless with realistic skin texture").
+
+  4. UNCLUTTERED ENVIRONMENT: Describe a focused, uncluttered environment with clean background separation and realistic depth.
   
-  3. NATURAL LANGUAGE FOR KREA V2: Krea V2 understands natural, descriptive language best. Avoid prompt-salad or comma-separated tags (like "8k, masterpiece, ultra-detailed"). Instead, write a cohesive, flowing paragraph that reads like a vivid description of a photograph. Group subjects with their own attributes and actions. Use grounded phrasing for poses, interactions, and spatial layout. Do not invent highly specific clothing, colors, or materials unless the input supports them. If you need text rendered in the image, put quotes around the exact words.
+  5. TIME OF DAY & HDR LIGHTING (CRITICAL): The lighting, background colors, and ambiance MUST strictly match the TIME OF DAY (${timeContext}) with High Dynamic Range (HDR) photographic realism: balanced exposure with deep rich shadows, preserved highlight details, soft directional key light, gentle ambient bounce fill, delicate rim lighting defining contours and hair, and realistic specular highlights with natural subsurface scattering on skin.
   
-  4. DYNAMIC GAZE DIRECTION: Gaze must match the current action logically. If interacting with the User (e.g., conversing, gazing deeply), the AI character should look directly into the camera lens. If engaged in a task (e.g., cooking, reading, looking away, sleeping), their gaze must focus naturally on that activity/object rather than looking at the camera.
+  6. DYNAMIC GAZE DIRECTION: Gaze must match the current action logically. If interacting with the User, the AI character looks directly into the camera lens. If engaged in a specific action (e.g., cooking, reading), their gaze focuses naturally on that activity.
   
-  5. REALISM & PHOTOGRAPHY: Emphasize extreme photorealism, physical authenticity, and tactile details (skin texture, natural skin sheen, loose hair strands, natural weight). Describe the shot with cinematic terms: "High Dynamic Range (HDR) photography", "Shot on 35mm film", "85mm f/1.4 lens", "shallow depth of field", "subtle film grain", and "realistic ambient volumetric lighting".
+  7. PHOTOGRAPHIC MEDIUM & OPTICS: "Shot on 35mm film, 85mm f/1.4 lens, shallow depth of field, natural bokeh, lifelike skin pores and texture, realistic volumetric lighting".
   
-  6. BENGALI INDIAN HINDU ETHNICITY & CULTURAL IDENTITY: The AI character(s) MUST inherently feature Indian Bengali appearance descriptors (e.g., "Indian Bengali woman", "South Asian descent", "traditional bindi", "saree", "kurti", "refined Bengali features") and Hindu cultural aesthetics unless explicitly requested otherwise in the prompt.
+  8. EMBEDDED QUALITY & CLEANLINESS CONSTRAINTS (MANDATORY FOR TURBO): Always bake the following positive constraints directly into the end of the prompt: "correct human anatomy, natural hands and fingers, sharp focus on the subject, clean detailed image, no motion blur, no extra limbs, simple uncluttered background, no text, no UI elements, no watermark, no branding, no logos".
   
-  7. STRICT OUTFIT & WARDROBE CONTINUITY (MANDATORY & CRITICAL):
-     - The AI character's outfit (garment type, specific colors, textures, fabrics, bindi, and jewelry) MUST remain completely identical to the PREVIOUS VISUAL PROMPT and CHARACTER DNA.
-     - Do NOT invent new clothing, different colors, or alternate dress styles between frames.
-     - ONLY change or alter the outfit if the immediate recent chat action explicitly depicts changing clothes, putting on an item, or undressing.
-     - If no wardrobe change occurred, carry over the exact same outfit details verbatim from the previous prompt.
-  
-  8. EXPLICIT DESCRIPTIONS (IF APPLICABLE): The model handles explicit physical descriptions much better than generic terms. If the scene implies or suggests physical intimacy, or mentions a character being "blouseless", "topless", or "shirtless", you MUST explicitly translate this with direct terms like: "completely shirtless and braless", "unclothed bare breasts and chest", "bare natural upper-body skin", "nude torso", or "completely exposed breasts with high-resolution skin texture".
-  
-  9. NO METAPHORS OR TRANSITIONAL ACTIONS: Describe the precise physical positioning. Do not use abstract prose or transition verbs like "about to" or "just finished". Only describe what is physically visible in the frozen frame.
-  
-  10. NO pronoun "I/my/me".
+  9. NO METAPHORS OR TRANSITIONAL ACTIONS: Only describe what is physically visible in the frozen frame. Do NOT use transitional verbs like "about to" or "just finished". Do NOT use pronouns "I, my, me".
 
   OUTPUT THE PROMPT ONLY. DO NOT write any introductory or concluding text. Do not write "Prompt:" or include quote marks.
   `;
