@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Message, getChatResponse, generateImage, generateCharacterDNA, generateVisualPrompt, generateInitialSetup, getUserAutomatedReply, setGlobalModel } from '../lib/gemini';
-import { Send, ArrowLeft, Loader2, User, Sparkles, Image as ImageIcon, Eye, EyeOff, Save, CheckCircle2, Settings, Info, Clock, FileText, X, Play, Pause, Brain, Heart, Sun, Moon, Sunset, Sunrise, Copy, Check } from 'lucide-react';
+import { Send, ArrowLeft, Loader2, User, Sparkles, Image as ImageIcon, Eye, EyeOff, Save, CheckCircle2, Settings, Info, FileText, X, Play, Pause, Brain, Heart, Copy, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
 import { Session, saveSession as persistSession } from '../lib/storage';
@@ -45,7 +45,6 @@ export default function ChatInterface({
   const [enableLora, setEnableLora] = useState<boolean>(initialSession?.enableLora ?? true);
   const [loraName, setLoraName] = useState<string>(initialSession?.loraName || 'Krea2_HMNSFW_AIO.safetensors');
   const [loraStrength, setLoraStrength] = useState<number>(initialSession?.loraStrength ?? initialLoraStrength);
-  const [selectedTimeOfDay, setSelectedTimeOfDay] = useState<string>('Auto');
   const [expandedThoughts, setExpandedThoughts] = useState<Record<number, boolean>>({});
   const [showChat, setShowChat] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
@@ -85,15 +84,6 @@ export default function ChatInterface({
     }
   };
 
-  const getTimeOfDayString = () => {
-    if (selectedTimeOfDay !== 'Auto') return selectedTimeOfDay;
-    const hour = new Date().getHours();
-    if (hour >= 5 && hour < 12) return 'Morning';
-    if (hour >= 12 && hour < 17) return 'Afternoon';
-    if (hour >= 17 && hour < 21) return 'Sunset / Dusk';
-    return 'Late Night / Midnight';
-  };
-
   useEffect(() => {
     const registerListener = (window as any).__register_log_listener;
     if (registerListener) {
@@ -128,8 +118,7 @@ export default function ChatInterface({
         characterDNA || "",
         currentMessages,
         memoryBank,
-        useInternalApi ? undefined : { apiBaseUrl },
-        getTimeOfDayString()
+        useInternalApi ? undefined : { apiBaseUrl }
       );
 
       if (userReplyText) {
@@ -172,8 +161,7 @@ export default function ChatInterface({
               dna: characterDNA || undefined,
               lastVisualPrompt: currentVisualPrompt
             },
-            currentVisualPrompt,
-            getTimeOfDayString()
+            currentVisualPrompt
           );
 
           if (result.error) {
@@ -211,8 +199,7 @@ export default function ChatInterface({
               currentVisualPrompt, 
               useInternalApi ? undefined : { apiBaseUrl }, 
               undefined,
-              result.updatedMemories || memoryBank,
-              getTimeOfDayString()
+              result.updatedMemories || memoryBank
             );
             setCurrentVisualPrompt(nextPrompt);
             setIsGeneratingPrompt(false);
@@ -227,7 +214,7 @@ export default function ChatInterface({
       };
       triggerAiReply();
     }
-  }, [isAutoReplyEnabled, messages, isLoading, isGeneratingAutoReply, isGeneratingPrompt, isGeneratingImage, lastSendFailed, selectedTimeOfDay]);
+  }, [isAutoReplyEnabled, messages, isLoading, isGeneratingAutoReply, isGeneratingPrompt, isGeneratingImage, lastSendFailed]);
 
   useEffect(() => {
     setGlobalModel(currentSelectedModel);
@@ -246,7 +233,7 @@ export default function ChatInterface({
     const initSession = async () => {
       setStatusBarMessage("Initializing scene & character setup...");
       setIsGeneratingPrompt(true);
-      const setup = await generateInitialSetup(scenario, useInternalApi ? undefined : { apiBaseUrl }, getTimeOfDayString());
+      const setup = await generateInitialSetup(scenario, useInternalApi ? undefined : { apiBaseUrl });
       setCharacterDNA(setup.dna);
       setCurrentVisualPrompt(setup.visualPrompt);
       setIsGeneratingPrompt(false);
@@ -322,8 +309,7 @@ export default function ChatInterface({
         dna: characterDNA || undefined,
         lastVisualPrompt: currentVisualPrompt
       },
-      currentVisualPrompt,
-      getTimeOfDayString()
+      currentVisualPrompt
     );
 
     if (result.error) {
@@ -363,8 +349,7 @@ export default function ChatInterface({
         currentVisualPrompt, 
         useInternalApi ? undefined : { apiBaseUrl }, 
         undefined,
-        result.updatedMemories || memoryBank,
-        getTimeOfDayString()
+        result.updatedMemories || memoryBank
       );
       setCurrentVisualPrompt(nextPrompt);
       setIsGeneratingPrompt(false);
@@ -393,8 +378,7 @@ export default function ChatInterface({
         dna: characterDNA || undefined,
         lastVisualPrompt: currentVisualPrompt
       },
-      currentVisualPrompt,
-      getTimeOfDayString()
+      currentVisualPrompt
     );
 
     if (result.error) {
@@ -433,8 +417,7 @@ export default function ChatInterface({
         currentVisualPrompt, 
         useInternalApi ? undefined : { apiBaseUrl }, 
         undefined,
-        result.updatedMemories || memoryBank,
-        getTimeOfDayString()
+        result.updatedMemories || memoryBank
       );
       setCurrentVisualPrompt(nextPrompt);
       setIsGeneratingPrompt(false);
@@ -660,24 +643,6 @@ export default function ChatInterface({
                 </div>
 
                 <div className="flex flex-col gap-4">
-                  <div className="flex flex-col gap-2 p-3 bg-black/30 rounded-xl border border-white/10">
-                    <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold flex items-center gap-1.5">
-                      <Clock size={12} className="text-accent" /> Time of Day & Ambiance
-                    </label>
-                    <select
-                      value={selectedTimeOfDay}
-                      onChange={(e) => setSelectedTimeOfDay(e.target.value)}
-                      className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent/50 text-white cursor-pointer font-medium"
-                    >
-                      <option value="Auto" className="bg-neutral-900 text-white">Auto System Local Time ({getTimeOfDayString()})</option>
-                      <option value="Morning" className="bg-neutral-900 text-white">🌅 Morning (Fresh dawn sunlight)</option>
-                      <option value="Afternoon" className="bg-neutral-900 text-white">☀️ Afternoon (Bright daylight)</option>
-                      <option value="Sunset / Dusk" className="bg-neutral-900 text-white">🌇 Sunset / Dusk (Golden hour)</option>
-                      <option value="Late Night / Midnight" className="bg-neutral-900 text-white">🌙 Late Night / Midnight (Cozy nocturnal mood)</option>
-                    </select>
-                    <p className="text-[10px] text-white/40 italic">Influences the character's energy, dialogue, and photo lighting.</p>
-                  </div>
-
                   <div className="flex flex-col gap-2">
                     <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Roleplay Model</label>
                     <select
