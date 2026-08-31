@@ -108,12 +108,15 @@ export default function ChatInterface({
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastUserInteractionTime = useRef<number>(Date.now());
+  const hasInitializedRef = useRef<boolean>(false);
+  const isGeneratingImageRef = useRef<boolean>(false);
 
   // Trigger background image generation smoothly without interrupting the chat UI
   const triggerBackgroundImage = useCallback(async (promptText?: string) => {
     const targetPrompt = promptText || currentVisualPrompt;
-    if (!targetPrompt || !apiBaseUrl || isGeneratingImage) return;
+    if (!targetPrompt || !apiBaseUrl || isGeneratingImageRef.current) return;
 
+    isGeneratingImageRef.current = true;
     setIsGeneratingImage(true);
     try {
       const result = await generateImage(
@@ -133,9 +136,10 @@ export default function ChatInterface({
     } catch (err) {
       console.warn("Background scene visualization warning:", err);
     } finally {
+      isGeneratingImageRef.current = false;
       setIsGeneratingImage(false);
     }
-  }, [apiBaseUrl, currentVisualPrompt, imageWidth, imageHeight, imageSteps, loraStrength, enableLora, loraName, imageModelUrl, isGeneratingImage]);
+  }, [apiBaseUrl, currentVisualPrompt, imageWidth, imageHeight, imageSteps, loraStrength, enableLora, loraName, imageModelUrl]);
 
   const handleCopyMessage = async (text: string, index: number) => {
     try {
@@ -316,7 +320,7 @@ export default function ChatInterface({
 
   // Execute an autonomous background living tick
   const executeAutonomousLivingTick = useCallback(async () => {
-    if (isLoading || isGeneratingAutoReply || isGeneratingPrompt || isLivingThinking) return;
+    if (!hasInitializedRef.current || isLoading || isGeneratingAutoReply || isGeneratingPrompt || isLivingThinking) return;
     setIsLivingThinking(true);
 
     try {
@@ -342,15 +346,17 @@ export default function ChatInterface({
         setCharacterLivingState(livingState);
 
         // Update visual prompt & trigger background image right after thoughts/monologue generation
-        if (result.lastVisualPrompt) {
+        if (result.lastVisualPrompt && result.lastVisualPrompt !== currentVisualPrompt) {
           setCurrentVisualPrompt(result.lastVisualPrompt);
           if (apiBaseUrl) {
             triggerBackgroundImage(result.lastVisualPrompt);
           }
         }
 
-        // If AI decided to break the silence and speak autonomously
-        if (result.actionDecision === 'SPEAK' && result.reply && result.reply.trim()) {
+        // Only append dialogue if character explicitly decided to SPEAK AND the last message wasn't already from model
+        const lastMsg = messages[messages.length - 1];
+        const canSpeak = !lastMsg || lastMsg.role === 'user';
+        if (result.actionDecision === 'SPEAK' && result.reply && result.reply.trim() && canSpeak) {
           const newAiMsg: Message = {
             role: 'model',
             text: result.reply,
@@ -367,9 +373,10 @@ export default function ChatInterface({
     }
   }, [isLoading, isGeneratingAutoReply, isGeneratingPrompt, isLivingThinking, scenario, characterDNA, messages, memoryBank, useInternalApi, apiBaseUrl, currentVisualPrompt, triggerBackgroundImage]);
 
-  // Generate DNA, initial visual prompt, and start background living processes at app start
+  // Generate DNA, initial visual prompt, and start background living processes once at app start
   useEffect(() => {
-    if (initialSession) return; // Skip if loading existing session
+    if (initialSession || hasInitializedRef.current) return;
+    hasInitializedRef.current = true;
 
     const initSession = async () => {
       setIsLivingThinking(true);
@@ -379,14 +386,9 @@ export default function ChatInterface({
       try {
         const setup = await generateInitialSetup(scenario, useInternalApi ? undefined : { apiBaseUrl });
         setCharacterDNA(setup.dna);
+        let finalPrompt = setup.visualPrompt;
         setCurrentVisualPrompt(setup.visualPrompt);
         setIsGeneratingPrompt(false);
-        setStatusBarMessage(null);
-
-        // Trigger starting background image generation immediately
-        if (apiBaseUrl && setup.visualPrompt) {
-          triggerBackgroundImage(setup.visualPrompt);
-        }
 
         // Start initial background character action/thoughts immediately after story foundation
         setStatusBarMessage("Character is starting active routine in background...");
@@ -407,13 +409,11 @@ export default function ChatInterface({
           setCharacterLivingState(livingState);
 
           if (firstLivingAction.lastVisualPrompt) {
+            finalPrompt = firstLivingAction.lastVisualPrompt;
             setCurrentVisualPrompt(firstLivingAction.lastVisualPrompt);
-            if (apiBaseUrl) {
-              triggerBackgroundImage(firstLivingAction.lastVisualPrompt);
-            }
           }
 
-          // If character has an opening line or decided to speak, post it as the opening turn
+          // If character has an opening line, post it as the single initial greeting
           if (firstLivingAction.reply && firstLivingAction.reply.trim()) {
             const initialModelMessage: Message = {
               role: 'model',
@@ -424,6 +424,11 @@ export default function ChatInterface({
             setMessages([initialModelMessage]);
           }
         }
+
+        // Render the scene image ONCE for the initial state
+        if (apiBaseUrl && finalPrompt) {
+          triggerBackgroundImage(finalPrompt);
+        }
       } catch (err) {
         console.error("Initial session start error:", err);
       } finally {
@@ -433,7 +438,8 @@ export default function ChatInterface({
     };
 
     initSession();
-  }, [scenario, initialSession, apiBaseUrl, useInternalApi, triggerBackgroundImage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Autonomous background timer: runs every 25 seconds when user is idle to keep character living & working
   useEffect(() => {
