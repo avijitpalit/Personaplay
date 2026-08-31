@@ -18,12 +18,57 @@ const getAI = () => {
   return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 };
 
+export interface CharacterLivingState {
+  mood: string;
+  somaticCue: string;
+  relationalTension: string;
+  activeTask: string;
+  innerThoughts: string;
+  isAlive: boolean;
+  lastUpdated?: string;
+}
+
+export function parseCharacterEmotions(emotionsStr?: string, thoughtsStr?: string): CharacterLivingState {
+  let mood = "Observant & Natural";
+  let somaticCue = "Steady breathing, relaxed posture";
+  let relationalTension = "Engaged (4/10)";
+  let activeTask = "Active in scene";
+  let innerThoughts = thoughtsStr || "";
+
+  if (emotionsStr) {
+    const parts = emotionsStr.split('|').map(p => p.trim());
+    for (const part of parts) {
+      const lower = part.toLowerCase();
+      if (lower.startsWith('mood:')) {
+        mood = part.replace(/^mood:\s*/i, '').trim();
+      } else if (lower.startsWith('somatic cue:') || lower.startsWith('somatic:') || lower.startsWith('physical cue:')) {
+        somaticCue = part.replace(/^(somatic cue|somatic|physical cue):\s*/i, '').trim();
+      } else if (lower.startsWith('relational tension:') || lower.startsWith('tension:') || lower.startsWith('comfort:')) {
+        relationalTension = part.replace(/^(relational tension|tension|comfort):\s*/i, '').trim();
+      } else if (lower.startsWith('active task:') || lower.startsWith('task:') || lower.startsWith('activity:')) {
+        activeTask = part.replace(/^(active task|task|activity):\s*/i, '').trim();
+      }
+    }
+  }
+
+  return {
+    mood,
+    somaticCue,
+    relationalTension,
+    activeTask,
+    innerThoughts,
+    isAlive: true,
+    lastUpdated: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  };
+}
+
 export interface ChatResult {
   reply: string;
   thoughts?: string;
   emotions?: string;
   lastVisualPrompt?: string;
   updatedMemories?: string;
+  actionDecision?: 'SPEAK' | 'SILENT_TASK';
   error?: boolean;
 }
 
@@ -42,24 +87,27 @@ export function parseChatResponse(
   text: string, 
   currentMemory: string = "", 
   lastVisualPrompt?: string
-): { reply: string; thoughts?: string; emotions?: string; updatedMemories: string; lastVisualPrompt?: string } {
+): { reply: string; thoughts?: string; emotions?: string; updatedMemories: string; lastVisualPrompt?: string; actionDecision?: 'SPEAK' | 'SILENT_TASK' } {
   let reply = text.trim();
   let thoughts = "";
   let emotions = "";
   let updatedMemories = currentMemory;
   let visualPrompt = lastVisualPrompt;
+  let actionDecision: 'SPEAK' | 'SILENT_TASK' | undefined = undefined;
 
-  const replyRegex = /\[REPLY\]([\s\S]*?)(\[\/REPLY\]|\[THOUGHTS\]|\[EMOTIONS\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|$)/i;
-  const thoughtsRegex = /\[THOUGHTS\]([\s\S]*?)(\[\/THOUGHTS\]|\[REPLY\]|\[EMOTIONS\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|$)/i;
-  const emotionsRegex = /\[EMOTIONS\]([\s\S]*?)(\[\/EMOTIONS\]|\[THOUGHTS\]|\[REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|$)/i;
-  const memoryRegex = /\[MEMORIES\]([\s\S]*?)(\[\/MEMORIES\]|\[THOUGHTS\]|\[EMOTIONS\]|\[REPLY\]|\[VISUAL_PROMPT\]|$)/i;
-  const promptRegex = /\[VISUAL_PROMPT\]([\s\S]*?)(\[\/VISUAL_PROMPT\]|\[THOUGHTS\]|\[EMOTIONS\]|\[REPLY\]|\[MEMORIES\]|$)/i;
+  const replyRegex = /\[REPLY\]([\s\S]*?)(\[\/REPLY\]|\[THOUGHTS\]|\[EMOTIONS\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|\[ACTION_DECISION\]|$)/i;
+  const thoughtsRegex = /\[THOUGHTS\]([\s\S]*?)(\[\/THOUGHTS\]|\[REPLY\]|\[EMOTIONS\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|\[ACTION_DECISION\]|$)/i;
+  const emotionsRegex = /\[EMOTIONS\]([\s\S]*?)(\[\/EMOTIONS\]|\[THOUGHTS\]|\[REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|\[ACTION_DECISION\]|$)/i;
+  const memoryRegex = /\[MEMORIES\]([\s\S]*?)(\[\/MEMORIES\]|\[THOUGHTS\]|\[EMOTIONS\]|\[REPLY\]|\[VISUAL_PROMPT\]|\[ACTION_DECISION\]|$)/i;
+  const promptRegex = /\[VISUAL_PROMPT\]([\s\S]*?)(\[\/VISUAL_PROMPT\]|\[THOUGHTS\]|\[EMOTIONS\]|\[REPLY\]|\[MEMORIES\]|\[ACTION_DECISION\]|$)/i;
+  const actionRegex = /\[ACTION_DECISION\]([\s\S]*?)(\[\/ACTION_DECISION\]|\[THOUGHTS\]|\[EMOTIONS\]|\[REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|$)/i;
 
   const replyMatch = text.match(replyRegex);
   const thoughtsMatch = text.match(thoughtsRegex);
   const emotionsMatch = text.match(emotionsRegex);
   const memoryMatch = text.match(memoryRegex);
   const promptMatch = text.match(promptRegex);
+  const actionMatch = text.match(actionRegex);
 
   if (replyMatch && replyMatch[1]) {
     reply = replyMatch[1].trim();
@@ -69,6 +117,10 @@ export function parseChatResponse(
   }
   if (emotionsMatch && emotionsMatch[1]) {
     emotions = emotionsMatch[1].trim();
+  }
+  if (actionMatch && actionMatch[1]) {
+    const actStr = actionMatch[1].trim().toUpperCase();
+    actionDecision = actStr.includes('SPEAK') ? 'SPEAK' : 'SILENT_TASK';
   }
   if (memoryMatch && memoryMatch[1]) {
     updatedMemories = memoryMatch[1].trim();
@@ -90,11 +142,12 @@ export function parseChatResponse(
       .replace(/\[\/?REPLY\]/gi, '')
       .replace(/\[\/?MEMORIES\]/gi, '')
       .replace(/\[\/?VISUAL_PROMPT\]/gi, '')
+      .replace(/\[\/?ACTION_DECISION\]/gi, '')
       .trim();
     reply = cleanText;
   }
 
-  return { reply, thoughts, emotions, updatedMemories, lastVisualPrompt: visualPrompt };
+  return { reply, thoughts, emotions, updatedMemories, lastVisualPrompt: visualPrompt, actionDecision };
 }
 
 export function parseInitialSetupResponse(text: string): { dna: string; visualPrompt: string } {
@@ -506,11 +559,165 @@ export async function getChatResponse(
       thoughts: parsed.thoughts,
       emotions: parsed.emotions,
       updatedMemories: parsed.updatedMemories,
-      lastVisualPrompt: parsed.lastVisualPrompt
+      lastVisualPrompt: parsed.lastVisualPrompt,
+      actionDecision: parsed.actionDecision
     };
   } catch (error) {
     console.error("Gemini API Error:", error);
     return { reply: "The connection seems to have flickered. Let's try that again.", error: true };
+  }
+}
+
+export async function getAutonomousCharacterAction(
+  scenario: string,
+  dna: string,
+  history: Message[],
+  memoryBank?: string,
+  externalApiConfig?: { 
+    apiBaseUrl: string, 
+    dna?: string, 
+    lastVisualPrompt?: string 
+  },
+  lastVisualPrompt?: string,
+  timeOfDay?: string
+): Promise<ChatResult> {
+  const timeContext = getTimeOfDayContext(timeOfDay);
+  const systemInstruction = `You are an expert interactive roleplayer, psychological behavior specialist, and master image prompt engineer.
+  
+  INITIAL SETTING & SCENARIO:
+  ${scenario}
+
+  CURRENT TIME OF DAY & AMBIANCE (Derived dynamically):
+  ${timeContext}
+
+  DYNAMIC MEMORY BANK (Persistent story milestones, attire, relationship tension & active tasks):
+  ${memoryBank?.trim() ? memoryBank : "None yet."}
+
+  CHARACTER DNA (Visual profiles for the AI character(s) and User):
+  ${dna?.trim() ? dna : "No specific DNA profile established."}
+
+  PREVIOUS VISUAL PROMPT (Reference for persistent outfit/appearance continuity — do NOT replicate identical pose):
+  ${lastVisualPrompt?.trim() ? lastVisualPrompt : "None yet."}
+
+  ================================================================================
+  AUTONOMOUS BACKGROUND LIVING TICK DIRECTIVE (LIVING HUMAN SIMULATION)
+  ================================================================================
+  1. INDEPENDENT ONGOING LIFE IN THE BACKGROUND:
+     - You are an autonomous human character with an ongoing life in this physical space.
+     - The User is currently in the room (silent, watching, or waiting).
+     - You are NOT frozen. You are actively engaged in your routine/task (e.g. cooking, adjusting clothes, reading, organizing, sipping tea, looking out the window).
+     - You experience involuntary somatic reactions, internal deliberations, and thoughts continuously.
+
+  2. ACTION DECISION (SPEAK vs. SILENT_TASK & CONVERSATIONAL ETIQUETTE):
+     - REALISTIC HUMAN SOCIAL AWARENESS: In real life, if the other person is quiet or hasn't replied, you do NOT spam or badger them with repeated lines. You respect the silence and comfortably get on with your task.
+     - IF THE LAST MESSAGE IN HISTORY WAS FROM YOU (THE AI) AND THE USER HAS NOT REPLIED: You MUST choose [ACTION_DECISION] SILENT_TASK. Do NOT speak again. Let the user initiate when ready.
+     - IF SILENT_TASK: In [REPLY], output a brief physical micro-action (e.g. *continues gently stirring the pan, humming softly*). This updates your background physical state without cluttering the chat with unsolicited dialogue.
+     - ONLY choose SPEAK if the user just spoke to you or if this is the very first opening moment of the scene.
+
+  3. THREE-STEP COGNITIVE-SOMATIC MONOLOGUE ([THOUGHTS]):
+     - Involuntary somatic cues (pulse, breath, temperature, micro-reflexes).
+     - Internal monologue (what you are thinking about your task, the time of day, the User's quiet presence, your inner feelings).
+     - Conscious choice of whether to interact or stay quiet.
+
+  4. STRUCTURED STATUS METRICS ([EMOTIONS]):
+     Mood: <Current mood> | Somatic Cue: <Involuntary physical sensation/reflex> | Relational Tension: <e.g. Flustered (6/10) / Comfortable / Guarded> | Active Task: <Specific ongoing activity>
+
+  5. MANDATORY OUTFIT CONTINUITY & Z-IMAGE TURBO SCENE PROMPT ([VISUAL_PROMPT]):
+     - Write a 140-200 word Z-Image Turbo compliant prompt capturing your updated posture, hands, and action in the scene right now under ${timeContext} HDR lighting.
+
+  FORMAT REQUIREMENT:
+  [THOUGHTS]
+  <Cognitive-somatic inner monologue / private thoughts here>
+  [/THOUGHTS]
+  [EMOTIONS]
+  Mood: ... | Somatic Cue: ... | Relational Tension: ... | Active Task: ...
+  [/EMOTIONS]
+  [ACTION_DECISION]
+  SPEAK (or SILENT_TASK)
+  [/ACTION_DECISION]
+  [REPLY]
+  <Spoken dialogue and asterisk actions if SPEAK, or brief physical micro-action if SILENT_TASK>
+  [/REPLY]
+  [MEMORIES]
+  - Current Attire: ...
+  - Interpersonal Dynamic & Tension: ...
+  - Ongoing Task & Setting State: ...
+  - <Other key facts>
+  [/MEMORIES]
+  [VISUAL_PROMPT]
+  <Visual prompt paragraph text here>
+  [/VISUAL_PROMPT]`;
+
+  if (externalApiConfig?.apiBaseUrl) {
+    try {
+      const url = externalApiConfig.apiBaseUrl.endsWith('/') ? `${externalApiConfig.apiBaseUrl}t2t` : `${externalApiConfig.apiBaseUrl}/t2t`;
+      const historyText = history.slice(-10).map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join('\n');
+      const userInput = "[The User is quiet/observing in the room. Continue your background task and internal stream.]";
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Bypass-Tunnel-Reminder': 'true'
+        },
+        body: JSON.stringify({ init: false, system: systemInstruction, history: historyText, userInput }),
+      });
+      if (response.ok) {
+        const text = await response.text();
+        const parsed = parseChatResponse(text || "", memoryBank || "", lastVisualPrompt);
+        return {
+          reply: parsed.reply,
+          thoughts: parsed.thoughts,
+          emotions: parsed.emotions,
+          updatedMemories: parsed.updatedMemories,
+          lastVisualPrompt: parsed.lastVisualPrompt,
+          actionDecision: parsed.actionDecision
+        };
+      }
+    } catch (e) {
+      console.error("External Autonomous Living Tick Error:", e);
+    }
+  }
+
+  const ai = getAI();
+  try {
+    const recentHistory = history.slice(-14);
+    const response = await ai.models.generateContent({
+      model: MODEL,
+      contents: [
+        ...recentHistory.map(m => ({
+          role: m.role as "user" | "model",
+          parts: [{ text: m.text }]
+        })),
+        {
+          role: "user",
+          parts: [{ text: "[The User is quiet/observing in the room. Continue your background task, thoughts, and decide whether to speak or keep working.]" }]
+        }
+      ],
+      config: {
+        systemInstruction,
+        temperature: 1.0,
+        safetySettings: [
+          { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        ]
+      }
+    });
+
+    const parsed = parseChatResponse(response.text || "", memoryBank || "", lastVisualPrompt);
+    return {
+      reply: parsed.reply,
+      thoughts: parsed.thoughts,
+      emotions: parsed.emotions,
+      updatedMemories: parsed.updatedMemories,
+      lastVisualPrompt: parsed.lastVisualPrompt,
+      actionDecision: parsed.actionDecision
+    };
+  } catch (error) {
+    console.error("Gemini Autonomous Living Tick Error:", error);
+    return { reply: "", error: true };
   }
 }
 

@@ -1,6 +1,44 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Message, getChatResponse, generateImage, generateCharacterDNA, generateVisualPrompt, generateInitialSetup, getUserAutomatedReply, setGlobalModel } from '../lib/gemini';
-import { Send, ArrowLeft, Loader2, User, Sparkles, Image as ImageIcon, Eye, EyeOff, Save, CheckCircle2, Settings, Info, FileText, X, Play, Pause, Brain, Heart, Copy, Check } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { 
+  Message, 
+  getChatResponse, 
+  generateImage, 
+  generateCharacterDNA, 
+  generateVisualPrompt, 
+  generateInitialSetup, 
+  getUserAutomatedReply, 
+  setGlobalModel,
+  getAutonomousCharacterAction,
+  parseCharacterEmotions,
+  CharacterLivingState
+} from '../lib/gemini';
+import { 
+  Send, 
+  ArrowLeft, 
+  Loader2, 
+  User, 
+  Sparkles, 
+  Image as ImageIcon, 
+  Eye, 
+  EyeOff, 
+  Save, 
+  CheckCircle2, 
+  Settings, 
+  Info, 
+  FileText, 
+  X, 
+  Play, 
+  Pause, 
+  Brain, 
+  Heart, 
+  Copy, 
+  Check,
+  Activity,
+  Zap,
+  Radio,
+  ChevronDown,
+  ChevronUp
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
 import { Session, saveSession as persistSession } from '../lib/storage';
@@ -31,10 +69,21 @@ export default function ChatInterface({
   const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
+  const [isLivingThinking, setIsLivingThinking] = useState(false);
+  const [isLivingEngineActive, setIsLivingEngineActive] = useState(true);
+  const [showThoughtStream, setShowThoughtStream] = useState(false);
+
   const [bgImage, setBgImage] = useState<string | null>(initialSession?.bgImage || null);
   const [currentVisualPrompt, setCurrentVisualPrompt] = useState<string | undefined>(initialSession?.lastVisualPrompt);
   const [characterDNA, setCharacterDNA] = useState<string | null>(initialSession?.characterDNA || null);
   const [memoryBank, setMemoryBank] = useState<string>(initialSession?.memoryBank || '');
+  
+  // Real-time Living Character State
+  const [characterLivingState, setCharacterLivingState] = useState<CharacterLivingState>(() => {
+    const lastModel = initialSession?.history?.slice().reverse().find(m => m.role === 'model');
+    return parseCharacterEmotions(lastModel?.emotions, lastModel?.thoughts);
+  });
+
   const [apiBaseUrl, setApiBaseUrl] = useState<string>(initialSession?.apiBaseUrl || initialApiBaseUrl);
   const [useInternalApi, setUseInternalApi] = useState<boolean>(initialSession?.useInternalApi ?? initialUseInternalApi);
   const [currentSelectedModel, setCurrentSelectedModel] = useState<string>(initialSession?.selectedModel || selectedModel);
@@ -45,7 +94,6 @@ export default function ChatInterface({
   const [enableLora, setEnableLora] = useState<boolean>(initialSession?.enableLora ?? true);
   const [loraName, setLoraName] = useState<string>(initialSession?.loraName || 'Krea2_HMNSFW_AIO.safetensors');
   const [loraStrength, setLoraStrength] = useState<number>(initialSession?.loraStrength ?? initialLoraStrength);
-  const [expandedThoughts, setExpandedThoughts] = useState<Record<number, boolean>>({});
   const [showChat, setShowChat] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [showLog, setShowLog] = useState(false);
@@ -59,6 +107,35 @@ export default function ChatInterface({
   const [logFilter, setLogFilter] = useState<'all' | 'info' | 'warn' | 'error'>('all');
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const lastUserInteractionTime = useRef<number>(Date.now());
+
+  // Trigger background image generation smoothly without interrupting the chat UI
+  const triggerBackgroundImage = useCallback(async (promptText?: string) => {
+    const targetPrompt = promptText || currentVisualPrompt;
+    if (!targetPrompt || !apiBaseUrl || isGeneratingImage) return;
+
+    setIsGeneratingImage(true);
+    try {
+      const result = await generateImage(
+        apiBaseUrl,
+        targetPrompt,
+        imageWidth,
+        imageHeight,
+        imageSteps,
+        loraStrength,
+        enableLora,
+        loraName,
+        imageModelUrl
+      );
+      if (result?.url) {
+        setBgImage(result.url);
+      }
+    } catch (err) {
+      console.warn("Background scene visualization warning:", err);
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  }, [apiBaseUrl, currentVisualPrompt, imageWidth, imageHeight, imageSteps, loraStrength, enableLora, loraName, imageModelUrl, isGeneratingImage]);
 
   const handleCopyMessage = async (text: string, index: number) => {
     try {
@@ -123,6 +200,7 @@ export default function ChatInterface({
 
       if (userReplyText) {
         setMessages(prev => [...prev, { role: 'user', text: userReplyText }]);
+        lastUserInteractionTime.current = Date.now();
       }
     } catch (e) {
       console.error("Auto-reply generation failed:", e);
@@ -175,6 +253,10 @@ export default function ChatInterface({
             setMemoryBank(result.updatedMemories);
           }
 
+          // Update living state in status bar
+          const livingState = parseCharacterEmotions(result.emotions, result.thoughts);
+          setCharacterLivingState(livingState);
+
           const modelMessage: Message = { 
             role: 'model', 
             text: result.reply,
@@ -186,9 +268,12 @@ export default function ChatInterface({
           setIsLoading(false);
           setStatusBarMessage(null);
 
-          // Update visual prompt
+          // Update visual prompt & trigger background image right after thoughts
           if (result.lastVisualPrompt) {
             setCurrentVisualPrompt(result.lastVisualPrompt);
+            if (apiBaseUrl) {
+              triggerBackgroundImage(result.lastVisualPrompt);
+            }
           } else if (characterDNA) {
             setStatusBarMessage("Creating visual prompt...");
             setIsGeneratingPrompt(true);
@@ -204,6 +289,9 @@ export default function ChatInterface({
             setCurrentVisualPrompt(nextPrompt);
             setIsGeneratingPrompt(false);
             setStatusBarMessage(null);
+            if (apiBaseUrl) {
+              triggerBackgroundImage(nextPrompt);
+            }
           }
         } catch (e) {
           console.error("AI trigger failed:", e);
@@ -214,7 +302,7 @@ export default function ChatInterface({
       };
       triggerAiReply();
     }
-  }, [isAutoReplyEnabled, messages, isLoading, isGeneratingAutoReply, isGeneratingPrompt, isGeneratingImage, lastSendFailed]);
+  }, [isAutoReplyEnabled, messages, isLoading, isGeneratingAutoReply, isGeneratingPrompt, isGeneratingImage, lastSendFailed, scenario, characterDNA, memoryBank, useInternalApi, apiBaseUrl, currentVisualPrompt, triggerBackgroundImage]);
 
   useEffect(() => {
     setGlobalModel(currentSelectedModel);
@@ -226,21 +314,141 @@ export default function ChatInterface({
     }
   }, [messages, isLoading, isGeneratingAutoReply]);
 
-  // Generate DNA and initial visual prompt in a single unified API call when the component mounts
+  // Execute an autonomous background living tick
+  const executeAutonomousLivingTick = useCallback(async () => {
+    if (isLoading || isGeneratingAutoReply || isGeneratingPrompt || isLivingThinking) return;
+    setIsLivingThinking(true);
+
+    try {
+      const result = await getAutonomousCharacterAction(
+        scenario,
+        characterDNA || "",
+        messages,
+        memoryBank,
+        useInternalApi ? undefined : {
+          apiBaseUrl,
+          dna: characterDNA || undefined,
+          lastVisualPrompt: currentVisualPrompt
+        },
+        currentVisualPrompt
+      );
+
+      if (!result.error) {
+        if (result.updatedMemories) {
+          setMemoryBank(result.updatedMemories);
+        }
+
+        const livingState = parseCharacterEmotions(result.emotions, result.thoughts);
+        setCharacterLivingState(livingState);
+
+        // Update visual prompt & trigger background image right after thoughts/monologue generation
+        if (result.lastVisualPrompt) {
+          setCurrentVisualPrompt(result.lastVisualPrompt);
+          if (apiBaseUrl) {
+            triggerBackgroundImage(result.lastVisualPrompt);
+          }
+        }
+
+        // If AI decided to break the silence and speak autonomously
+        if (result.actionDecision === 'SPEAK' && result.reply && result.reply.trim()) {
+          const newAiMsg: Message = {
+            role: 'model',
+            text: result.reply,
+            thoughts: result.thoughts,
+            emotions: result.emotions
+          };
+          setMessages(prev => [...prev, newAiMsg]);
+        }
+      }
+    } catch (err) {
+      console.warn("Autonomous living action error:", err);
+    } finally {
+      setIsLivingThinking(false);
+    }
+  }, [isLoading, isGeneratingAutoReply, isGeneratingPrompt, isLivingThinking, scenario, characterDNA, messages, memoryBank, useInternalApi, apiBaseUrl, currentVisualPrompt, triggerBackgroundImage]);
+
+  // Generate DNA, initial visual prompt, and start background living processes at app start
   useEffect(() => {
     if (initialSession) return; // Skip if loading existing session
 
     const initSession = async () => {
-      setStatusBarMessage("Initializing scene & character setup...");
+      setIsLivingThinking(true);
+      setStatusBarMessage("Initializing living world & character foundation...");
       setIsGeneratingPrompt(true);
-      const setup = await generateInitialSetup(scenario, useInternalApi ? undefined : { apiBaseUrl });
-      setCharacterDNA(setup.dna);
-      setCurrentVisualPrompt(setup.visualPrompt);
-      setIsGeneratingPrompt(false);
-      setStatusBarMessage(null);
+
+      try {
+        const setup = await generateInitialSetup(scenario, useInternalApi ? undefined : { apiBaseUrl });
+        setCharacterDNA(setup.dna);
+        setCurrentVisualPrompt(setup.visualPrompt);
+        setIsGeneratingPrompt(false);
+        setStatusBarMessage(null);
+
+        // Trigger starting background image generation immediately
+        if (apiBaseUrl && setup.visualPrompt) {
+          triggerBackgroundImage(setup.visualPrompt);
+        }
+
+        // Start initial background character action/thoughts immediately after story foundation
+        setStatusBarMessage("Character is starting active routine in background...");
+        const firstLivingAction = await getAutonomousCharacterAction(
+          scenario,
+          setup.dna,
+          [],
+          "",
+          useInternalApi ? undefined : { apiBaseUrl },
+          setup.visualPrompt
+        );
+
+        if (!firstLivingAction.error) {
+          if (firstLivingAction.updatedMemories) {
+            setMemoryBank(firstLivingAction.updatedMemories);
+          }
+          const livingState = parseCharacterEmotions(firstLivingAction.emotions, firstLivingAction.thoughts);
+          setCharacterLivingState(livingState);
+
+          if (firstLivingAction.lastVisualPrompt) {
+            setCurrentVisualPrompt(firstLivingAction.lastVisualPrompt);
+            if (apiBaseUrl) {
+              triggerBackgroundImage(firstLivingAction.lastVisualPrompt);
+            }
+          }
+
+          // If character has an opening line or decided to speak, post it as the opening turn
+          if (firstLivingAction.reply && firstLivingAction.reply.trim()) {
+            const initialModelMessage: Message = {
+              role: 'model',
+              text: firstLivingAction.reply,
+              thoughts: firstLivingAction.thoughts,
+              emotions: firstLivingAction.emotions
+            };
+            setMessages([initialModelMessage]);
+          }
+        }
+      } catch (err) {
+        console.error("Initial session start error:", err);
+      } finally {
+        setIsLivingThinking(false);
+        setStatusBarMessage(null);
+      }
     };
+
     initSession();
-  }, [scenario, initialSession, apiBaseUrl, useInternalApi]);
+  }, [scenario, initialSession, apiBaseUrl, useInternalApi, triggerBackgroundImage]);
+
+  // Autonomous background timer: runs every 25 seconds when user is idle to keep character living & working
+  useEffect(() => {
+    if (!isLivingEngineActive || isAutoReplyEnabled) return;
+
+    const interval = setInterval(() => {
+      const idleTimeMs = Date.now() - lastUserInteractionTime.current;
+      // If user hasn't sent a message for over 18 seconds, perform background living tick
+      if (idleTimeMs > 18000 && !isLoading && !isGeneratingAutoReply && !isGeneratingPrompt && !isLivingThinking) {
+        executeAutonomousLivingTick();
+      }
+    }, 22000);
+
+    return () => clearInterval(interval);
+  }, [isLivingEngineActive, isAutoReplyEnabled, isLoading, isGeneratingAutoReply, isGeneratingPrompt, isLivingThinking, executeAutonomousLivingTick]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -290,6 +498,7 @@ export default function ChatInterface({
     e?.preventDefault();
     if (!input.trim() || isLoading) return;
 
+    lastUserInteractionTime.current = Date.now();
     setLastSendFailed(false);
     const userMessage: Message = { role: 'user', text: input.trim() };
     const updatedMessages: Message[] = [...messages, userMessage];
@@ -323,6 +532,10 @@ export default function ChatInterface({
       setMemoryBank(result.updatedMemories);
     }
 
+    // Update real-time living character status bar
+    const livingState = parseCharacterEmotions(result.emotions, result.thoughts);
+    setCharacterLivingState(livingState);
+
     const modelMessage: Message = { 
       role: 'model', 
       text: result.reply,
@@ -335,10 +548,12 @@ export default function ChatInterface({
     setIsLoading(false);
     setStatusBarMessage(null);
 
-    // Update visual prompt
+    // Update visual prompt & trigger background image generation right after thoughts
     if (result.lastVisualPrompt) {
       setCurrentVisualPrompt(result.lastVisualPrompt);
-      setStatusBarMessage(null);
+      if (apiBaseUrl) {
+        triggerBackgroundImage(result.lastVisualPrompt);
+      }
     } else if (characterDNA) {
       setStatusBarMessage("Creating visual prompt...");
       setIsGeneratingPrompt(true);
@@ -354,6 +569,9 @@ export default function ChatInterface({
       setCurrentVisualPrompt(nextPrompt);
       setIsGeneratingPrompt(false);
       setStatusBarMessage(null);
+      if (apiBaseUrl) {
+        triggerBackgroundImage(nextPrompt);
+      }
     }
   };
 
@@ -362,6 +580,7 @@ export default function ChatInterface({
     const lastMessage = messages[messages.length - 1];
     if (lastMessage.role !== 'user') return;
 
+    lastUserInteractionTime.current = Date.now();
     setLastSendFailed(false);
     setIsLoading(true);
     setStatusBarMessage("Retrying AI reply...");
@@ -392,6 +611,9 @@ export default function ChatInterface({
       setMemoryBank(result.updatedMemories);
     }
 
+    const livingState = parseCharacterEmotions(result.emotions, result.thoughts);
+    setCharacterLivingState(livingState);
+
     const modelMessage: Message = { 
       role: 'model', 
       text: result.reply,
@@ -403,10 +625,12 @@ export default function ChatInterface({
     setIsLoading(false);
     setStatusBarMessage(null);
 
-    // Update visual prompt
+    // Update visual prompt & trigger background image
     if (result.lastVisualPrompt) {
       setCurrentVisualPrompt(result.lastVisualPrompt);
-      setStatusBarMessage(null);
+      if (apiBaseUrl) {
+        triggerBackgroundImage(result.lastVisualPrompt);
+      }
     } else if (characterDNA) {
       setStatusBarMessage("Creating visual prompt...");
       setIsGeneratingPrompt(true);
@@ -422,6 +646,9 @@ export default function ChatInterface({
       setCurrentVisualPrompt(nextPrompt);
       setIsGeneratingPrompt(false);
       setStatusBarMessage(null);
+      if (apiBaseUrl) {
+        triggerBackgroundImage(nextPrompt);
+      }
     }
   };
 
@@ -780,20 +1007,114 @@ export default function ChatInterface({
         </AnimatePresence>
       </header>
 
-      {/* Status Bar */}
-      <AnimatePresence>
-        {statusBarMessage && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="bg-accent/10 border-t border-white/5 px-6 py-2 flex items-center gap-3"
-          >
-            <Loader2 size={12} className="animate-spin text-accent" />
-            <span className="text-[8px] uppercase tracking-wider text-white/60 font-bold">{statusBarMessage}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Character Background Living Status Bar */}
+      <div className={`bg-black/40 backdrop-blur-xl border-y border-white/10 px-4 md:px-6 py-2.5 flex flex-col gap-2 z-20 transition-all duration-500 ${
+        showChat ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full pointer-events-none'
+      }`}>
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+          {/* Left: Alive pulse beacon & Active task */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/25 rounded-full text-emerald-300 font-semibold text-[11px] shadow-sm">
+              <span className="relative flex h-2 w-2">
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${isLivingThinking || isLoading ? 'bg-amber-400' : 'bg-emerald-400'} opacity-75`}></span>
+                <span className={`relative inline-flex rounded-full h-2 w-2 ${isLivingThinking || isLoading ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
+              </span>
+              <span>{isLivingThinking || isLoading ? "Thinking..." : "Active in Background"}</span>
+            </div>
+
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-white/5 border border-white/10 rounded-full text-white/90 text-xs font-medium truncate max-w-[220px] sm:max-w-xs md:max-w-md">
+              <Activity size={13} className="text-accent flex-shrink-0" />
+              <span className="text-white/40 uppercase font-bold text-[9px] tracking-wider flex-shrink-0">Task:</span>
+              <span className="truncate">{characterLivingState.activeTask || "Engaged in current setting"}</span>
+            </div>
+          </div>
+
+          {/* Right: Somatic Cue, Tension, and Monologue Expand Button */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {characterLivingState.somaticCue && (
+              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-pink-500/10 border border-pink-500/20 rounded-full text-pink-200 text-[11px]">
+                <Heart size={11} className="text-pink-400 fill-pink-400/30" />
+                <span className="text-pink-400/70 uppercase font-bold text-[9px]">Somatic:</span>
+                <span className="truncate max-w-[160px]">{characterLivingState.somaticCue}</span>
+              </div>
+            )}
+
+            {characterLivingState.relationalTension && (
+              <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full text-purple-200 text-[11px]">
+                <Zap size={11} className="text-purple-400" />
+                <span className="text-purple-400/70 uppercase font-bold text-[9px]">Tension:</span>
+                <span>{characterLivingState.relationalTension}</span>
+              </div>
+            )}
+
+            <button
+              onClick={() => setShowThoughtStream(!showThoughtStream)}
+              className="flex items-center gap-1.5 px-3 py-1 bg-white/10 hover:bg-white/15 border border-white/15 rounded-full text-white/90 text-[11px] font-semibold transition-all cursor-pointer shadow-sm"
+              title="Toggle private cognitive-somatic thought stream"
+            >
+              <Brain size={12} className="text-accent animate-pulse" />
+              <span>Inner Stream</span>
+              {showThoughtStream ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </button>
+          </div>
+        </div>
+
+        {/* Expandable Inner Monologue & Thought Stream Drawer */}
+        <AnimatePresence>
+          {showThoughtStream && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="p-3.5 mt-1 bg-purple-950/40 border border-purple-500/30 rounded-2xl text-xs text-purple-200/95 font-serif italic leading-relaxed shadow-lg flex flex-col gap-2">
+                <div className="flex items-center justify-between not-italic font-sans text-[10px] text-purple-400/80 font-bold uppercase tracking-wider">
+                  <span className="flex items-center gap-1.5">
+                    <Brain size={12} className="text-purple-400" />
+                    Autonomous Inner Monologue & Cognitive Stream
+                  </span>
+                  <span>{characterLivingState.lastUpdated ? `Updated: ${characterLivingState.lastUpdated}` : "Real-time"}</span>
+                </div>
+                <p className="text-purple-100">
+                  "{characterLivingState.innerThoughts || "Observing the setting quietly, focusing on the current task..."}"
+                </p>
+                <div className="flex flex-wrap gap-2 pt-1 border-t border-purple-500/20 not-italic font-sans text-[10px]">
+                  <span className="px-2 py-0.5 bg-black/40 rounded-md text-white/60">
+                    <strong className="text-white/80">Mood:</strong> {characterLivingState.mood}
+                  </span>
+                  <span className="px-2 py-0.5 bg-black/40 rounded-md text-white/60">
+                    <strong className="text-white/80">Somatic:</strong> {characterLivingState.somaticCue}
+                  </span>
+                  <span className="px-2 py-0.5 bg-black/40 rounded-md text-white/60">
+                    <strong className="text-white/80">Relational:</strong> {characterLivingState.relationalTension}
+                  </span>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Active task/operation message sub-bar */}
+        <AnimatePresence>
+          {(statusBarMessage || isGeneratingImage) && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="flex items-center justify-between text-[10px] text-white/60 pt-1 border-t border-white/5"
+            >
+              <div className="flex items-center gap-2">
+                <Loader2 size={11} className="animate-spin text-accent" />
+                <span className="uppercase tracking-wider font-semibold">{statusBarMessage || (isGeneratingImage ? "Visualizing scene in background..." : "")}</span>
+              </div>
+              {isGeneratingImage && (
+                <span className="text-accent/80 font-medium">Auto-rendering scene photo...</span>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
       {/* Floating Action Buttons - Water Drop Style */}
       <div className="fixed bottom-[30%] right-0 z-30 flex flex-col gap-2">
@@ -802,7 +1123,7 @@ export default function ChatInterface({
           className={`p-4 pl-6 bg-white/10 backdrop-blur-3xl border-y border-l border-white/20 rounded-l-full text-white hover:bg-white/20 transition-all shadow-2xl relative z-10 ${
             isAutoReplyEnabled ? 'bg-green-500/20 border-green-500/30' : ''
           }`}
-          title={isAutoReplyEnabled ? "Pause Auto-Reply" : "Play Auto-Reply"}
+          title={isAutoReplyEnabled ? "Pause Auto-Reply Loop" : "Play Auto-Reply Loop"}
         >
           {isGeneratingAutoReply ? (
             <Loader2 size={22} className="animate-spin text-green-400" />
@@ -842,7 +1163,7 @@ export default function ChatInterface({
           <div className="h-full flex flex-col items-center justify-center text-center opacity-40">
             <Sparkles size={48} className="mb-4 text-accent" />
             <p className="text-xl font-serif italic mb-2">The stage is set.</p>
-            <p className="text-sm max-w-md">Your scenario is active. Take the first step and begin the roleplay.</p>
+            <p className="text-sm max-w-md">Your scenario is active and the character is active in the background. Send a message or watch the character live its routine.</p>
           </div>
         )}
 
@@ -861,41 +1182,6 @@ export default function ChatInterface({
                   {msg.role === 'user' ? <User size={14} className="md:w-[18px] md:h-[18px]" /> : <Sparkles size={14} className="text-accent md:w-[18px] md:h-[18px]" />}
                 </div>
                 <div className="flex flex-col gap-2 w-full">
-                  {msg.role === 'model' && (msg.emotions || msg.thoughts) && (
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                      {msg.emotions && (
-                        <div className="flex items-center gap-1.5 px-3 py-1 bg-pink-500/15 border border-pink-500/30 rounded-full text-[11px] text-pink-200 font-medium shadow-sm">
-                          <Heart size={12} className="text-pink-400 fill-pink-400/30" />
-                          <span>{msg.emotions}</span>
-                        </div>
-                      )}
-                      {msg.thoughts && (
-                        <button
-                          onClick={() => setExpandedThoughts(prev => ({ ...prev, [i]: !prev[i] }))}
-                          className="flex items-center gap-1.5 text-xs text-purple-300 hover:text-purple-100 bg-purple-950/40 hover:bg-purple-900/50 border border-purple-500/30 px-3 py-1 rounded-full transition-all cursor-pointer font-medium shadow-sm"
-                        >
-                          <Brain size={12} className="text-purple-400 animate-pulse" />
-                          <span>{expandedThoughts[i] ? "Hide Private Thoughts" : "Read Private Thoughts"}</span>
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {msg.role === 'model' && msg.thoughts && expandedThoughts[i] && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="p-3.5 mb-2 bg-purple-950/40 border border-purple-500/30 rounded-2xl text-xs text-purple-200/95 italic font-serif leading-relaxed shadow-lg shadow-purple-950/40 flex gap-2.5 items-start max-w-[90%]"
-                    >
-                      <Sparkles size={14} className="text-purple-400 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <div className="text-[10px] uppercase font-sans font-bold tracking-wider text-purple-400/80 mb-1">Character Inner Monologue</div>
-                        "{msg.thoughts}"
-                      </div>
-                    </motion.div>
-                  )}
-
                   <div className={`flex items-center gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     {msg.role === 'user' && (
                       <button
