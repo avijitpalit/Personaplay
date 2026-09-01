@@ -22,6 +22,7 @@ export interface Session {
   enableLora?: boolean;
   loraName?: string;
   loraStrength?: number;
+  talkativenessMode?: 'auto' | 'quiet' | 'balanced' | 'chatty';
   createdAt: number;
   updatedAt: number;
 }

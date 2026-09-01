@@ -37,7 +37,10 @@ import {
   Zap,
   Radio,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  MessageSquare,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
@@ -88,12 +91,22 @@ export default function ChatInterface({
   const [useInternalApi, setUseInternalApi] = useState<boolean>(initialSession?.useInternalApi ?? initialUseInternalApi);
   const [currentSelectedModel, setCurrentSelectedModel] = useState<string>(initialSession?.selectedModel || selectedModel);
   const [imageModelUrl, setImageModelUrl] = useState<string>(initialSession?.imageModelUrl || 'https://avijitpalit3--krea2-inference-krea2service-fastapi-app.modal.run/generate');
-  const [imageWidth, setImageWidth] = useState<number>(initialSession?.imageWidth || 720);
-  const [imageHeight, setImageHeight] = useState<number>(initialSession?.imageHeight || 1280);
-  const [imageSteps, setImageSteps] = useState<number>(initialSession?.imageSteps || 8);
+  const [imageWidthInput, setImageWidthInput] = useState<string>(String(initialSession?.imageWidth || 720));
+  const [imageHeightInput, setImageHeightInput] = useState<string>(String(initialSession?.imageHeight || 1280));
+  const [imageStepsInput, setImageStepsInput] = useState<string>(String(initialSession?.imageSteps || 8));
   const [enableLora, setEnableLora] = useState<boolean>(initialSession?.enableLora ?? true);
   const [loraName, setLoraName] = useState<string>(initialSession?.loraName || 'Krea2_HMNSFW_AIO.safetensors');
-  const [loraStrength, setLoraStrength] = useState<number>(initialSession?.loraStrength ?? initialLoraStrength);
+  const [loraStrengthInput, setLoraStrengthInput] = useState<string>(
+    initialSession?.loraStrength !== undefined ? String(initialSession.loraStrength) : String(initialLoraStrength)
+  );
+
+  const imageWidth = parseInt(imageWidthInput) || 720;
+  const imageHeight = parseInt(imageHeightInput) || 1280;
+  const imageSteps = parseInt(imageStepsInput) || 8;
+  const parsedLoraStrength = parseFloat(loraStrengthInput);
+  const loraStrength = isNaN(parsedLoraStrength) ? 1.0 : parsedLoraStrength;
+
+  const [talkativenessMode, setTalkativenessMode] = useState<'auto' | 'quiet' | 'balanced' | 'chatty'>((initialSession as any)?.talkativenessMode || 'auto');
   const [showChat, setShowChat] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [showLog, setShowLog] = useState(false);
@@ -130,6 +143,8 @@ export default function ChatInterface({
   isGeneratingAutoReplyRef.current = isGeneratingAutoReply;
   const isGeneratingPromptRef = useRef(isGeneratingPrompt);
   isGeneratingPromptRef.current = isGeneratingPrompt;
+  const talkativenessModeRef = useRef(talkativenessMode);
+  talkativenessModeRef.current = talkativenessMode;
 
   // Trigger background image generation smoothly without interrupting the chat UI
   const triggerBackgroundImage = useCallback(async (promptText?: string) => {
@@ -260,7 +275,9 @@ export default function ChatInterface({
               dna: characterDNA || undefined,
               lastVisualPrompt: currentVisualPrompt
             },
-            currentVisualPrompt
+            currentVisualPrompt,
+            undefined,
+            talkativenessModeRef.current
           );
 
           if (result.error) {
@@ -356,7 +373,9 @@ export default function ChatInterface({
           dna: currentDNA || undefined,
           lastVisualPrompt: currentPrompt
         },
-        currentPrompt
+        currentPrompt,
+        undefined,
+        talkativenessModeRef.current
       );
 
       if (!result.error) {
@@ -375,15 +394,19 @@ export default function ChatInterface({
           }
         }
 
-        // If character chose to SPEAK (or produced dialogue), post it directly to the chat
-        if (result.actionDecision === 'SPEAK' && result.reply && result.reply.trim()) {
-          const newAiMsg: Message = {
-            role: 'model',
-            text: result.reply,
-            thoughts: result.thoughts,
-            emotions: result.emotions
-          };
-          setMessages(prev => [...prev, newAiMsg]);
+        // If character spoke or performed a physical action/behavior, render it to the chat stream
+        if (result.reply && result.reply.trim()) {
+          const lastMsg = currentMsgs[currentMsgs.length - 1];
+          const isDuplicate = lastMsg && lastMsg.text.trim() === result.reply.trim();
+          if (!isDuplicate) {
+            const newAiMsg: Message = {
+              role: 'model',
+              text: result.reply,
+              thoughts: result.thoughts,
+              emotions: result.emotions
+            };
+            setMessages(prev => [...prev, newAiMsg]);
+          }
         }
       }
     } catch (err) {
@@ -471,9 +494,9 @@ export default function ChatInterface({
 
     const interval = setInterval(() => {
       const idleTimeMs = Date.now() - lastUserInteractionTime.current;
-      // If user hasn't sent a message for over 15 seconds, perform background living cycle
+      // If user hasn't sent a message for over 24 seconds, perform background living cycle
       if (
-        idleTimeMs >= 15000 &&
+        idleTimeMs >= 24000 &&
         !isLoadingRef.current && 
         !isGeneratingAutoReplyRef.current && 
         !isGeneratingPromptRef.current && 
@@ -481,7 +504,7 @@ export default function ChatInterface({
       ) {
         executeAutonomousLivingTick();
       }
-    }, 16000);
+    }, 25000);
 
     return () => clearInterval(interval);
   }, [isLivingEngineActive, executeAutonomousLivingTick]);
@@ -507,7 +530,8 @@ export default function ChatInterface({
         imageSteps,
         enableLora,
         loraName,
-        loraStrength
+        loraStrength,
+        talkativenessMode
       });
       setSessionId(saved.id);
       setSaveSuccess(true);
@@ -528,7 +552,7 @@ export default function ChatInterface({
       }, 5000); // Debounce auto-save
       return () => clearTimeout(timer);
     }
-  }, [messages, characterDNA, bgImage, currentVisualPrompt, apiBaseUrl, imageModelUrl, imageWidth, imageHeight, imageSteps, enableLora, loraName, loraStrength, memoryBank]);
+  }, [messages, characterDNA, bgImage, currentVisualPrompt, apiBaseUrl, imageModelUrl, imageWidth, imageHeight, imageSteps, enableLora, loraName, loraStrength, talkativenessMode, memoryBank]);
 
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -554,7 +578,9 @@ export default function ChatInterface({
         dna: characterDNA || undefined,
         lastVisualPrompt: currentVisualPrompt
       },
-      currentVisualPrompt
+      currentVisualPrompt,
+      undefined,
+      talkativenessMode
     );
 
     if (result.error) {
@@ -849,8 +875,8 @@ export default function ChatInterface({
                 {/* Header of Activity Panel */}
                 <div className="flex items-center justify-between pb-2 border-b border-white/10">
                   <div className="flex items-center gap-2">
-                    <Activity size={18} className="text-emerald-400" />
-                    <span className="text-sm font-bold text-white tracking-wide">Character Live Activity & Mental State</span>
+                    <Activity size={16} className="text-emerald-400" />
+                    <span className="text-xs font-bold text-white/90 tracking-wide">Live Activity & Mental State</span>
                   </div>
                   
                   <div className="flex items-center gap-2">
@@ -912,8 +938,8 @@ export default function ChatInterface({
                   </div>
                 </div>
 
-                {/* Somatic Cue, Tension, Mood */}
-                <div className="grid grid-cols-3 gap-2 text-xs">
+                {/* Somatic Cue, Tension, Mood, Conversational Interest */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                   <div className="flex flex-col gap-1 p-2.5 bg-pink-500/10 border border-pink-500/20 rounded-xl text-pink-200">
                     <div className="flex items-center gap-1.5 text-pink-400 font-bold text-[10px] uppercase tracking-wider">
                       <Heart size={12} className="fill-pink-400/30" />
@@ -942,6 +968,45 @@ export default function ChatInterface({
                     <span className="text-[11px] leading-tight text-blue-100 font-medium truncate">
                       {characterLivingState.mood || "Observant"}
                     </span>
+                  </div>
+
+                  <div className="flex flex-col gap-1 p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-200">
+                    <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-[10px] uppercase tracking-wider">
+                      <MessageSquare size={12} />
+                      <span>Speech Drive</span>
+                    </div>
+                    <span className="text-[11px] leading-tight text-emerald-100 font-medium truncate">
+                      {characterLivingState.conversationalInterest || "Autonomous (Mood-driven)"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Talkativeness Mode Controls */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-white/5 border border-white/10 rounded-xl">
+                  <div className="flex items-center gap-2">
+                    <Volume2 size={14} className="text-accent" />
+                    <span className="text-xs font-semibold text-white/80">Talkativeness Mode:</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {[
+                      { id: 'auto', label: 'Autonomous (Mood)' },
+                      { id: 'quiet', label: 'Quiet & Reserved' },
+                      { id: 'balanced', label: 'Balanced' },
+                      { id: 'chatty', label: 'Chatty' }
+                    ].map(mode => (
+                      <button
+                        key={mode.id}
+                        type="button"
+                        onClick={() => setTalkativenessMode(mode.id as any)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer border ${
+                          talkativenessMode === mode.id
+                            ? 'bg-accent text-white border-accent/60 shadow-sm shadow-accent/20'
+                            : 'bg-black/30 hover:bg-white/10 text-white/60 hover:text-white border-white/10'
+                        }`}
+                      >
+                        {mode.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
@@ -1146,27 +1211,63 @@ export default function ChatInterface({
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Width</label>
                     <input 
-                      type="number"
-                      value={imageWidth}
-                      onChange={e => setImageWidth(parseInt(e.target.value) || 720)}
+                      type="text"
+                      inputMode="numeric"
+                      value={imageWidthInput}
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (val === '' || /^[0-9]*$/.test(val)) {
+                          setImageWidthInput(val);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (!imageWidthInput.trim() || parseInt(imageWidthInput) <= 0) {
+                          setImageWidthInput('720');
+                        }
+                      }}
+                      placeholder="720"
                       className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white"
                     />
                   </div>
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Height</label>
                     <input 
-                      type="number"
-                      value={imageHeight}
-                      onChange={e => setImageHeight(parseInt(e.target.value) || 1280)}
+                      type="text"
+                      inputMode="numeric"
+                      value={imageHeightInput}
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (val === '' || /^[0-9]*$/.test(val)) {
+                          setImageHeightInput(val);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (!imageHeightInput.trim() || parseInt(imageHeightInput) <= 0) {
+                          setImageHeightInput('1280');
+                        }
+                      }}
+                      placeholder="1280"
                       className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white"
                     />
                   </div>
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Steps</label>
                     <input 
-                      type="number"
-                      value={imageSteps}
-                      onChange={e => setImageSteps(parseInt(e.target.value) || 8)}
+                      type="text"
+                      inputMode="numeric"
+                      value={imageStepsInput}
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (val === '' || /^[0-9]*$/.test(val)) {
+                          setImageStepsInput(val);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (!imageStepsInput.trim() || parseInt(imageStepsInput) <= 0) {
+                          setImageStepsInput('8');
+                        }
+                      }}
+                      placeholder="8"
                       className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white"
                     />
                   </div>
@@ -1213,17 +1314,41 @@ export default function ChatInterface({
                     <div className="flex flex-col gap-1">
                       <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">LoRA Strength</label>
                       <input 
-                        type="number"
-                        step="0.1"
-                        min="0.0"
-                        max="5.0"
-                        value={loraStrength}
-                        onChange={e => setLoraStrength(parseFloat(e.target.value) || 1.5)}
+                        type="text"
+                        inputMode="decimal"
+                        value={loraStrengthInput}
+                        onChange={e => {
+                          const val = e.target.value;
+                          // Allow empty string, numbers, leading dot, floating point numbers (e.g. .3, 0.3, 1, 1.5)
+                          if (val === '' || /^[0-9]*\.?[0-9]*$/.test(val)) {
+                            setLoraStrengthInput(val);
+                          }
+                        }}
+                        onBlur={() => {
+                          if (loraStrengthInput.trim() === '' || isNaN(parseFloat(loraStrengthInput))) {
+                            setLoraStrengthInput('1.0');
+                          }
+                        }}
+                        placeholder="e.g. 0.3 or 1.5"
                         disabled={!enableLora}
-                        className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white disabled:opacity-50"
+                        className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white disabled:opacity-50 font-mono"
                       />
                     </div>
                   </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Talkativeness & Speech Disposition</label>
+                  <select
+                    value={talkativenessMode}
+                    onChange={(e) => setTalkativenessMode(e.target.value as any)}
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 text-white cursor-pointer"
+                  >
+                    <option value="auto" className="bg-neutral-900">Autonomous (Decides speech vs physical action based on mood)</option>
+                    <option value="quiet" className="bg-neutral-900">Quiet & Reserved (Prioritizes subtle actions and silence)</option>
+                    <option value="balanced" className="bg-neutral-900">Balanced (Standard dynamic conversational responses)</option>
+                    <option value="chatty" className="bg-neutral-900">Chatty & Outgoing (Frequently speaks and initiates)</option>
+                  </select>
                 </div>
 
                 <div className="flex flex-col gap-2">

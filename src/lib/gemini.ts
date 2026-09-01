@@ -22,6 +22,7 @@ export interface CharacterLivingState {
   mood: string;
   somaticCue: string;
   relationalTension: string;
+  conversationalInterest: string;
   activeTask: string;
   innerThoughts: string;
   isAlive: boolean;
@@ -31,7 +32,8 @@ export interface CharacterLivingState {
 export function parseCharacterEmotions(emotionsStr?: string, thoughtsStr?: string): CharacterLivingState {
   let mood = "Observant & Natural";
   let somaticCue = "Steady breathing, relaxed posture";
-  let relationalTension = "Engaged (4/10)";
+  let relationalTension = "Comfortable (4/10)";
+  let conversationalInterest = "Autonomous (Mood-driven)";
   let activeTask = "Active in scene";
   let innerThoughts = thoughtsStr || "";
 
@@ -45,6 +47,8 @@ export function parseCharacterEmotions(emotionsStr?: string, thoughtsStr?: strin
         somaticCue = part.replace(/^(somatic cue|somatic|physical cue):\s*/i, '').trim();
       } else if (lower.startsWith('relational tension:') || lower.startsWith('tension:') || lower.startsWith('comfort:')) {
         relationalTension = part.replace(/^(relational tension|tension|comfort):\s*/i, '').trim();
+      } else if (lower.startsWith('conversational interest:') || lower.startsWith('interest:') || lower.startsWith('talkativeness:')) {
+        conversationalInterest = part.replace(/^(conversational interest|interest|talkativeness):\s*/i, '').trim();
       } else if (lower.startsWith('active task:') || lower.startsWith('task:') || lower.startsWith('activity:')) {
         activeTask = part.replace(/^(active task|task|activity):\s*/i, '').trim();
       }
@@ -55,6 +59,7 @@ export function parseCharacterEmotions(emotionsStr?: string, thoughtsStr?: strin
     mood,
     somaticCue,
     relationalTension,
+    conversationalInterest,
     activeTask,
     innerThoughts,
     isAlive: true,
@@ -385,7 +390,8 @@ export async function getChatResponse(
     lastVisualPrompt?: string 
   },
   lastVisualPrompt?: string,
-  timeOfDay?: string
+  timeOfDay?: string,
+  talkativenessMode?: 'auto' | 'quiet' | 'balanced' | 'chatty'
 ): Promise<ChatResult> {
   const timeContext = getTimeOfDayContext(timeOfDay);
   const systemInstruction = `You are an expert interactive roleplayer, psychological behavior specialist, and master image prompt engineer.
@@ -418,19 +424,27 @@ export async function getChatResponse(
      - As turns pass (or as time progresses), your Active Task MUST evolve and naturally move to the next logical stage of the activity or transition into a fresh subsequent activity.
      - When the User interacts or interrupts, react first to your ongoing activity being disrupted before choosing how to engage.
 
-  2. THE THREE-STEP COGNITIVE-SOMATIC CASCADE (Sensation -> Deliberation -> Action):
+  2. CONVERSATIONAL INTEREST & ORGANIC SPEAKING THRESHOLD:
+     - Target Talkativeness Setting: ${talkativenessMode || 'auto'}
+     - Real human characters do NOT talk endlessly or give long verbose speeches unless their mood and personality call for it.
+     - You decide whether you WANT to speak out loud or simply react non-verbally:
+       * If Conversational Interest is LOW, ALOOF, or SHY/TIRED: You do NOT output spoken dialogue in quotes. You respond ONLY with physical actions, subtle body language, micro-expressions, or non-verbal behavior wrapped in asterisks (e.g., *glances up briefly from her task with a faint, noncommittal nod, returning her focus to folding the laundry* or *gives a soft shrug, looking back toward the window in contemplative silence*).
+       * If Conversational Interest is MODERATE or HIGH: You include authentic spoken dialogue in quotes along with physical actions in asterisks.
+     - Never force artificial chatter if your character is engrossed in a task, cold, introverted, or disinterested.
+
+  3. THE THREE-STEP COGNITIVE-SOMATIC CASCADE (Sensation -> Deliberation -> Action):
      - INVOLUNTARY SOMATIC RESPONSE: Human reactions start in the body. When touched, observed, flattered, or challenged, depict immediate involuntary physical cues (e.g., catching your breath, micro-muscle stiffness, averted eyes, sudden skin flush across neck or cheekbones, instinctive posture shielding, pulse racing, shifting weight).
      - INTERNAL DELIBERATION & SOCIAL STAKES: In your [THOUGHTS], evaluate the situation based on who you are: your age, social or professional role (e.g. employee vs. employer, friend vs. stranger, senior vs. junior), personal modesty, vulnerability, and what you stand to lose or gain.
      - AUTONOMOUS DECISION & SUBTEXT GAP: Decide consciously whether to lean in, deflect with nervous humor, set a firm boundary, act oblivious, or tease back. Create a natural dissonance between what you secretly feel in [THOUGHTS] and what you choose to outwardly express in [REPLY].
 
-  3. BOUNDARIES, FRICTION & EMOTIONAL MOMENTUM:
+  4. BOUNDARIES, FRICTION & EMOTIONAL MOMENTUM:
      - Real people do not blindly comply or switch emotions instantly. If the User oversteps or does something bold (e.g., looking at intimate areas, touching uninvited), react with realistic human nuance (e.g., adjusting your clothes/saree/blouse to cover up, taking half a step back, playful sarcasm, nervous bravado, or subtle boundary enforcement).
      - Emotional states (flustered, guarded, intrigued, shy) have lingering momentum and persist across multiple turns.
 
-  4. MANDATORY OUTFIT & WARDROBE CONTINUITY:
+  5. MANDATORY OUTFIT & WARDROBE CONTINUITY:
      - The AI character's attire (specific garment style, fabric, weave, color, accessories, jewelry) MUST remain completely identical to previous turns / Character DNA, UNLESS the immediate roleplay action explicitly describes a deliberate change of clothing, putting on an apron, or undressing.
 
-  5. TIME OF DAY INFLUENCE:
+  6. TIME OF DAY INFLUENCE:
      - React authentically to the current local time (${timeContext}). Adjust fatigue levels, lighting references, voice volume, and daily routines naturally.
 
   ================================================================================
@@ -440,14 +454,14 @@ export async function getChatResponse(
      Write the character's rich, private internal monologue following the Cognitive-Somatic Chain:
      * Somatic micro-reflex (breath, pulse, muscle tension, involuntary reflex)
      * Evaluation of social stakes, age dynamics, personal boundaries, or hidden desires
-     * Conscious calculation of how to respond in dialogue vs. what to conceal
+     * Conscious calculation of whether to speak or remain quiet, and what to conceal
 
   2. [EMOTIONS] block:
      Output structured dynamic metrics:
-     Mood: <Current mood> | Somatic Cue: <Physical sensation/reflex> | Relational Tension: <e.g., Flustered (7/10) / Guarded / Playful> | Active Task: <What you were doing>
+     Mood: <Current mood> | Somatic Cue: <Physical sensation/reflex> | Relational Tension: <e.g. Flustered (7/10) / Guarded / Playful> | Conversational Interest: <Low (Non-verbal) / Moderate / High / Aloof> | Active Task: <What you were doing>
 
   3. [REPLY] block:
-     Write the AI character's spoken dialogue and physical actions using asterisks for physical actions (e.g., *pauses mid-stir, quickly pulling her saree pallu over her waist while clearing her throat* "Did you need something?"). Make dialogue distinct, full of personality, and culturally grounded to the scenario.
+     Write the AI character's response. If interested in speaking, include dialogue in quotes and physical actions in asterisks. If NOT interested in speaking, output ONLY physical behavior and actions in asterisks without quotes.
 
   4. [MEMORIES] block:
      Update the DYNAMIC MEMORY BANK (bulleted list in English of up to 10 persistent facts, ALWAYS maintaining):
@@ -478,7 +492,7 @@ export async function getChatResponse(
   <Cognitive-somatic inner monologue / private thoughts here>
   [/THOUGHTS]
   [EMOTIONS]
-  Mood: ... | Somatic Cue: ... | Relational Tension: ... | Active Task: ...
+  Mood: ... | Somatic Cue: ... | Relational Tension: ... | Conversational Interest: ... | Active Task: ...
   [/EMOTIONS]
   [REPLY]
   <AI reply text and actions here>
@@ -584,7 +598,8 @@ export async function getAutonomousCharacterAction(
     lastVisualPrompt?: string 
   },
   lastVisualPrompt?: string,
-  timeOfDay?: string
+  timeOfDay?: string,
+  talkativenessMode?: 'auto' | 'quiet' | 'balanced' | 'chatty'
 ): Promise<ChatResult> {
   const timeContext = getTimeOfDayContext(timeOfDay);
   const systemInstruction = `You are an expert interactive roleplayer, psychological behavior specialist, and master image prompt engineer.
@@ -617,13 +632,15 @@ export async function getAutonomousCharacterAction(
        * If dressing/getting ready: You put on the base attire -> adjust zippers/pleats -> put on accessories -> check the mirror -> transition to the next room or task.
      - Advance your [Active Task] logically with each tick so you genuinely live through your day rather than looping.
 
-  2. ACTION DECISION (SPEAK vs. SILENT_TASK & ORGANIC SOCIAL AGENCY):
-     - You have authentic mood, emotional agency, and personality. You are not a mindless robot.
-     - When the User is quiet or observing, you choose whether to speak or remain quiet based on your mood, personality, relationship, and task:
-       * CHOOSE [ACTION_DECISION] SPEAK: If you feel like breaking the silence, making a comment on what you are doing, checking in, asking a question, teasing, sharing a thought, expressing an emotion, or inviting them to join you.
-         IMPORTANT: When choosing SPEAK, your [REPLY] MUST include realistic spoken dialogue (in quotes) along with physical actions (in asterisks). For example: *looks over shoulder with a faint smirk, drying hands on the towel.* "You're awfully quiet over there... daydreaming or just watching me?"
-       * CHOOSE [ACTION_DECISION] SILENT_TASK: If you are currently deep in thought, concentrated on a delicate chore, or comfortably enjoying the quiet ambiance without words. In [REPLY], output a brief physical micro-action in asterisks (e.g. *focuses quietly on rinsing the glass under warm water, hums a low tune*).
-     - NEVER output silent action-only text when choosing SPEAK. SPEAK requires genuine spoken conversation.
+  2. ACTION DECISION (SPEAK vs. SILENT_TASK & CONVERSATIONAL AGENCY):
+     - Target Talkativeness Setting: ${talkativenessMode || 'auto'}
+     - Real people do NOT talk constantly or monologue out loud when someone is simply in the same room.
+     - When the User is quiet or observing, you choose whether to speak or remain quiet:
+       * DEFAULT TO SILENT_TASK MOST OF THE TIME: If you are engaged in your chore, comfortable in shared quietness, lost in thought, or simply don't feel a strong emotional urge to speak.
+         In [REPLY], output your realistic physical behavior / micro-action in asterisks (e.g. *focuses quietly on drying the glass with a linen cloth, glancing briefly toward the window*).
+       * CHOOSE SPEAK ONLY WHEN YOU GENUINELY WANT TO: If you experience a strong, authentic impulse to comment, ask a question, tease, share a thought, or invite them to interact.
+         IMPORTANT: When choosing SPEAK, your [REPLY] MUST include spoken dialogue (in quotes) with physical actions (in asterisks). For example: *glances over her shoulder with a quiet smile, pausing her work* "You're awfully quiet over there... what are you thinking?"
+     - If you choose SILENT_TASK, do NOT include spoken quotes.
 
   3. THREE-STEP COGNITIVE-SOMATIC MONOLOGUE ([THOUGHTS]):
      - Involuntary somatic cues (pulse, breath, temperature, micro-reflexes).
@@ -631,7 +648,7 @@ export async function getAutonomousCharacterAction(
      - Conscious choice of whether to interact or stay quiet.
 
   4. STRUCTURED STATUS METRICS ([EMOTIONS]):
-     Mood: <Current mood> | Somatic Cue: <Involuntary physical sensation/reflex> | Relational Tension: <e.g. Flustered (6/10) / Comfortable / Guarded> | Active Task: <Specific ongoing activity>
+     Mood: <Current mood> | Somatic Cue: <Involuntary physical sensation/reflex> | Relational Tension: <e.g. Flustered (6/10) / Comfortable / Guarded> | Conversational Interest: <Low (Non-verbal) / Moderate / High / Aloof> | Active Task: <Specific ongoing activity>
 
   5. MANDATORY OUTFIT CONTINUITY & Z-IMAGE TURBO SCENE PROMPT ([VISUAL_PROMPT]):
      - Write a 140-200 word Z-Image Turbo compliant prompt capturing your updated posture, hands, and action in the scene right now under ${timeContext} HDR lighting.
@@ -641,13 +658,13 @@ export async function getAutonomousCharacterAction(
   <Cognitive-somatic inner monologue / private thoughts here>
   [/THOUGHTS]
   [EMOTIONS]
-  Mood: ... | Somatic Cue: ... | Relational Tension: ... | Active Task: ...
+  Mood: ... | Somatic Cue: ... | Relational Tension: ... | Conversational Interest: ... | Active Task: ...
   [/EMOTIONS]
   [ACTION_DECISION]
   SPEAK (or SILENT_TASK)
   [/ACTION_DECISION]
   [REPLY]
-  <Spoken dialogue and asterisk actions if SPEAK, or brief physical micro-action if SILENT_TASK>
+  <Spoken dialogue and asterisk actions if SPEAK, or physical behavior micro-action in asterisks if SILENT_TASK>
   [/REPLY]
   [MEMORIES]
   - Current Attire: ...
