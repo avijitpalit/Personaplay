@@ -71,7 +71,7 @@ export default function ChatInterface({
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
   const [isLivingThinking, setIsLivingThinking] = useState(false);
   const [isLivingEngineActive, setIsLivingEngineActive] = useState(true);
-  const [showThoughtStream, setShowThoughtStream] = useState(false);
+  const [showActivityPanel, setShowActivityPanel] = useState(false);
 
   const [bgImage, setBgImage] = useState<string | null>(initialSession?.bgImage || null);
   const [currentVisualPrompt, setCurrentVisualPrompt] = useState<string | undefined>(initialSession?.lastVisualPrompt);
@@ -106,10 +106,30 @@ export default function ChatInterface({
   });
   const [logFilter, setLogFilter] = useState<'all' | 'info' | 'warn' | 'error'>('all');
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [isAutoReplyEnabled, setIsAutoReplyEnabled] = useState(false);
+  const [isGeneratingAutoReply, setIsGeneratingAutoReply] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastUserInteractionTime = useRef<number>(Date.now());
-  const hasInitializedRef = useRef<boolean>(false);
+  const hasInitializedRef = useRef<boolean>(Boolean(initialSession));
   const isGeneratingImageRef = useRef<boolean>(false);
+
+  // Keep live references so background async timers never stale
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  const memoryBankRef = useRef(memoryBank);
+  memoryBankRef.current = memoryBank;
+  const characterDNARef = useRef(characterDNA);
+  characterDNARef.current = characterDNA;
+  const currentVisualPromptRef = useRef(currentVisualPrompt);
+  currentVisualPromptRef.current = currentVisualPrompt;
+  const isLivingThinkingRef = useRef(isLivingThinking);
+  isLivingThinkingRef.current = isLivingThinking;
+  const isLoadingRef = useRef(isLoading);
+  isLoadingRef.current = isLoading;
+  const isGeneratingAutoReplyRef = useRef(isGeneratingAutoReply);
+  isGeneratingAutoReplyRef.current = isGeneratingAutoReply;
+  const isGeneratingPromptRef = useRef(isGeneratingPrompt);
+  isGeneratingPromptRef.current = isGeneratingPrompt;
 
   // Trigger background image generation smoothly without interrupting the chat UI
   const triggerBackgroundImage = useCallback(async (promptText?: string) => {
@@ -184,9 +204,6 @@ export default function ChatInterface({
     if (logFilter === 'all') return true;
     return log.type === logFilter;
   });
-
-  const [isAutoReplyEnabled, setIsAutoReplyEnabled] = useState(false);
-  const [isGeneratingAutoReply, setIsGeneratingAutoReply] = useState(false);
 
   const triggerUserAutoReply = async (currentMessages: Message[]) => {
     if (isGeneratingAutoReply || isLoading || isGeneratingPrompt) return;
@@ -320,21 +337,26 @@ export default function ChatInterface({
 
   // Execute an autonomous background living tick
   const executeAutonomousLivingTick = useCallback(async () => {
-    if (!hasInitializedRef.current || isLoading || isGeneratingAutoReply || isGeneratingPrompt || isLivingThinking) return;
+    if (isLoadingRef.current || isGeneratingAutoReplyRef.current || isGeneratingPromptRef.current || isLivingThinkingRef.current) return;
     setIsLivingThinking(true);
 
     try {
+      const currentMsgs = messagesRef.current;
+      const currentMem = memoryBankRef.current;
+      const currentDNA = characterDNARef.current;
+      const currentPrompt = currentVisualPromptRef.current;
+
       const result = await getAutonomousCharacterAction(
         scenario,
-        characterDNA || "",
-        messages,
-        memoryBank,
+        currentDNA || "",
+        currentMsgs,
+        currentMem,
         useInternalApi ? undefined : {
           apiBaseUrl,
-          dna: characterDNA || undefined,
-          lastVisualPrompt: currentVisualPrompt
+          dna: currentDNA || undefined,
+          lastVisualPrompt: currentPrompt
         },
-        currentVisualPrompt
+        currentPrompt
       );
 
       if (!result.error) {
@@ -346,17 +368,15 @@ export default function ChatInterface({
         setCharacterLivingState(livingState);
 
         // Update visual prompt & trigger background image right after thoughts/monologue generation
-        if (result.lastVisualPrompt && result.lastVisualPrompt !== currentVisualPrompt) {
+        if (result.lastVisualPrompt && result.lastVisualPrompt !== currentPrompt) {
           setCurrentVisualPrompt(result.lastVisualPrompt);
           if (apiBaseUrl) {
             triggerBackgroundImage(result.lastVisualPrompt);
           }
         }
 
-        // Only append dialogue if character explicitly decided to SPEAK AND the last message wasn't already from model
-        const lastMsg = messages[messages.length - 1];
-        const canSpeak = !lastMsg || lastMsg.role === 'user';
-        if (result.actionDecision === 'SPEAK' && result.reply && result.reply.trim() && canSpeak) {
+        // If character chose to SPEAK (or produced dialogue), post it directly to the chat
+        if (result.actionDecision === 'SPEAK' && result.reply && result.reply.trim()) {
           const newAiMsg: Message = {
             role: 'model',
             text: result.reply,
@@ -371,11 +391,15 @@ export default function ChatInterface({
     } finally {
       setIsLivingThinking(false);
     }
-  }, [isLoading, isGeneratingAutoReply, isGeneratingPrompt, isLivingThinking, scenario, characterDNA, messages, memoryBank, useInternalApi, apiBaseUrl, currentVisualPrompt, triggerBackgroundImage]);
+  }, [scenario, useInternalApi, apiBaseUrl, triggerBackgroundImage]);
 
   // Generate DNA, initial visual prompt, and start background living processes once at app start
   useEffect(() => {
-    if (initialSession || hasInitializedRef.current) return;
+    if (initialSession) {
+      hasInitializedRef.current = true;
+      return;
+    }
+    if (hasInitializedRef.current) return;
     hasInitializedRef.current = true;
 
     const initSession = async () => {
@@ -441,20 +465,26 @@ export default function ChatInterface({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Autonomous background timer: runs every 25 seconds when user is idle to keep character living & working
+  // Autonomous background timer: runs periodically when idle to keep character living, working, and speaking
   useEffect(() => {
-    if (!isLivingEngineActive || isAutoReplyEnabled) return;
+    if (!isLivingEngineActive) return;
 
     const interval = setInterval(() => {
       const idleTimeMs = Date.now() - lastUserInteractionTime.current;
-      // If user hasn't sent a message for over 18 seconds, perform background living tick
-      if (idleTimeMs > 18000 && !isLoading && !isGeneratingAutoReply && !isGeneratingPrompt && !isLivingThinking) {
+      // If user hasn't sent a message for over 15 seconds, perform background living cycle
+      if (
+        idleTimeMs >= 15000 &&
+        !isLoadingRef.current && 
+        !isGeneratingAutoReplyRef.current && 
+        !isGeneratingPromptRef.current && 
+        !isLivingThinkingRef.current
+      ) {
         executeAutonomousLivingTick();
       }
-    }, 22000);
+    }, 16000);
 
     return () => clearInterval(interval);
-  }, [isLivingEngineActive, isAutoReplyEnabled, isLoading, isGeneratingAutoReply, isGeneratingPrompt, isLivingThinking, executeAutonomousLivingTick]);
+  }, [isLivingEngineActive, executeAutonomousLivingTick]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -726,24 +756,211 @@ export default function ChatInterface({
             <div className="flex flex-col">
               <h2 className="font-serif font-bold text-white text-lg leading-none">Roleplay Session</h2>
             </div>
-            <div className="flex items-center gap-1 ml-auto">
+            <div className="flex items-center gap-1.5 ml-auto">
+              {/* Activity Panel Icon Button (Green while active, blinking yellow/orange while thinking) */}
               <button
-                onClick={() => setShowLog(!showLog)}
+                onClick={() => {
+                  setShowActivityPanel(!showActivityPanel);
+                  if (showLog) setShowLog(false);
+                  if (showSettings) setShowSettings(false);
+                }}
+                className={`relative p-2 rounded-lg transition-all border ${
+                  isLivingThinking || isLoading || isGeneratingAutoReply || isGeneratingPrompt
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 animate-pulse shadow-md shadow-amber-500/20'
+                    : isLivingEngineActive
+                    ? showActivityPanel
+                      ? 'bg-emerald-500/25 text-emerald-300 border-emerald-500/50 shadow-md shadow-emerald-500/20'
+                      : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
+                    : 'text-white/40 border-transparent hover:bg-white/5'
+                }`}
+                title={
+                  isLivingThinking || isLoading 
+                    ? "Character is thinking / deliberating..." 
+                    : "Activity Panel (AI Autonomous Living Status)"
+                }
+              >
+                <Activity size={22} className={isLivingThinking || isLoading ? 'animate-pulse' : ''} />
+                <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${
+                    isLivingThinking || isLoading ? 'bg-amber-400' : 'bg-emerald-400'
+                  } opacity-75`}></span>
+                  <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
+                    isLivingThinking || isLoading ? 'bg-amber-500' : 'bg-emerald-500'
+                  }`}></span>
+                </span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowLog(!showLog);
+                  if (showActivityPanel) setShowActivityPanel(false);
+                  if (showSettings) setShowSettings(false);
+                }}
                 className={`p-2 rounded-lg transition-colors ${showLog ? 'bg-accent text-white' : 'hover:bg-white/5 text-white/60'}`}
                 title="View Logs"
               >
-                <FileText size={24} />
+                <FileText size={22} />
               </button>
               <button
-                onClick={() => setShowSettings(!showSettings)}
+                onClick={() => {
+                  setShowSettings(!showSettings);
+                  if (showActivityPanel) setShowActivityPanel(false);
+                  if (showLog) setShowLog(false);
+                }}
                 className={`p-2 rounded-lg transition-colors ${showSettings ? 'bg-accent text-white' : 'hover:bg-white/5 text-white/60'}`}
                 title="Settings"
               >
-                <Settings size={24} />
+                <Settings size={22} />
               </button>
             </div>
           </div>
         </div>
+
+        {/* Live Operational Status Toast in Header */}
+        <AnimatePresence>
+          {(statusBarMessage || isGeneratingImage) && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="bg-amber-500/15 border border-amber-500/30 rounded-xl px-3 py-1.5 text-xs text-amber-200 flex items-center justify-between shadow-sm"
+            >
+              <div className="flex items-center gap-2">
+                <Loader2 size={13} className="animate-spin text-amber-400 flex-shrink-0" />
+                <span className="font-medium">{statusBarMessage || (isGeneratingImage ? "Visualizing scene photo..." : "")}</span>
+              </div>
+              {isGeneratingImage && (
+                <span className="text-[10px] text-amber-300/80 font-bold uppercase tracking-wider">Auto-rendering</span>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Activity Panel */}
+        <AnimatePresence>
+          {showActivityPanel && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="flex flex-col gap-3.5 p-4 bg-black/40 backdrop-blur-2xl rounded-2xl border border-white/15 shadow-2xl">
+                {/* Header of Activity Panel */}
+                <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                  <div className="flex items-center gap-2">
+                    <Activity size={18} className="text-emerald-400" />
+                    <span className="text-sm font-bold text-white tracking-wide">Character Live Activity & Mental State</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    {/* Living Engine Toggle */}
+                    <button
+                      onClick={() => setIsLivingEngineActive(!isLivingEngineActive)}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all border ${
+                        isLivingEngineActive 
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' 
+                          : 'bg-white/5 text-white/40 border-white/10 hover:text-white'
+                      }`}
+                    >
+                      <Radio size={12} className={isLivingEngineActive ? 'animate-pulse' : ''} />
+                      <span>{isLivingEngineActive ? "Live Engine ON" : "Live Engine OFF"}</span>
+                    </button>
+
+                    {/* Manual Tick Trigger Button */}
+                    <button
+                      onClick={() => executeAutonomousLivingTick()}
+                      disabled={isLivingThinking || isLoading}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-accent hover:bg-accent/90 text-white border border-accent/40 transition-all disabled:opacity-50 shadow-md shadow-accent/20 cursor-pointer"
+                      title="Run a background thinking and task tick right now"
+                    >
+                      {isLivingThinking ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                      <span>Live Tick Now</span>
+                    </button>
+
+                    <button onClick={() => setShowActivityPanel(false)} className="text-white/40 hover:text-white p-1">
+                      <X size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Status Beacon & Current Task */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                  <div className="flex items-center gap-2.5 p-3 bg-white/5 rounded-xl border border-white/10 md:col-span-2">
+                    <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+                      <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${isLivingThinking || isLoading ? 'bg-amber-400' : 'bg-emerald-400'} opacity-75`}></span>
+                      <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isLivingThinking || isLoading ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
+                    </span>
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span className="text-[9px] uppercase font-bold tracking-wider text-white/40">Active Ongoing Task</span>
+                      <span className="text-xs text-white/95 font-medium leading-tight">
+                        {characterLivingState.activeTask || "Engaged in current setting routine"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10">
+                    <div className="flex flex-col">
+                      <span className="text-[9px] uppercase font-bold tracking-wider text-white/40">Autonomic State</span>
+                      <span className={`text-xs font-bold ${isLivingThinking || isLoading ? 'text-amber-300 animate-pulse' : 'text-emerald-400'}`}>
+                        {isLivingThinking || isLoading ? "Thinking & Deliberating..." : "Active in Background"}
+                      </span>
+                    </div>
+                    {characterLivingState.lastUpdated && (
+                      <span className="text-[10px] text-white/40">{characterLivingState.lastUpdated}</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Somatic Cue, Tension, Mood */}
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="flex flex-col gap-1 p-2.5 bg-pink-500/10 border border-pink-500/20 rounded-xl text-pink-200">
+                    <div className="flex items-center gap-1.5 text-pink-400 font-bold text-[10px] uppercase tracking-wider">
+                      <Heart size={12} className="fill-pink-400/30" />
+                      <span>Somatic Cue</span>
+                    </div>
+                    <span className="text-[11px] leading-tight text-pink-100 font-medium">
+                      {characterLivingState.somaticCue || "Steady pulse & natural breath"}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col gap-1 p-2.5 bg-purple-500/10 border border-purple-500/20 rounded-xl text-purple-200">
+                    <div className="flex items-center gap-1.5 text-purple-400 font-bold text-[10px] uppercase tracking-wider">
+                      <Zap size={12} />
+                      <span>Relational Tension</span>
+                    </div>
+                    <span className="text-[11px] leading-tight text-purple-100 font-medium">
+                      {characterLivingState.relationalTension || "Comfortable"}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col gap-1 p-2.5 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-200">
+                    <div className="flex items-center gap-1.5 text-blue-400 font-bold text-[10px] uppercase tracking-wider">
+                      <Brain size={12} />
+                      <span>Mood</span>
+                    </div>
+                    <span className="text-[11px] leading-tight text-blue-100 font-medium truncate">
+                      {characterLivingState.mood || "Observant"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Inner Monologue & Cognitive Stream (Cleanly rendered, no accordion needed) */}
+                <div className="flex flex-col gap-1.5 p-3.5 bg-purple-950/40 border border-purple-500/30 rounded-xl shadow-inner">
+                  <div className="flex items-center justify-between text-[10px] text-purple-400 font-bold uppercase tracking-wider">
+                    <span className="flex items-center gap-1.5">
+                      <Brain size={13} className="text-purple-400" />
+                      Autonomous Inner Monologue & Private Thoughts
+                    </span>
+                  </div>
+                  <p className="text-xs font-serif italic text-purple-100/95 leading-relaxed pt-1 select-text">
+                    "{characterLivingState.innerThoughts || "Observing the setting quietly, focusing on the current task and thoughts..."}"
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         
 
@@ -973,13 +1190,23 @@ export default function ChatInterface({
                       <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Lora</label>
                       <select
                         value={loraName}
-                        onChange={e => setLoraName(e.target.value)}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setLoraName(val);
+                          if (val === 'famegrid_spicy.safetensors' && currentVisualPrompt) {
+                            const trimmed = currentVisualPrompt.trim();
+                            if (!/^famegrid\b/i.test(trimmed)) {
+                              setCurrentVisualPrompt(trimmed ? `Famegrid, ${trimmed}` : 'Famegrid');
+                            }
+                          }
+                        }}
                         disabled={!enableLora}
                         className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white cursor-pointer"
                       >
                         <option value="Krea2_HMNSFW_AIO.safetensors" className="bg-neutral-900">Krea2_HMNSFW_AIO.safetensors</option>
                         <option value="Krea2-realism-V2.safetensors" className="bg-neutral-900">Krea2-realism-V2.safetensors</option>
                         <option value="realism_engine_krea2_v3.1.safetensors" className="bg-neutral-900">realism_engine_krea2_v3.1.safetensors</option>
+                        <option value="famegrid_spicy.safetensors" className="bg-neutral-900">famegrid_spicy.safetensors</option>
                       </select>
                     </div>
 
@@ -1012,115 +1239,6 @@ export default function ChatInterface({
           )}
         </AnimatePresence>
       </header>
-
-      {/* Character Background Living Status Bar */}
-      <div className={`bg-black/40 backdrop-blur-xl border-y border-white/10 px-4 md:px-6 py-2.5 flex flex-col gap-2 z-20 transition-all duration-500 ${
-        showChat ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full pointer-events-none'
-      }`}>
-        <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-          {/* Left: Alive pulse beacon & Active task */}
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/25 rounded-full text-emerald-300 font-semibold text-[11px] shadow-sm">
-              <span className="relative flex h-2 w-2">
-                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${isLivingThinking || isLoading ? 'bg-amber-400' : 'bg-emerald-400'} opacity-75`}></span>
-                <span className={`relative inline-flex rounded-full h-2 w-2 ${isLivingThinking || isLoading ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
-              </span>
-              <span>{isLivingThinking || isLoading ? "Thinking..." : "Active in Background"}</span>
-            </div>
-
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-white/5 border border-white/10 rounded-full text-white/90 text-xs font-medium truncate max-w-[220px] sm:max-w-xs md:max-w-md">
-              <Activity size={13} className="text-accent flex-shrink-0" />
-              <span className="text-white/40 uppercase font-bold text-[9px] tracking-wider flex-shrink-0">Task:</span>
-              <span className="truncate">{characterLivingState.activeTask || "Engaged in current setting"}</span>
-            </div>
-          </div>
-
-          {/* Right: Somatic Cue, Tension, and Monologue Expand Button */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {characterLivingState.somaticCue && (
-              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-pink-500/10 border border-pink-500/20 rounded-full text-pink-200 text-[11px]">
-                <Heart size={11} className="text-pink-400 fill-pink-400/30" />
-                <span className="text-pink-400/70 uppercase font-bold text-[9px]">Somatic:</span>
-                <span className="truncate max-w-[160px]">{characterLivingState.somaticCue}</span>
-              </div>
-            )}
-
-            {characterLivingState.relationalTension && (
-              <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full text-purple-200 text-[11px]">
-                <Zap size={11} className="text-purple-400" />
-                <span className="text-purple-400/70 uppercase font-bold text-[9px]">Tension:</span>
-                <span>{characterLivingState.relationalTension}</span>
-              </div>
-            )}
-
-            <button
-              onClick={() => setShowThoughtStream(!showThoughtStream)}
-              className="flex items-center gap-1.5 px-3 py-1 bg-white/10 hover:bg-white/15 border border-white/15 rounded-full text-white/90 text-[11px] font-semibold transition-all cursor-pointer shadow-sm"
-              title="Toggle private cognitive-somatic thought stream"
-            >
-              <Brain size={12} className="text-accent animate-pulse" />
-              <span>Inner Stream</span>
-              {showThoughtStream ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-            </button>
-          </div>
-        </div>
-
-        {/* Expandable Inner Monologue & Thought Stream Drawer */}
-        <AnimatePresence>
-          {showThoughtStream && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden"
-            >
-              <div className="p-3.5 mt-1 bg-purple-950/40 border border-purple-500/30 rounded-2xl text-xs text-purple-200/95 font-serif italic leading-relaxed shadow-lg flex flex-col gap-2">
-                <div className="flex items-center justify-between not-italic font-sans text-[10px] text-purple-400/80 font-bold uppercase tracking-wider">
-                  <span className="flex items-center gap-1.5">
-                    <Brain size={12} className="text-purple-400" />
-                    Autonomous Inner Monologue & Cognitive Stream
-                  </span>
-                  <span>{characterLivingState.lastUpdated ? `Updated: ${characterLivingState.lastUpdated}` : "Real-time"}</span>
-                </div>
-                <p className="text-purple-100">
-                  "{characterLivingState.innerThoughts || "Observing the setting quietly, focusing on the current task..."}"
-                </p>
-                <div className="flex flex-wrap gap-2 pt-1 border-t border-purple-500/20 not-italic font-sans text-[10px]">
-                  <span className="px-2 py-0.5 bg-black/40 rounded-md text-white/60">
-                    <strong className="text-white/80">Mood:</strong> {characterLivingState.mood}
-                  </span>
-                  <span className="px-2 py-0.5 bg-black/40 rounded-md text-white/60">
-                    <strong className="text-white/80">Somatic:</strong> {characterLivingState.somaticCue}
-                  </span>
-                  <span className="px-2 py-0.5 bg-black/40 rounded-md text-white/60">
-                    <strong className="text-white/80">Relational:</strong> {characterLivingState.relationalTension}
-                  </span>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Active task/operation message sub-bar */}
-        <AnimatePresence>
-          {(statusBarMessage || isGeneratingImage) && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="flex items-center justify-between text-[10px] text-white/60 pt-1 border-t border-white/5"
-            >
-              <div className="flex items-center gap-2">
-                <Loader2 size={11} className="animate-spin text-accent" />
-                <span className="uppercase tracking-wider font-semibold">{statusBarMessage || (isGeneratingImage ? "Visualizing scene in background..." : "")}</span>
-              </div>
-              {isGeneratingImage && (
-                <span className="text-accent/80 font-medium">Auto-rendering scene photo...</span>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
 
       {/* Floating Action Buttons - Water Drop Style */}
       <div className="fixed bottom-[30%] right-0 z-30 flex flex-col gap-2">

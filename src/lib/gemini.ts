@@ -617,11 +617,13 @@ export async function getAutonomousCharacterAction(
        * If dressing/getting ready: You put on the base attire -> adjust zippers/pleats -> put on accessories -> check the mirror -> transition to the next room or task.
      - Advance your [Active Task] logically with each tick so you genuinely live through your day rather than looping.
 
-  2. ACTION DECISION (SPEAK vs. SILENT_TASK & CONVERSATIONAL ETIQUETTE):
-     - REALISTIC HUMAN SOCIAL AWARENESS: In real life, if the other person is quiet or hasn't replied, you do NOT spam or badger them with repeated lines. You respect the silence and comfortably get on with your task.
-     - IF THE LAST MESSAGE IN HISTORY WAS FROM YOU (THE AI) AND THE USER HAS NOT REPLIED: You MUST choose [ACTION_DECISION] SILENT_TASK. Do NOT speak again. Let the user initiate when ready.
-     - IF SILENT_TASK: In [REPLY], output a brief physical micro-action (e.g. *continues gently stirring the pan, humming softly*). This updates your background physical state without cluttering the chat with unsolicited dialogue.
-     - ONLY choose SPEAK if the user just spoke to you or if this is the very first opening moment of the scene.
+  2. ACTION DECISION (SPEAK vs. SILENT_TASK & ORGANIC SOCIAL AGENCY):
+     - You have authentic mood, emotional agency, and personality. You are not a mindless robot.
+     - When the User is quiet or observing, you choose whether to speak or remain quiet based on your mood, personality, relationship, and task:
+       * CHOOSE [ACTION_DECISION] SPEAK: If you feel like breaking the silence, making a comment on what you are doing, checking in, asking a question, teasing, sharing a thought, expressing an emotion, or inviting them to join you.
+         IMPORTANT: When choosing SPEAK, your [REPLY] MUST include realistic spoken dialogue (in quotes) along with physical actions (in asterisks). For example: *looks over shoulder with a faint smirk, drying hands on the towel.* "You're awfully quiet over there... daydreaming or just watching me?"
+       * CHOOSE [ACTION_DECISION] SILENT_TASK: If you are currently deep in thought, concentrated on a delicate chore, or comfortably enjoying the quiet ambiance without words. In [REPLY], output a brief physical micro-action in asterisks (e.g. *focuses quietly on rinsing the glass under warm water, hums a low tune*).
+     - NEVER output silent action-only text when choosing SPEAK. SPEAK requires genuine spoken conversation.
 
   3. THREE-STEP COGNITIVE-SOMATIC MONOLOGUE ([THOUGHTS]):
      - Involuntary somatic cues (pulse, breath, temperature, micro-reflexes).
@@ -875,8 +877,17 @@ export async function generateImage(
 ): Promise<{ url: string } | null> {
   try {
     const url = imageModelUrl || 'https://avijitpalit3--krea2-inference-krea2service-fastapi-app.modal.run/generate';
+    
+    let processedPrompt = visualPrompt?.trim() || "";
+    if (enableLora && (loraName === "famegrid_spicy.safetensors" || loraName?.toLowerCase().includes("famegrid"))) {
+      const isFamegridPrefixed = /^famegrid\b/i.test(processedPrompt);
+      if (!isFamegridPrefixed) {
+        processedPrompt = processedPrompt ? `Famegrid, ${processedPrompt}` : "Famegrid";
+      }
+    }
+
     const payload: Record<string, any> = {
-        prompt: visualPrompt,
+        prompt: processedPrompt,
         width,
         height,
         steps
