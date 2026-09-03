@@ -4,8 +4,11 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Session, getSessions, deleteSession } from '../lib/storage';
 import PwaInstallButton from './PwaInstallButton';
 
+const KREA2_URL = 'https://avijitpalit3--krea2-inference-krea2service-fastapi-app.modal.run/generate';
+const ZIT_URL = 'https://avijitpalit3--z-image-turbo-zimageservice-fastapi-app.modal.run/generate';
+
 interface CharacterSetupProps {
-  onStart: (scenario: string, useInternalApi: boolean, apiBaseUrl: string, selectedModel: string) => void;
+  onStart: (scenario: string, useInternalApi: boolean, apiBaseUrl: string, selectedModel: string, imageModelUrl?: string) => void;
   onLoadSession: (session: Session) => void;
   initialApiBaseUrl?: string;
 }
@@ -18,8 +21,18 @@ export default function CharacterSetup({
   const [scenario, setScenario] = useState('');
   const [sessions, setSessions] = useState<Session[]>([]);
   const [apiBaseUrl, setApiBaseUrl] = useState(initialApiBaseUrl);
-  const [useInternalApi, setUseInternalApi] = useState(false);
+  const [useInternalApi, setUseInternalApi] = useState(true);
   const [selectedModel, setSelectedModel] = useState<string>('gemma-4-31b-it');
+  const [imageModelUrl, setImageModelUrl] = useState<string>(KREA2_URL);
+  const [customImageModelUrl, setCustomImageModelUrl] = useState<string>(
+    initialApiBaseUrl || 'https://odorful-hsiu-unmaledictory.ngrok-free.dev/generate'
+  );
+
+  const currentImageModelSelection = (imageModelUrl === KREA2_URL)
+    ? KREA2_URL
+    : (imageModelUrl === ZIT_URL)
+      ? ZIT_URL
+      : 'custom';
 
   useEffect(() => {
     setSessions(getSessions());
@@ -72,37 +85,61 @@ export default function CharacterSetup({
           <div className="space-y-4 pt-2 border-t border-white/5">
             <div className="flex flex-col gap-4 p-4 bg-white/5 rounded-2xl border border-white/10">
               <div className="flex flex-col gap-2">
-                <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Roleplay Model</label>
+                <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Language Model</label>
                 <select
                   value={selectedModel}
                   onChange={(e) => {
                     const val = e.target.value;
                     setSelectedModel(val);
-                    if (val === 'custom') {
-                      setUseInternalApi(false);
-                    } else {
-                      setUseInternalApi(true);
-                    }
+                    setUseInternalApi(true);
                   }}
                   className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 text-white cursor-pointer"
                 >
                   <option value="gemma-4-31b-it" className="bg-neutral-900">gemma 31b</option>
                   <option value="gemma-4-26b-a4b-it" className="bg-neutral-900">gemma 24b a4b</option>
-                  <option value="custom" className="bg-neutral-900">custom</option>
                 </select>
               </div>
 
-              {selectedModel === 'custom' && (
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Image Generation Model</label>
+                <select
+                  value={currentImageModelSelection}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === 'custom') {
+                      const targetUrl = (customImageModelUrl && customImageModelUrl !== KREA2_URL && customImageModelUrl !== ZIT_URL)
+                        ? customImageModelUrl
+                        : (apiBaseUrl || 'https://odorful-hsiu-unmaledictory.ngrok-free.dev/generate');
+                      setImageModelUrl(targetUrl);
+                      setCustomImageModelUrl(targetUrl);
+                      setApiBaseUrl(targetUrl);
+                    } else {
+                      setImageModelUrl(val);
+                    }
+                  }}
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 text-white cursor-pointer font-medium"
+                >
+                  <option value={KREA2_URL} className="bg-neutral-900 text-white">Krea 2</option>
+                  <option value={ZIT_URL} className="bg-neutral-900 text-white">Z-image turbo (ZiT)</option>
+                  <option value="custom" className="bg-neutral-900 text-white">Custom</option>
+                </select>
+              </div>
+
+              {currentImageModelSelection === 'custom' && (
                 <div className="flex flex-col gap-2 pt-2 border-t border-white/5">
-                  <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">API Base URL</label>
+                  <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Custom Image Model API URL</label>
                   <input 
                     type="text"
-                    value={apiBaseUrl}
-                    onChange={e => setApiBaseUrl(e.target.value)}
-                    placeholder="https://odorful-hsiu-unmaledictory.ngrok-free.dev"
-                    className="bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 text-white"
+                    value={customImageModelUrl}
+                    onChange={e => {
+                      setCustomImageModelUrl(e.target.value);
+                      setImageModelUrl(e.target.value);
+                      setApiBaseUrl(e.target.value);
+                    }}
+                    placeholder="https://your-custom-image-service.modal.run/generate"
+                    className="bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 text-white font-mono"
                   />
-                  <p className="text-[9px] text-white/30 italic">Endpoints used: /t2t and /generate</p>
+                  <p className="text-[9px] text-white/30 italic">Endpoint used for image generation: /generate</p>
                 </div>
               )}
             </div>
@@ -114,8 +151,12 @@ export default function CharacterSetup({
           </div>
 
           <button 
-            disabled={!scenario.trim() || scenario.length < 10 || (selectedModel === 'custom' && !apiBaseUrl.trim())}
-            onClick={() => onStart(scenario, selectedModel !== 'custom', apiBaseUrl, selectedModel)}
+            disabled={
+              !scenario.trim() || 
+              scenario.length < 10 || 
+              (currentImageModelSelection === 'custom' && !customImageModelUrl.trim())
+            }
+            onClick={() => onStart(scenario, true, (currentImageModelSelection === 'custom' ? customImageModelUrl : apiBaseUrl), selectedModel, imageModelUrl)}
             className="w-full bg-accent text-white py-5 rounded-2xl font-bold text-lg hover:bg-accent/90 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg shadow-accent/20 flex items-center justify-center gap-3 group"
           >
             Enter the Story

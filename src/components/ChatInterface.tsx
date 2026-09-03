@@ -47,6 +47,9 @@ import Markdown from 'react-markdown';
 import { Session, saveSession as persistSession } from '../lib/storage';
 import PwaInstallButton from './PwaInstallButton';
 
+const KREA2_URL = 'https://avijitpalit3--krea2-inference-krea2service-fastapi-app.modal.run/generate';
+const ZIT_URL = 'https://avijitpalit3--z-image-turbo-zimageservice-fastapi-app.modal.run/generate';
+
 interface ChatInterfaceProps {
   scenario: string;
   initialSession?: Session | null;
@@ -54,6 +57,7 @@ interface ChatInterfaceProps {
   initialUseInternalApi: boolean;
   selectedModel: string;
   initialLoraStrength?: number;
+  initialImageModelUrl?: string;
   onBack: () => void;
 }
 
@@ -64,6 +68,7 @@ export default function ChatInterface({
   initialUseInternalApi, 
   selectedModel, 
   initialLoraStrength = 1.5,
+  initialImageModelUrl,
   onBack 
 }: ChatInterfaceProps) {
   const [sessionId, setSessionId] = useState<string | undefined>(initialSession?.id);
@@ -89,8 +94,28 @@ export default function ChatInterface({
 
   const [apiBaseUrl, setApiBaseUrl] = useState<string>(initialSession?.apiBaseUrl || initialApiBaseUrl);
   const [useInternalApi, setUseInternalApi] = useState<boolean>(initialSession?.useInternalApi ?? initialUseInternalApi);
-  const [currentSelectedModel, setCurrentSelectedModel] = useState<string>(initialSession?.selectedModel || selectedModel);
-  const [imageModelUrl, setImageModelUrl] = useState<string>(initialSession?.imageModelUrl || 'https://avijitpalit3--krea2-inference-krea2service-fastapi-app.modal.run/generate');
+  const [currentSelectedModel, setCurrentSelectedModel] = useState<string>(() => {
+    const sModel = initialSession?.selectedModel || selectedModel;
+    return sModel === 'custom' ? 'gemma-4-31b-it' : sModel;
+  });
+  const [imageModelUrl, setImageModelUrl] = useState<string>(
+    initialSession?.imageModelUrl || initialImageModelUrl || KREA2_URL
+  );
+  const [customImageModelUrl, setCustomImageModelUrl] = useState<string>(() => {
+    if (initialSession?.imageModelUrl && initialSession.imageModelUrl !== KREA2_URL && initialSession.imageModelUrl !== ZIT_URL) {
+      return initialSession.imageModelUrl;
+    }
+    if (initialImageModelUrl && initialImageModelUrl !== KREA2_URL && initialImageModelUrl !== ZIT_URL) {
+      return initialImageModelUrl;
+    }
+    return initialSession?.apiBaseUrl || initialApiBaseUrl || 'https://odorful-hsiu-unmaledictory.ngrok-free.dev/generate';
+  });
+
+  const currentImageModelSelection = (imageModelUrl === KREA2_URL) 
+    ? KREA2_URL 
+    : (imageModelUrl === ZIT_URL) 
+      ? ZIT_URL 
+      : 'custom';
   const [imageWidthInput, setImageWidthInput] = useState<string>(String(initialSession?.imageWidth || 720));
   const [imageHeightInput, setImageHeightInput] = useState<string>(String(initialSession?.imageHeight || 1280));
   const [imageStepsInput, setImageStepsInput] = useState<string>(String(initialSession?.imageSteps || 8));
@@ -149,13 +174,13 @@ export default function ChatInterface({
   // Trigger background image generation smoothly without interrupting the chat UI
   const triggerBackgroundImage = useCallback(async (promptText?: string) => {
     const targetPrompt = promptText || currentVisualPrompt;
-    if (!targetPrompt || !apiBaseUrl || isGeneratingImageRef.current) return;
+    if (!targetPrompt || !imageModelUrl || isGeneratingImageRef.current) return;
 
     isGeneratingImageRef.current = true;
     setIsGeneratingImage(true);
     try {
       const result = await generateImage(
-        apiBaseUrl,
+        imageModelUrl,
         targetPrompt,
         imageWidth,
         imageHeight,
@@ -174,7 +199,7 @@ export default function ChatInterface({
       isGeneratingImageRef.current = false;
       setIsGeneratingImage(false);
     }
-  }, [apiBaseUrl, currentVisualPrompt, imageWidth, imageHeight, imageSteps, loraStrength, enableLora, loraName, imageModelUrl]);
+  }, [imageModelUrl, currentVisualPrompt, imageWidth, imageHeight, imageSteps, loraStrength, enableLora, loraName]);
 
   const handleCopyMessage = async (text: string, index: number) => {
     try {
@@ -309,7 +334,7 @@ export default function ChatInterface({
           // Update visual prompt & trigger background image right after thoughts
           if (result.lastVisualPrompt) {
             setCurrentVisualPrompt(result.lastVisualPrompt);
-            if (apiBaseUrl) {
+            if (imageModelUrl) {
               triggerBackgroundImage(result.lastVisualPrompt);
             }
           } else if (characterDNA) {
@@ -327,7 +352,7 @@ export default function ChatInterface({
             setCurrentVisualPrompt(nextPrompt);
             setIsGeneratingPrompt(false);
             setStatusBarMessage(null);
-            if (apiBaseUrl) {
+            if (imageModelUrl) {
               triggerBackgroundImage(nextPrompt);
             }
           }
@@ -389,7 +414,7 @@ export default function ChatInterface({
         // Update visual prompt & trigger background image right after thoughts/monologue generation
         if (result.lastVisualPrompt && result.lastVisualPrompt !== currentPrompt) {
           setCurrentVisualPrompt(result.lastVisualPrompt);
-          if (apiBaseUrl) {
+          if (imageModelUrl) {
             triggerBackgroundImage(result.lastVisualPrompt);
           }
         }
@@ -473,7 +498,7 @@ export default function ChatInterface({
         }
 
         // Render the scene image ONCE for the initial state
-        if (apiBaseUrl && finalPrompt) {
+        if (imageModelUrl && finalPrompt) {
           triggerBackgroundImage(finalPrompt);
         }
       } catch (err) {
@@ -613,7 +638,7 @@ export default function ChatInterface({
     // Update visual prompt & trigger background image generation right after thoughts
     if (result.lastVisualPrompt) {
       setCurrentVisualPrompt(result.lastVisualPrompt);
-      if (apiBaseUrl) {
+      if (imageModelUrl) {
         triggerBackgroundImage(result.lastVisualPrompt);
       }
     } else if (characterDNA) {
@@ -631,7 +656,7 @@ export default function ChatInterface({
       setCurrentVisualPrompt(nextPrompt);
       setIsGeneratingPrompt(false);
       setStatusBarMessage(null);
-      if (apiBaseUrl) {
+      if (imageModelUrl) {
         triggerBackgroundImage(nextPrompt);
       }
     }
@@ -690,7 +715,7 @@ export default function ChatInterface({
     // Update visual prompt & trigger background image
     if (result.lastVisualPrompt) {
       setCurrentVisualPrompt(result.lastVisualPrompt);
-      if (apiBaseUrl) {
+      if (imageModelUrl) {
         triggerBackgroundImage(result.lastVisualPrompt);
       }
     } else if (characterDNA) {
@@ -708,7 +733,7 @@ export default function ChatInterface({
       setCurrentVisualPrompt(nextPrompt);
       setIsGeneratingPrompt(false);
       setStatusBarMessage(null);
-      if (apiBaseUrl) {
+      if (imageModelUrl) {
         triggerBackgroundImage(nextPrompt);
       }
     }
@@ -719,9 +744,9 @@ export default function ChatInterface({
   const handleGenerateImage = async () => {
     if (isGeneratingImage || !currentVisualPrompt) return;
     
-    if (!apiBaseUrl) {
+    if (!imageModelUrl) {
       setShowSettings(true);
-      setError("Please provide an API Base URL first.");
+      setError("Please select or configure an Image Generation Model.");
       return;
     }
 
@@ -730,7 +755,7 @@ export default function ChatInterface({
     setError(null);
 
     try {
-      const result = await generateImage(apiBaseUrl, currentVisualPrompt, imageWidth, imageHeight, imageSteps, loraStrength, enableLora, loraName, imageModelUrl);
+      const result = await generateImage(imageModelUrl, currentVisualPrompt, imageWidth, imageHeight, imageSteps, loraStrength, enableLora, loraName, imageModelUrl);
       if (result) {
         setBgImage(result.url);
       }
@@ -1159,52 +1184,66 @@ export default function ChatInterface({
 
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-col gap-2">
-                    <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Roleplay Model</label>
+                    <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Language Model</label>
                     <select
                       value={currentSelectedModel}
                       onChange={(e) => {
                         const val = e.target.value;
                         setCurrentSelectedModel(val);
-                        if (val === 'custom') {
-                          setUseInternalApi(false);
-                        } else {
-                          setUseInternalApi(true);
-                        }
+                        setUseInternalApi(true);
                       }}
                       className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 text-white cursor-pointer"
                     >
                       <option value="gemma-4-31b-it" className="bg-neutral-900">gemma 31b</option>
                       <option value="gemma-4-26b-a4b-it" className="bg-neutral-900">gemma 24b a4b</option>
-                      <option value="custom" className="bg-neutral-900">custom</option>
                     </select>
                   </div>
-
-                  {currentSelectedModel === 'custom' && (
-                    <div className="flex flex-col gap-2">
-                      <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">API Base URL</label>
-                      <div className="flex gap-2">
-                        <input 
-                          type="text"
-                          value={apiBaseUrl}
-                          onChange={e => setApiBaseUrl(e.target.value)}
-                          placeholder="https://odorful-hsiu-unmaledictory.ngrok-free.dev"
-                          className="flex-1 bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-accent/50 text-white"
-                        />
-                      </div>
-                    </div>
-                  )}
 
                   <div className="flex flex-col gap-2">
                     <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Image Generation Model</label>
                     <select
-                      value={imageModelUrl}
-                      onChange={(e) => setImageModelUrl(e.target.value)}
+                      value={currentImageModelSelection}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === 'custom') {
+                          const targetUrl = (customImageModelUrl && customImageModelUrl !== KREA2_URL && customImageModelUrl !== ZIT_URL)
+                            ? customImageModelUrl
+                            : (apiBaseUrl || 'https://odorful-hsiu-unmaledictory.ngrok-free.dev/generate');
+                          setImageModelUrl(targetUrl);
+                          setCustomImageModelUrl(targetUrl);
+                          setApiBaseUrl(targetUrl);
+                        } else {
+                          setImageModelUrl(val);
+                        }
+                      }}
                       className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 text-white cursor-pointer font-medium"
                     >
-                      <option value="https://avijitpalit3--krea2-inference-krea2service-fastapi-app.modal.run/generate" className="bg-neutral-900 text-white">Krea 2</option>
-                      <option value="https://avijitpalit3--z-image-turbo-zimageservice-fastapi-app.modal.run/generate" className="bg-neutral-900 text-white">Z-image turbo (ZiT)</option>
+                      <option value={KREA2_URL} className="bg-neutral-900 text-white">Krea 2</option>
+                      <option value={ZIT_URL} className="bg-neutral-900 text-white">Z-image turbo (ZiT)</option>
+                      <option value="custom" className="bg-neutral-900 text-white">Custom</option>
                     </select>
                   </div>
+
+                  {currentImageModelSelection === 'custom' && (
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Custom Image Model API URL</label>
+                      <div className="flex gap-2">
+                        <input 
+                          type="text"
+                          value={customImageModelUrl}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setCustomImageModelUrl(val);
+                            setImageModelUrl(val);
+                            setApiBaseUrl(val);
+                          }}
+                          placeholder="https://your-custom-image-service.modal.run/generate"
+                          className="flex-1 bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent/50 text-white font-mono"
+                        />
+                      </div>
+                      <p className="text-[9px] text-white/30 italic">Endpoint used for image generation: /generate</p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">

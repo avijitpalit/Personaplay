@@ -15,7 +15,7 @@ function SetupPage({
 }) {
   const navigate = useNavigate();
 
-  const handleStart = (newScenario: string, internalMode: boolean, baseUrl: string, model: string) => {
+  const handleStart = (newScenario: string, internalMode: boolean, baseUrl: string, model: string, imageModelUrl?: string) => {
     setApiBaseUrl(baseUrl);
     setSelectedModel(model);
     navigate('/chat', {
@@ -24,6 +24,7 @@ function SetupPage({
         useInternalApi: internalMode,
         apiBaseUrl: baseUrl,
         selectedModel: model,
+        imageModelUrl: imageModelUrl
       }
     });
   };
@@ -38,6 +39,7 @@ function SetupPage({
         useInternalApi: session.useInternalApi || false,
         apiBaseUrl: session.apiBaseUrl || 'https://odorful-hsiu-unmaledictory.ngrok-free.dev',
         selectedModel: (session as any).selectedModel || 'gemma-4-31b-it',
+        imageModelUrl: session.imageModelUrl,
       }
     });
   };
@@ -74,8 +76,9 @@ function ChatPage({
   const loadedSession: Session | null = state.session || (sessionId ? getSession(sessionId) || null : null);
   const scenario: string | null = state.scenario || loadedSession?.scenario || null;
   const apiBaseUrl: string = state.apiBaseUrl || loadedSession?.apiBaseUrl || defaultApiBaseUrl;
-  const useInternalApi: boolean = state.useInternalApi ?? loadedSession?.useInternalApi ?? false;
+  const useInternalApi: boolean = state.useInternalApi ?? loadedSession?.useInternalApi ?? true;
   const selectedModel: string = state.selectedModel || (loadedSession as any)?.selectedModel || defaultModel;
+  const imageModelUrl: string | undefined = state.imageModelUrl || loadedSession?.imageModelUrl;
 
   // If there is no scenario and no session found, try the most recent session or redirect to setup
   if (!scenario && !loadedSession) {
@@ -86,8 +89,9 @@ function ChatPage({
           scenario={recent[0].scenario} 
           initialSession={recent[0]}
           initialApiBaseUrl={recent[0].apiBaseUrl || defaultApiBaseUrl}
-          initialUseInternalApi={recent[0].useInternalApi || false}
+          initialUseInternalApi={recent[0].useInternalApi ?? true}
           selectedModel={(recent[0] as any).selectedModel || defaultModel}
+          initialImageModelUrl={recent[0].imageModelUrl}
           onBack={() => navigate('/')} 
         />
       );
@@ -102,6 +106,7 @@ function ChatPage({
       initialApiBaseUrl={apiBaseUrl}
       initialUseInternalApi={useInternalApi}
       selectedModel={selectedModel}
+      initialImageModelUrl={imageModelUrl}
       onBack={() => navigate('/')} 
     />
   );
