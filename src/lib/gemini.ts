@@ -882,18 +882,30 @@ export async function generateVisualPrompt(
 }
 
 export async function generateImage(
-  apiBaseUrl: string,
+  imageApiUrl: string,
   visualPrompt: string,
   width: number = 720,
   height: number = 1280,
   steps: number = 8,
   loraStrength: number = 1.5,
   enableLora: boolean = true,
-  loraName: string = "Krea2_HMNSFW_AIO.safetensors",
-  imageModelUrl: string = "https://avijitpalit3--krea2-inference-krea2service-fastapi-app.modal.run/generate"
+  loraName: string = "Krea2_HMNSFW_AIO.safetensors"
 ): Promise<{ url: string } | null> {
   try {
-    const url = imageModelUrl || 'https://avijitpalit3--krea2-inference-krea2service-fastapi-app.modal.run/generate';
+    let url = (imageApiUrl || 'https://avijitpalit3--krea2-inference-krea2service-fastapi-app.modal.run/generate').trim();
+
+    // Auto-resolve base URLs (e.g. ngrok root or modal base without /generate)
+    try {
+      const parsed = new URL(url);
+      if (parsed.pathname === '' || parsed.pathname === '/') {
+        parsed.pathname = '/generate';
+        url = parsed.toString();
+      }
+    } catch (_) {
+      if (!url.endsWith('/generate')) {
+        url = url.endsWith('/') ? `${url}generate` : `${url}/generate`;
+      }
+    }
     
     let processedPrompt = visualPrompt?.trim() || "";
     if (enableLora && (loraName === "famegrid_spicy.safetensors" || loraName?.toLowerCase().includes("famegrid"))) {
@@ -925,7 +937,43 @@ export async function generateImage(
     });
 
     if (!response.ok) {
-      throw new Error(`API request failed with status ${response.status}`);
+      let errorDetail = `Status ${response.status} (${response.statusText || 'Error'})`;
+      try {
+        const errJson = await response.json();
+        if (errJson?.detail) {
+          errorDetail += `: ${typeof errJson.detail === 'string' ? errJson.detail : JSON.stringify(errJson.detail)}`;
+        } else if (errJson?.message) {
+          errorDetail += `: ${errJson.message}`;
+        } else if (errJson?.error) {
+          errorDetail += `: ${typeof errJson.error === 'string' ? errJson.error : JSON.stringify(errJson.error)}`;
+        }
+      } catch (_) {
+        try {
+          const errText = await response.text();
+          if (errText) {
+            errorDetail += `: ${errText.slice(0, 150)}`;
+          }
+        } catch (__) {}
+      }
+      throw new Error(errorDetail);
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      const data = await response.json();
+      let imageSource = data.image || data.url || data.image_url;
+      if (!imageSource && Array.isArray(data.images) && data.images.length > 0) {
+        imageSource = data.images[0];
+      }
+      if (!imageSource && Array.isArray(data.output) && data.output.length > 0) {
+        imageSource = data.output[0];
+      }
+      if (imageSource) {
+        if (typeof imageSource === 'string' && !imageSource.startsWith('http') && !imageSource.startsWith('data:')) {
+          imageSource = `data:image/png;base64,${imageSource}`;
+        }
+        return { url: imageSource };
+      }
     }
 
     const blob = await response.blob();

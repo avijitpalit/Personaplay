@@ -187,8 +187,7 @@ export default function ChatInterface({
         imageSteps,
         loraStrength,
         enableLora,
-        loraName,
-        imageModelUrl
+        loraName
       );
       if (result?.url) {
         setBgImage(result.url);
@@ -755,7 +754,7 @@ export default function ChatInterface({
     setError(null);
 
     try {
-      const result = await generateImage(imageModelUrl, currentVisualPrompt, imageWidth, imageHeight, imageSteps, loraStrength, enableLora, loraName, imageModelUrl);
+      const result = await generateImage(imageModelUrl, currentVisualPrompt, imageWidth, imageHeight, imageSteps, loraStrength, enableLora, loraName);
       if (result) {
         setBgImage(result.url);
       }

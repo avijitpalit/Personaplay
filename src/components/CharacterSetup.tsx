@@ -156,7 +156,10 @@ export default function CharacterSetup({
               scenario.length < 10 || 
               (currentImageModelSelection === 'custom' && !customImageModelUrl.trim())
             }
-            onClick={() => onStart(scenario, true, (currentImageModelSelection === 'custom' ? customImageModelUrl : apiBaseUrl), selectedModel, imageModelUrl)}
+            onClick={() => {
+              const finalUrl = currentImageModelSelection === 'custom' ? customImageModelUrl.trim() : imageModelUrl;
+              onStart(scenario, true, finalUrl, selectedModel, finalUrl);
+            }}
             className="w-full bg-accent text-white py-5 rounded-2xl font-bold text-lg hover:bg-accent/90 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg shadow-accent/20 flex items-center justify-center gap-3 group"
           >
             Enter the Story
