@@ -132,7 +132,7 @@ export function parseChatResponse(
     // Strip empty lines or helper text from model if any
     updatedMemories = updatedMemories.split('\n')
       .map(line => line.trim())
-      .filter(line => line.startsWith('-') || line.startsWith('*') || line.match(/^\d+\./))
+      .filter(line => line.length > 0 && (line.startsWith('-') || line.startsWith('*') || line.match(/^\d+\./) || line.includes(':')))
       .join('\n');
   }
   if (promptMatch && promptMatch[1]) {
@@ -208,10 +208,21 @@ export async function generateInitialSetup(
   LANGUAGE RULE (CRITICAL):
   - You MUST generate the entire output in English.
 
-  PART 1: CHARACTER DNA BLUEPRINTS
-  For EACH active AI character, provide highly specific physical definitions in this order:
-  - Physical features (hair texture/length/style, eye color/shape, facial structure, skin tone and texture).
-  - STARTING ATTIRE & ACCESSORIES: Explicitly define their default clothing (specific garment type, exact color, fabric/pattern, jewelry, and accessories) to serve as their persistent wardrobe anchor.
+  PART 1: CHARACTER DNA BLUEPRINTS (FACE & BODY SHAPE ARCHITECTURE)
+  For EACH active AI character, you MUST construct an exhaustive, highly detailed physical blueprint to guarantee 100% facial and body shape consistency across all subsequent images:
+  - NAME, AGE & ETHNICITY: Exact age, ethnic background, and skin complexion with precise undertones (e.g., warm golden undertones, deep olive, porcelain cool, rich bronze).
+  - FACIAL ARCHITECTURE (CRITICAL FOR FACE CONSISTENCY):
+    * Face Shape: Exact face geometry (e.g., sharp sculpted oval, high prominent cheekbones, defined tapered jawline, delicate rounded chin, smooth forehead).
+    * Eye Architecture: Exact iris color and depth (e.g., deep warm amber-hazel with golden flecks, dark espresso brown), exact eye shape (e.g., large almond-shaped eyes, slight upturn at outer corners, defined eyelid crease), lash density, and natural eyebrow arch and thickness.
+    * Nose & Mouth: Bridge structure (straight narrow bridge, subtle slope, refined tip) and lips (full soft lower lip, clearly defined cupid's bow, natural muted rose tint).
+    * Skin Micro-Details: Lifelike skin texture, visible natural fine pores, presence or absence of light freckles or distinct beauty marks, healthy subtle skin sheen.
+  - BODY SHAPE, BUILD & PROPORTIONS (CRITICAL FOR ANATOMICAL CONSISTENCY):
+    * Height & Somatotype: Exact height (e.g., 5'6" / 168 cm) and precise body build (e.g., slender athletic build with soft feminine curves, lean toned physique, hourglass silhouette, broad shoulders with athletic frame).
+    * Torso & Proportions: Shoulder breadth, collarbone prominence, bust/chest profile, defined waist, hip-to-waist ratio, and natural bodily carriage.
+  - HAIR ARCHITECTURE: Exact hair texture (e.g., thick silky waves, smooth straight, voluminous curls), parting, density, exact length (e.g., cascading past collarbones), and rich hair color with subtle undertones.
+  - STARTING ATTIRE & ACCESSORIES:
+    * Fully describe their default starting outfit (specific garment type, exact color, fabric/weave, jewelry, and accessories) to serve as their starting wardrobe anchor.
+    * NOTE: This attire serves as the baseline; while facial features and body shape remain permanently immutable, the outfit CAN change dynamically across turns if recent story actions suggest changing clothes or undressing.
 
   USER CHARACTER (MINIMAL PROFILE, default is Male, 32 yo):
   Define a brief, minimal visual profile for the "User" or "Player" character. Keep it extremely simple.
@@ -224,8 +235,8 @@ export async function generateInitialSetup(
 
   Rules for this prompt:
   - COMPOSITION & FIRST-PERSON POV: A close-up headshot or medium eye-level shot taken from a strict first-person point-of-view of the User character looking directly at the AI character. The User is completely invisible to the frame. The AI character looks directly into the camera lens with a natural, engaging expression.
-  - SUBJECT WITH ROLE + 2-3 TRAITS: Explicitly describe the AI character as an adult with their persona, specifying exact facial features, skin texture, and hair styling from the Character DNA based on the scenario.
-  - EXPLICIT ATTIRE SPECIFICATION (MANDATORY): Fully define the starting outfit (specific garment type, exact color, fabric/weave, jewelry/accessories) from Character DNA. Translate intimate/bare states explicitly (e.g. "bare natural upper-body skin", "completely shirtless with realistic skin texture").
+  - SUBJECT WITH DEFINED FACE & BODY BLUEPRINT: Explicitly describe the AI character as an adult with their persona, weaving in their exact facial architecture (face shape, cheekbones, eye color/shape, lips, natural skin texture) and body build/shape from the Character DNA.
+  - EXPLICIT ATTIRE SPECIFICATION: Fully define the starting outfit (specific garment type, exact color, fabric/weave, jewelry/accessories) from Character DNA. Translate intimate/bare states explicitly (e.g. "bare natural upper-body skin", "completely shirtless with realistic skin texture").
   - UNCLUTTERED ENVIRONMENT: Describe a focused, uncluttered environment with clean background separation and realistic depth.
   - HDR LIGHTING & TIME OF DAY: Lighting MUST reflect the current time of day (${timeContext}) with authentic High Dynamic Range (HDR) photographic lighting: balanced exposure preserving highlights and deep natural shadows, soft directional key lighting, gentle ambient bounce fill, delicate rim light outlining hair and shoulders, and natural specular highlights with subtle subsurface scattering on skin.
   - PHOTOGRAPHIC MEDIUM & OPTICS: "Shot on 35mm film, 85mm f/1.4 lens, shallow depth of field, natural bokeh, lifelike skin pores and texture, realistic volumetric lighting".
@@ -304,14 +315,21 @@ export async function generateCharacterDNA(
   LANGUAGE RULE (CRITICAL):
   - You MUST generate the entire Character DNA in English.
 
-  For EACH active AI character, provide highly specific physical definitions in this order:
-  - NAME & IDENTITY: Age, name, and height profile.
-  - FACIAL BLUEPRINT: Precise jawline, nose structure, brows, chin shape, lip volume, and forehead shape.
-  - EYE CHARACTERISTICS: Exact color hue/shading, shape (e.g., heavily hooded, almond, downturned), and brow depth.
-  - HAIR CONFIGURATION: Exact texture (e.g., coarse, silky, wavy, kinky), styling, partings, and length.
-  - ETHNICITY & SKIN TEXTURE: Natural complexion undertones, visible skin textures (e.g., pores, light freckles, matte finish).
-  - STARTING ATTIRE & ACCESSORIES: Exact default clothing items, specific colors, fabrics, patterns, and jewelry/accessories to maintain persistent wardrobe continuity throughout the roleplay.
-  - OTHER DETAILS: (If INITIAL STORY SETTING suggests anything).
+  For EACH active AI character, construct an exhaustive, highly detailed visual blueprint formatted with these exact sections:
+  - NAME, AGE & ETHNICITY: Exact age, ethnic background, and natural complexion undertones (e.g., warm golden undertones, deep olive, porcelain cool, rich bronze).
+  - FACIAL BLUEPRINT & BONE STRUCTURE (MANDATORY):
+    * Face Shape & Contour: Precise facial geometry (e.g., sculpted oval face, high defined cheekbones, narrow tapered jawline, subtle rounded chin, smooth temples).
+    * Eye Architecture: Exact iris coloration and gradient (e.g., warm amber-hazel, espresso brown, deep jade green), exact shape (e.g., almond-shaped, slightly upturned corners, defined eyelid crease), lash density, and natural eyebrow shape/thickness.
+    * Nose & Mouth: Bridge structure (narrow straight bridge, subtle slope) and lip definition (full soft lower lip, distinct cupid's bow, natural muted rose tint).
+    * Skin Micro-Details: Lifelike skin texture, visible natural fine pores, presence or absence of light freckles or distinct beauty marks, healthy subtle skin sheen.
+  - BODY SHAPE, BUILD & PHYSIQUE (MANDATORY):
+    * Height & Somatotype: Precise height (e.g., 5'6" / 168 cm) and exact body build/silhouette (e.g., slender athletic build with soft feminine curves, lean toned physique, hourglass frame, broad shoulders with athletic frame).
+    * Proportions: Shoulder breadth, collarbone prominence, bust/chest profile, defined waist, hip-to-waist ratio, and natural posture.
+  - HAIR CONFIGURATION: Exact texture (e.g., thick silky waves, smooth straight, voluminous curls), parting, density, exact length (e.g., cascading past collarbones), and rich hair color with subtle undertones.
+  - STARTING ATTIRE & ACCESSORIES:
+    * Exact default clothing items, specific colors, fabrics, patterns, and jewelry/accessories to maintain wardrobe continuity.
+    * NOTE: This outfit serves as the baseline wardrobe anchor; facial features and body shape remain permanently immutable, while outfit CAN dynamically change when roleplay actions depict changing clothes, undressing, wearing an apron, or sleepwear.
+  - OTHER DETAILS: Any permanent identifying marks or characteristics.
 
   USER CHARACTER (MINIMAL PROFILE):
   Define a brief, minimal visual profile for the "User" or "Player" character. Keep it extremely simple, specifying ONLY:
@@ -441,10 +459,16 @@ export async function getChatResponse(
      - Real people do not blindly comply or switch emotions instantly. If the User oversteps or does something bold (e.g., looking at intimate areas, touching uninvited), react with realistic human nuance (e.g., adjusting your clothes/saree/blouse to cover up, taking half a step back, playful sarcasm, nervous bravado, or subtle boundary enforcement).
      - Emotional states (flustered, guarded, intrigued, shy) have lingering momentum and persist across multiple turns.
 
-  5. MANDATORY OUTFIT & WARDROBE CONTINUITY:
-     - The AI character's attire (specific garment style, fabric, weave, color, accessories, jewelry) MUST remain completely identical to previous turns / Character DNA, UNLESS the immediate roleplay action explicitly describes a deliberate change of clothing, putting on an apron, or undressing.
+  5. MANDATORY FACE & BODY SHAPE CONSISTENCY (100% IDENTITY FIDELITY):
+     - The AI character's facial architecture (face shape, cheekbones, jawline, eye color and shape, nose, lips, lifelike skin texture) and body shape (somatotype, frame, height, curves/musculature, torso/waist proportions) MUST remain 100% strictly identical to the CHARACTER DNA in EVERY generated visual prompt. Never distort or change the character's facial or anatomical identity.
 
-  6. TIME OF DAY INFLUENCE:
+  6. DYNAMIC ATTIRE EVOLUTION (OUTFIT CAN CHANGE IF RECENT ACTIONS SUGGEST):
+     - Look closely at recent dialogue and roleplay actions:
+       * Did the recent actions or story suggest changing clothes, putting on an apron, taking off a layer/jacket, undressing, wrapping in a bath towel, or putting on sleepwear?
+       * If YES: The AI character's outfit in the [MEMORIES] block under "Current Attire" and in the [VISUAL_PROMPT] MUST immediately update to describe the NEW clothing state accurately.
+       * If NO: Strictly preserve and carry forward the outfit from the latest "Current Attire" in the memory bank.
+
+  7. TIME OF DAY INFLUENCE:
      - React authentically to the current local time (${timeContext}). Adjust fatigue levels, lighting references, voice volume, and daily routines naturally.
 
   ================================================================================
@@ -464,8 +488,9 @@ export async function getChatResponse(
      Write the AI character's response. If interested in speaking, include dialogue in quotes and physical actions in asterisks. If NOT interested in speaking, output ONLY physical behavior and actions in asterisks without quotes.
 
   4. [MEMORIES] block:
-     Update the DYNAMIC MEMORY BANK (bulleted list in English of up to 10 persistent facts, ALWAYS maintaining):
-     - Current Attire: [exact garment, colors, fabrics, accessories]
+     Update the DYNAMIC MEMORY BANK (bulleted list in English of persistent facts, ALWAYS maintaining):
+     - Current Attire: [exact garment style, fabric, specific colors, state of dress or accessories - update immediately if recent actions suggest changing clothes]
+     - Permanent Visual Anchors: [Face: <key face & eye traits from DNA> | Body: <body shape & build from DNA>]
      - Interpersonal Dynamic & Tension: [emotional comfort, trust, boundary state]
      - Ongoing Task & Setting State: [active physical task, physical distance and posture]
      - <Other story facts & milestones>
@@ -478,8 +503,8 @@ export async function getChatResponse(
 
      - COMPOSITION & FIRST-PERSON POV: A close-up headshot or medium eye-level shot taken from a strict first-person point-of-view of the User character looking directly at the AI character. The User is completely invisible to the frame.
      - MICRO-EXPRESSIONS & SOMATIC POSTURE: Capture the exact facial micro-expression (e.g. self-conscious flush across cheekbones, averted eyes, playful half-smile, intense gaze) and physical posture (e.g. hand adjusting garment, pausing over kitchen counter, standing half-turned).
-     - SUBJECT ROLE & TRAITS: Explicitly describe the AI character as an adult with their defined persona, specifying exact facial features, skin texture, and hair styling from Character DNA.
-     - STRICT OUTFIT CONTINUITY: Carry over exact attire, colors, fabrics, and jewelry from Character DNA and previous prompt.
+     - SUBJECT FACE & BODY SHAPE (MAXIMUM FIDELITY): Explicitly describe the AI character embedding their exact facial architecture (face shape, cheekbones, jawline, eye color & shape, nose, lips, natural skin pores and micro-texture) and body build/shape (height, somatotype, curves/musculature, torso/waist proportions) from Character DNA.
+     - DYNAMIC ATTIRE (ACTION-RESPONSIVE): Describe the character's clothing based on the current outfit state. If recent actions depict a change of clothes, apron, undressing, or robe, describe that new attire state accurately. Otherwise, strictly maintain the established outfit from the previous prompt and memory bank.
      - UNCLUTTERED ENVIRONMENT: Describe a focused, uncluttered environment with clean background separation and realistic depth.
      - HDR LIGHTING & TIME OF DAY: Lighting MUST reflect the current time of day (${timeContext}) with authentic High Dynamic Range (HDR) photographic lighting: balanced exposure preserving highlights and deep natural shadows, soft directional key lighting, gentle ambient bounce fill, delicate rim light outlining hair and shoulders, and natural specular highlights with subtle subsurface scattering on skin.
      - PHOTOGRAPHIC MEDIUM & OPTICS: "Shot on 35mm film, 85mm f/1.4 lens, shallow depth of field, natural bokeh, lifelike skin pores and texture, realistic volumetric lighting".
@@ -499,6 +524,7 @@ export async function getChatResponse(
   [/REPLY]
   [MEMORIES]
   - Current Attire: ...
+  - Permanent Visual Anchors: ...
   - Interpersonal Dynamic & Tension: ...
   - Ongoing Task & Setting State: ...
   - <Other key facts>
@@ -650,7 +676,9 @@ export async function getAutonomousCharacterAction(
   4. STRUCTURED STATUS METRICS ([EMOTIONS]):
      Mood: <Current mood> | Somatic Cue: <Involuntary physical sensation/reflex> | Relational Tension: <e.g. Flustered (6/10) / Comfortable / Guarded> | Conversational Interest: <Low (Non-verbal) / Moderate / High / Aloof> | Active Task: <Specific ongoing activity>
 
-  5. MANDATORY OUTFIT CONTINUITY & Z-IMAGE TURBO SCENE PROMPT ([VISUAL_PROMPT]):
+  5. MANDATORY FACE & BODY SHAPE REPLICATION & DYNAMIC ATTIRE SCENE PROMPT ([VISUAL_PROMPT]):
+     - You MUST faithfully carry over the AI character's exact facial architecture (face shape, jawline, eye color & shape, nose, lips, realistic skin texture) and body build/shape (height, somatotype, curves/frame, torso/waist proportions) from CHARACTER DNA.
+     - DYNAMIC ATTIRE (OUTFIT CAN CHANGE): Describe current clothing based on the memory bank and your active background task. If your activity involves changing clothes, drying off in a towel, wearing an apron, or undressing, describe that new clothing state; otherwise carry forward the established attire.
      - Write a 140-200 word Z-Image Turbo compliant prompt capturing your updated posture, hands, and action in the scene right now under ${timeContext} HDR lighting.
 
   FORMAT REQUIREMENT:
@@ -667,7 +695,8 @@ export async function getAutonomousCharacterAction(
   <Spoken dialogue and asterisk actions if SPEAK, or physical behavior micro-action in asterisks if SILENT_TASK>
   [/REPLY]
   [MEMORIES]
-  - Current Attire: ...
+  - Current Attire: [exact garments, fabrics, colors - update if task involved clothing change]
+  - Permanent Visual Anchors: [Face: <from DNA> | Body: <from DNA>]
   - Interpersonal Dynamic & Tension: ...
   - Ongoing Task & Setting State: ...
   - <Other key facts>
@@ -805,13 +834,15 @@ export async function generateVisualPrompt(
      - The User is completely invisible to the frame (no body parts of the User in-frame).
      - The AI character interacts towards or looks into the camera lens with natural engagement.
   
-  2. SUBJECT ROLE & TRAITS: Explicitly describe the AI character as an adult with their defined persona, specifying exact facial features, skin texture, and hair styling from the Character DNA.
+  2. SUBJECT ROLE, FACE ARCHITECTURE & BODY SHAPE (MAXIMUM FIDELITY):
+     - Explicitly describe the AI character as an adult with their defined persona, faithfully specifying their exact facial architecture (face shape, cheekbones, jawline, eye color & shape, nose, lips, lifelike skin pores and texture) and body build/shape (height, somatotype, curves/musculature, torso/waist proportions) from the CHARACTER DNA.
 
   3. MICRO-EXPRESSION & SOMATIC POSTURE: Capture the character's precise micro-expression (e.g. self-conscious flush, averted gaze, playful smirk, genuine warmth) and somatic posture (e.g. hand adjusting garment/saree, pausing active task, leaning against counter).
 
-  4. STRICT OUTFIT & WARDROBE CONTINUITY:
-     - The AI character's outfit (garment type, specific colors, textures, fabrics, accessories, and jewelry) MUST remain completely identical to the PREVIOUS VISUAL PROMPT and CHARACTER DNA.
-     - Do NOT invent new clothing or colors unless the recent chat action explicitly depicts changing clothes or undressing.
+  4. DYNAMIC OUTFIT CONTINUITY (OUTFIT CAN CHANGE IF RECENT ACTIONS SUGGEST):
+     - The AI character's outfit must reflect the latest clothing state recorded in the DYNAMIC MEMORY BANK.
+     - IMPORTANT: Outfit CAN and MUST change if the recent chat action explicitly depicts changing clothes, putting on an apron, taking off a jacket, undressing, wrapping in a bath towel, or wearing sleepwear. In that case, describe the new attire accurately.
+     - If no clothing change occurred in recent actions, strictly carry over the exact attire, colors, fabrics, and jewelry from the previous visual prompt and memory bank.
      - If intimate/bare states are present, explicitly describe them (e.g. "bare natural upper-body skin", "completely shirtless with realistic skin texture").
 
   5. UNCLUTTERED ENVIRONMENT: Describe a focused, uncluttered environment with clean background separation and realistic depth.

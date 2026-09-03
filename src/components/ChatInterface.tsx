@@ -38,9 +38,7 @@ import {
   Radio,
   ChevronDown,
   ChevronUp,
-  MessageSquare,
-  Volume2,
-  VolumeX
+  MessageSquare
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
@@ -900,7 +898,6 @@ export default function ChatInterface({
                 <div className="flex items-center justify-between pb-2 border-b border-white/10">
                   <div className="flex items-center gap-2">
                     <Activity size={16} className="text-emerald-400" />
-                    <span className="text-xs font-bold text-white/90 tracking-wide">Live Activity & Mental State</span>
                   </div>
                   
                   <div className="flex items-center gap-2">
@@ -1005,35 +1002,6 @@ export default function ChatInterface({
                   </div>
                 </div>
 
-                {/* Talkativeness Mode Controls */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-white/5 border border-white/10 rounded-xl">
-                  <div className="flex items-center gap-2">
-                    <Volume2 size={14} className="text-accent" />
-                    <span className="text-xs font-semibold text-white/80">Talkativeness Mode:</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {[
-                      { id: 'auto', label: 'Autonomous (Mood)' },
-                      { id: 'quiet', label: 'Quiet & Reserved' },
-                      { id: 'balanced', label: 'Balanced' },
-                      { id: 'chatty', label: 'Chatty' }
-                    ].map(mode => (
-                      <button
-                        key={mode.id}
-                        type="button"
-                        onClick={() => setTalkativenessMode(mode.id as any)}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer border ${
-                          talkativenessMode === mode.id
-                            ? 'bg-accent text-white border-accent/60 shadow-sm shadow-accent/20'
-                            : 'bg-black/30 hover:bg-white/10 text-white/60 hover:text-white border-white/10'
-                        }`}
-                      >
-                        {mode.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
                 {/* Inner Monologue & Cognitive Stream (Cleanly rendered, no accordion needed) */}
                 <div className="flex flex-col gap-1.5 p-3.5 bg-purple-950/40 border border-purple-500/30 rounded-xl shadow-inner">
                   <div className="flex items-center justify-between text-[10px] text-purple-400 font-bold uppercase tracking-wider">
@@ -1087,10 +1055,17 @@ export default function ChatInterface({
 
                 <div className="space-y-4 font-mono text-[10px]">
                   <section className="space-y-2">
-                    <div className="text-white/40 uppercase tracking-widest font-bold">Character DNA</div>
-                    <div className="bg-white/5 p-3 rounded-lg text-white/70 whitespace-pre-wrap border border-white/10">
-                      {characterDNA || "Not generated yet."}
+                    <div className="flex items-center justify-between">
+                      <label className="text-white/40 uppercase tracking-widest font-bold">Character DNA</label>
+                      <span className="text-[9px] text-accent/80">Editable Blueprint</span>
                     </div>
+                    <textarea
+                      value={characterDNA || ""}
+                      onChange={(e) => setCharacterDNA(e.target.value)}
+                      placeholder="Enter or customize Character DNA visual blueprints..."
+                      rows={5}
+                      className="w-full bg-black/30 p-3 rounded-lg text-white/90 border border-white/15 focus:outline-none focus:border-accent/50 font-mono text-[11px] leading-relaxed resize-y"
+                    />
                   </section>
 
                   <section className="space-y-2">
@@ -1376,17 +1351,17 @@ export default function ChatInterface({
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Talkativeness & Speech Disposition</label>
-                  <select
-                    value={talkativenessMode}
-                    onChange={(e) => setTalkativenessMode(e.target.value as any)}
-                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 text-white cursor-pointer"
-                  >
-                    <option value="auto" className="bg-neutral-900">Autonomous (Decides speech vs physical action based on mood)</option>
-                    <option value="quiet" className="bg-neutral-900">Quiet & Reserved (Prioritizes subtle actions and silence)</option>
-                    <option value="balanced" className="bg-neutral-900">Balanced (Standard dynamic conversational responses)</option>
-                    <option value="chatty" className="bg-neutral-900">Chatty & Outgoing (Frequently speaks and initiates)</option>
-                  </select>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Character DNA</label>
+                    <span className="text-[9px] text-accent/80 font-mono">Editable Visual Blueprint</span>
+                  </div>
+                  <textarea 
+                    value={characterDNA || ""}
+                    onChange={(e) => setCharacterDNA(e.target.value)}
+                    placeholder="AI character appearance, traits, facial features, hair, and outfit specifications..."
+                    rows={4}
+                    className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-accent/50 font-mono leading-relaxed resize-y"
+                  />
                 </div>
 
                 <div className="flex flex-col gap-2">
