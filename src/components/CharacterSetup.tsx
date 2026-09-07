@@ -91,14 +91,43 @@ export default function CharacterSetup({
                   onChange={(e) => {
                     const val = e.target.value;
                     setSelectedModel(val);
-                    setUseInternalApi(true);
+                    if (val === 'custom') {
+                      setUseInternalApi(false);
+                      if (!apiBaseUrl && customImageModelUrl) {
+                        setApiBaseUrl(customImageModelUrl);
+                      }
+                    } else {
+                      setUseInternalApi(true);
+                    }
                   }}
                   className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 text-white cursor-pointer"
                 >
                   <option value="gemma-4-31b-it" className="bg-neutral-900">gemma 31b</option>
                   <option value="gemma-4-26b-a4b-it" className="bg-neutral-900">gemma 24b a4b</option>
+                  <option value="custom" className="bg-neutral-900">Custom</option>
                 </select>
               </div>
+
+              {selectedModel === 'custom' && (
+                <div className="flex flex-col gap-2 pt-1 border-t border-white/5">
+                  <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Custom API Endpoint URL</label>
+                  <input 
+                    type="text"
+                    value={apiBaseUrl}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setApiBaseUrl(val);
+                      if (currentImageModelSelection === 'custom') {
+                        setCustomImageModelUrl(val);
+                        setImageModelUrl(val);
+                      }
+                    }}
+                    placeholder="https://your-custom-endpoint.ngrok-free.dev"
+                    className="bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 text-white font-mono"
+                  />
+                  <p className="text-[9px] text-white/30 italic">Replies will be generated from this endpoint (/t2t)</p>
+                </div>
+              )}
 
               <div className="flex flex-col gap-2">
                 <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Image Generation Model</label>
@@ -154,11 +183,14 @@ export default function CharacterSetup({
             disabled={
               !scenario.trim() || 
               scenario.length < 10 || 
+              (selectedModel === 'custom' && !apiBaseUrl.trim()) ||
               (currentImageModelSelection === 'custom' && !customImageModelUrl.trim())
             }
             onClick={() => {
-              const finalUrl = currentImageModelSelection === 'custom' ? customImageModelUrl.trim() : imageModelUrl;
-              onStart(scenario, true, finalUrl, selectedModel, finalUrl);
+              const isCustom = selectedModel === 'custom';
+              const finalApiUrl = isCustom ? apiBaseUrl.trim() : (currentImageModelSelection === 'custom' ? customImageModelUrl.trim() : apiBaseUrl);
+              const finalImageUrl = currentImageModelSelection === 'custom' ? customImageModelUrl.trim() : imageModelUrl;
+              onStart(scenario, !isCustom, finalApiUrl, selectedModel, finalImageUrl);
             }}
             className="w-full bg-accent text-white py-5 rounded-2xl font-bold text-lg hover:bg-accent/90 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg shadow-accent/20 flex items-center justify-center gap-3 group"
           >

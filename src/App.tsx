@@ -36,7 +36,7 @@ function SetupPage({
       state: {
         session,
         scenario: session.scenario,
-        useInternalApi: session.useInternalApi || false,
+        useInternalApi: session.useInternalApi !== undefined ? session.useInternalApi : ((session as any).selectedModel !== 'custom'),
         apiBaseUrl: session.apiBaseUrl || 'https://odorful-hsiu-unmaledictory.ngrok-free.dev',
         selectedModel: (session as any).selectedModel || 'gemma-4-31b-it',
         imageModelUrl: session.imageModelUrl,
@@ -76,7 +76,7 @@ function ChatPage({
   const loadedSession: Session | null = state.session || (sessionId ? getSession(sessionId) || null : null);
   const scenario: string | null = state.scenario || loadedSession?.scenario || null;
   const apiBaseUrl: string = state.apiBaseUrl || loadedSession?.apiBaseUrl || defaultApiBaseUrl;
-  const useInternalApi: boolean = state.useInternalApi ?? loadedSession?.useInternalApi ?? true;
+  const useInternalApi: boolean = state.useInternalApi ?? loadedSession?.useInternalApi ?? ((loadedSession as any)?.selectedModel === 'custom' ? false : true);
   const selectedModel: string = state.selectedModel || (loadedSession as any)?.selectedModel || defaultModel;
   const imageModelUrl: string | undefined = state.imageModelUrl || loadedSession?.imageModelUrl;
 

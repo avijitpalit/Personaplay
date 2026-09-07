@@ -91,10 +91,17 @@ export default function ChatInterface({
   });
 
   const [apiBaseUrl, setApiBaseUrl] = useState<string>(initialSession?.apiBaseUrl || initialApiBaseUrl);
-  const [useInternalApi, setUseInternalApi] = useState<boolean>(initialSession?.useInternalApi ?? initialUseInternalApi);
+  const [useInternalApi, setUseInternalApi] = useState<boolean>(() => {
+    if (initialSession?.useInternalApi !== undefined) return initialSession.useInternalApi;
+    if (initialSession?.selectedModel === 'custom' || selectedModel === 'custom') return false;
+    return initialUseInternalApi;
+  });
   const [currentSelectedModel, setCurrentSelectedModel] = useState<string>(() => {
     const sModel = initialSession?.selectedModel || selectedModel;
-    return sModel === 'custom' ? 'gemma-4-31b-it' : sModel;
+    if (initialSession?.useInternalApi === false || !initialUseInternalApi || sModel === 'custom') {
+      return 'custom';
+    }
+    return sModel || 'gemma-4-31b-it';
   });
   const [imageModelUrl, setImageModelUrl] = useState<string>(
     initialSession?.imageModelUrl || initialImageModelUrl || KREA2_URL
@@ -1160,18 +1167,48 @@ export default function ChatInterface({
                   <div className="flex flex-col gap-2">
                     <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Language Model</label>
                     <select
-                      value={currentSelectedModel}
+                      value={!useInternalApi || currentSelectedModel === 'custom' ? 'custom' : currentSelectedModel}
                       onChange={(e) => {
                         const val = e.target.value;
-                        setCurrentSelectedModel(val);
-                        setUseInternalApi(true);
+                        if (val === 'custom') {
+                          setCurrentSelectedModel('custom');
+                          setUseInternalApi(false);
+                          if (!apiBaseUrl && customImageModelUrl) {
+                            setApiBaseUrl(customImageModelUrl);
+                          }
+                        } else {
+                          setCurrentSelectedModel(val);
+                          setUseInternalApi(true);
+                        }
                       }}
                       className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 text-white cursor-pointer"
                     >
                       <option value="gemma-4-31b-it" className="bg-neutral-900">gemma 31b</option>
                       <option value="gemma-4-26b-a4b-it" className="bg-neutral-900">gemma 24b a4b</option>
+                      <option value="custom" className="bg-neutral-900">Custom</option>
                     </select>
                   </div>
+
+                  {(!useInternalApi || currentSelectedModel === 'custom') && (
+                    <div className="flex flex-col gap-2 pt-1 border-t border-white/5">
+                      <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Custom API Endpoint URL</label>
+                      <input 
+                        type="text"
+                        value={apiBaseUrl || customImageModelUrl}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setApiBaseUrl(val);
+                          if (currentImageModelSelection === 'custom') {
+                            setCustomImageModelUrl(val);
+                            setImageModelUrl(val);
+                          }
+                        }}
+                        placeholder="https://your-custom-endpoint.ngrok-free.dev"
+                        className="bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent/50 text-white font-mono"
+                      />
+                      <p className="text-[9px] text-white/30 italic">Replies will be generated from this endpoint (/t2t)</p>
+                    </div>
+                  )}
 
                   <div className="flex flex-col gap-2">
                     <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Image Generation Model</label>

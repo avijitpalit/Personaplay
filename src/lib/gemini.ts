@@ -6,6 +6,12 @@ export function setGlobalModel(modelName: string) {
   MODEL = modelName;
 }
 
+export function getT2TEndpoint(baseUrl: string): string {
+  if (!baseUrl) return '';
+  const clean = baseUrl.trim().replace(/\/generate\/?$/i, '').replace(/\/t2t\/?$/i, '').replace(/\/+$/, '');
+  return `${clean}/t2t`;
+}
+
 export interface Message {
   role: "user" | "model";
   text: string;
@@ -259,14 +265,14 @@ export async function generateInitialSetup(
 
   if (externalApiConfig?.apiBaseUrl) {
     try {
-      const url = externalApiConfig.apiBaseUrl.endsWith('/') ? `${externalApiConfig.apiBaseUrl}t2t` : `${externalApiConfig.apiBaseUrl}/t2t`;
+      const url = getT2TEndpoint(externalApiConfig.apiBaseUrl);
       const response = await fetch(url, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           'Bypass-Tunnel-Reminder': 'true'
          },
-        body: JSON.stringify({ input: prompt, init: true }),
+        body: JSON.stringify({ input: prompt, prompt: prompt, init: true }),
       });
       if (response.ok) {
         const text = await response.text();
@@ -345,14 +351,14 @@ export async function generateCharacterDNA(
 
   if (externalApiConfig?.apiBaseUrl) {
     try {
-      const url = externalApiConfig.apiBaseUrl.endsWith('/') ? `${externalApiConfig.apiBaseUrl}t2t` : `${externalApiConfig.apiBaseUrl}/t2t`;
+      const url = getT2TEndpoint(externalApiConfig.apiBaseUrl);
       const response = await fetch(url, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           'Bypass-Tunnel-Reminder': 'true'
         },
-        body: JSON.stringify({ input: prompt }),
+        body: JSON.stringify({ input: prompt, prompt: prompt }),
       });
       if (response.ok) {
         const text = await response.text();
@@ -535,7 +541,7 @@ export async function getChatResponse(
 
   if (externalApiConfig?.apiBaseUrl) {
     try {
-      const url = externalApiConfig.apiBaseUrl.endsWith('/') ? `${externalApiConfig.apiBaseUrl}t2t` : `${externalApiConfig.apiBaseUrl}/t2t`;
+      const url = getT2TEndpoint(externalApiConfig.apiBaseUrl);
       
       const historyText = history.slice(-10).map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join('\n');
       const fullPrompt = `${systemInstruction}\n\nChat History:\n${historyText}\n\nUser: ${userInput}\nAI:`;
@@ -546,7 +552,7 @@ export async function getChatResponse(
           'Content-Type': 'application/json',
           'Bypass-Tunnel-Reminder': 'true'
         },
-        body: JSON.stringify({ init: false, system: systemInstruction, history: historyText, userInput }),
+        body: JSON.stringify({ init: false, system: systemInstruction, history: historyText, userInput, prompt: fullPrompt, input: fullPrompt }),
       });
       if (response.ok) {
         const text = await response.text();
@@ -707,9 +713,10 @@ export async function getAutonomousCharacterAction(
 
   if (externalApiConfig?.apiBaseUrl) {
     try {
-      const url = externalApiConfig.apiBaseUrl.endsWith('/') ? `${externalApiConfig.apiBaseUrl}t2t` : `${externalApiConfig.apiBaseUrl}/t2t`;
+      const url = getT2TEndpoint(externalApiConfig.apiBaseUrl);
       const historyText = history.slice(-10).map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join('\n');
       const userInput = "[The User is quiet/observing in the room. Continue your background task and internal stream.]";
+      const fullPrompt = `${systemInstruction}\n\nChat History:\n${historyText}\n\nUser: ${userInput}\nAI:`;
 
       const response = await fetch(url, {
         method: 'POST',
@@ -717,7 +724,7 @@ export async function getAutonomousCharacterAction(
           'Content-Type': 'application/json',
           'Bypass-Tunnel-Reminder': 'true'
         },
-        body: JSON.stringify({ init: false, system: systemInstruction, history: historyText, userInput }),
+        body: JSON.stringify({ init: false, system: systemInstruction, history: historyText, userInput, prompt: fullPrompt, input: fullPrompt }),
       });
       if (response.ok) {
         const text = await response.text();
@@ -864,14 +871,14 @@ export async function generateVisualPrompt(
 
   if (externalApiConfig?.apiBaseUrl) {
     try {
-      const url = externalApiConfig.apiBaseUrl.endsWith('/') ? `${externalApiConfig.apiBaseUrl}t2t` : `${externalApiConfig.apiBaseUrl}/t2t`;
+      const url = getT2TEndpoint(externalApiConfig.apiBaseUrl);
       const response = await fetch(url, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           'Bypass-Tunnel-Reminder': 'true'
         },
-        body: JSON.stringify({ input: prompt }),
+        body: JSON.stringify({ input: prompt, prompt: prompt }),
       });
       if (response.ok) {
         const text = await response.text();
@@ -1061,7 +1068,7 @@ export async function getUserAutomatedReply(
 
   if (externalApiConfig?.apiBaseUrl) {
     try {
-      const url = externalApiConfig.apiBaseUrl.endsWith('/') ? `${externalApiConfig.apiBaseUrl}t2t` : `${externalApiConfig.apiBaseUrl}/t2t`;
+      const url = getT2TEndpoint(externalApiConfig.apiBaseUrl);
 
       const response = await fetch(url, {
         method: 'POST',
@@ -1069,7 +1076,7 @@ export async function getUserAutomatedReply(
           'Content-Type': 'application/json',
           'Bypass-Tunnel-Reminder': 'true'
         },
-        body: JSON.stringify({ input: prompt, init: true }),
+        body: JSON.stringify({ input: prompt, prompt: prompt, init: true }),
       });
       if (response.ok) {
         const text = await response.text();
