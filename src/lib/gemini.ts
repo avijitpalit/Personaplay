@@ -19,10 +19,66 @@ export interface Message {
   emotions?: string;
 }
 
-// Use a custom key if provided, otherwise fall back to the system default
-const getAI = () => {
-  return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+// Rotating Gemini API Keys configuration
+// Key 1: Existing key from environment
+// Key 2 & 3: Additional keys provided for round-robin rotation & fallback
+const ROTATING_API_KEYS: string[] = [
+  process.env.GEMINI_API_KEY || "",
+  "AQ.Ab8RN6IVRVR50-vLsWAvlFUN9AyPOaswplOa1m0KMoMwbpn98w",
+  "AIzaSyCKk3ISEMo-zwAI2zwt_e9u_C9iwvpJ0-g",
+];
+
+let currentApiKeyIndex = 0;
+
+export function getAvailableApiKeys(): string[] {
+  return ROTATING_API_KEYS.filter((k): k is string => typeof k === "string" && k.trim().length > 0);
+}
+
+export function getNextApiKey(): string {
+  const keys = getAvailableApiKeys();
+  if (keys.length === 0) return "";
+  const key = keys[currentApiKeyIndex % keys.length];
+  currentApiKeyIndex = (currentApiKeyIndex + 1) % keys.length;
+  return key;
+}
+
+export const getAI = (apiKey?: string) => {
+  const key = apiKey || getNextApiKey();
+  return new GoogleGenAI({ apiKey: key });
 };
+
+export async function executeWithRotatedKeys<T>(
+  fn: (ai: GoogleGenAI, apiKey: string, keyIndex: number) => Promise<T>
+): Promise<T> {
+  const keys = getAvailableApiKeys();
+  if (keys.length === 0) {
+    const ai = new GoogleGenAI({ apiKey: "" });
+    return fn(ai, "", 0);
+  }
+
+  const startIndex = currentApiKeyIndex;
+  let lastError: any = null;
+
+  for (let attempt = 0; attempt < keys.length; attempt++) {
+    const activeIndex = (startIndex + attempt) % keys.length;
+    const key = keys[activeIndex];
+    try {
+      console.log(`[API Key Rotation] Generating with Key #${activeIndex + 1} of ${keys.length} (ends with ...${key.slice(-4)})`);
+      const ai = new GoogleGenAI({ apiKey: key });
+      const result = await fn(ai, key, activeIndex);
+      // Advance rotation counter for the next chat reply
+      currentApiKeyIndex = (activeIndex + 1) % keys.length;
+      return result;
+    } catch (err: any) {
+      lastError = err;
+      console.warn(`[API Key Rotation] Key #${activeIndex + 1} (${key.slice(0, 8)}...${key.slice(-4)}) encountered error, rotating to next key...`, err?.message || err);
+    }
+  }
+
+  // If all attempts failed, advance pointer so next request tries the next key
+  currentApiKeyIndex = (startIndex + 1) % keys.length;
+  throw lastError;
+}
 
 export interface CharacterLivingState {
   mood: string;
@@ -53,8 +109,8 @@ export function parseCharacterEmotions(emotionsStr?: string, thoughtsStr?: strin
         somaticCue = part.replace(/^(somatic cue|somatic|physical cue):\s*/i, '').trim();
       } else if (lower.startsWith('relational tension:') || lower.startsWith('tension:') || lower.startsWith('comfort:')) {
         relationalTension = part.replace(/^(relational tension|tension|comfort):\s*/i, '').trim();
-      } else if (lower.startsWith('conversational interest:') || lower.startsWith('interest:') || lower.startsWith('talkativeness:')) {
-        conversationalInterest = part.replace(/^(conversational interest|interest|talkativeness):\s*/i, '').trim();
+      } else if (lower.startsWith('speech drive:') || lower.startsWith('drive:') || lower.startsWith('conversational interest:') || lower.startsWith('interest:') || lower.startsWith('talkativeness:')) {
+        conversationalInterest = part.replace(/^(speech drive|drive|conversational interest|interest|talkativeness):\s*/i, '').trim();
       } else if (lower.startsWith('active task:') || lower.startsWith('task:') || lower.startsWith('activity:')) {
         activeTask = part.replace(/^(active task|task|activity):\s*/i, '').trim();
       }
@@ -94,6 +150,51 @@ export function getTimeOfDayContext(timeOfDayOverride?: string): string {
   return `Late Night / Midnight (${timeString} - Intimate moonlight, cozy indoor lighting, quiet nocturnal atmosphere)`;
 }
 
+/**
+ * Automatically enriches visual prompts when "no blouse" or "blouseless" is mentioned.
+ * Image diffusion models struggle with negative phrasing (like "no blouse", "blouseless", or "without blouse")
+ * and mistakenly generate an ordinary blouse or garbled clothing.
+ * This function converts and complements negative terms with explicit positive anatomical & drapery details:
+ * bare torso, exposed side breast, bare midriff, and unclad upper body draped only by the saree fabric.
+ */
+export function enrichBlouselessPrompt(promptText?: string): string {
+  if (!promptText || typeof promptText !== 'string') return promptText || "";
+
+  let updated = promptText;
+
+  // 1. Convert blouseless saree / no-blouse saree phrasing
+  const blouselessSareeRegex = /\b(?:blouse[\s-]less\s+saree|no[\s-]blouse\s+saree|saree\s+(?:without\s+(?:a\s+|any\s+)?blouse|with\s+no\s+blouse))\b/gi;
+  updated = updated.replace(blouselessSareeRegex, 'saree draped across a bare torso with exposed side breast, bare midriff, and unclad upper body');
+
+  // 2. Convert general "no blouse", "blouseless", "without blouse" terms
+  const generalBlouselessRegex = /\b(?:no[\s-]blouse|blouse[\s-]less|without\s+(?:a\s+|any\s+)?blouse|with\s+no\s+blouse)\b/gi;
+  if (generalBlouselessRegex.test(updated)) {
+    updated = updated.replace(generalBlouselessRegex, 'bare torso, exposed side breast, bare midriff draped only by the fabric of the saree, unclad upper body');
+  }
+
+  // 3. If there is a mention of blouseless/saree/pallu and bare torso/upper body but lacks side breast details, ensure it's enriched
+  const mentionsSaree = /\b(?:saree|sari|pallu)\b/i.test(updated);
+  if (mentionsSaree && /\b(?:bare torso|unclad upper body|bare midriff|bare skin)\b/i.test(updated)) {
+    if (!/\bside breast\b/i.test(updated)) {
+      if (/\bbare torso\b/i.test(updated)) {
+        updated = updated.replace(/\bbare torso\b/i, 'bare torso, exposed side breast');
+      } else if (/\bunclad upper body\b/i.test(updated)) {
+        updated = updated.replace(/\bunclad upper body\b/i, 'unclad upper body with exposed side breast');
+      } else if (/\bbare midriff\b/i.test(updated)) {
+        updated = updated.replace(/\bbare midriff\b/i, 'bare midriff, exposed side breast, bare torso');
+      }
+    }
+  }
+
+  // 4. Clean up any duplicated punctuation or excessive spacing
+  updated = updated
+    .replace(/,\s*,+/g, ',')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  return updated;
+}
+
 export function parseChatResponse(
   text: string, 
   currentMemory: string = "", 
@@ -103,7 +204,7 @@ export function parseChatResponse(
   let thoughts = "";
   let emotions = "";
   let updatedMemories = currentMemory;
-  let visualPrompt = lastVisualPrompt;
+  let visualPrompt = lastVisualPrompt ? enrichBlouselessPrompt(lastVisualPrompt) : lastVisualPrompt;
   let actionDecision: 'SPEAK' | 'SILENT_TASK' | undefined = undefined;
 
   const replyRegex = /\[REPLY\]([\s\S]*?)(\[\/REPLY\]|\[THOUGHTS\]|\[EMOTIONS\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|\[ACTION_DECISION\]|$)/i;
@@ -142,7 +243,7 @@ export function parseChatResponse(
       .join('\n');
   }
   if (promptMatch && promptMatch[1]) {
-    visualPrompt = promptMatch[1].trim();
+    visualPrompt = enrichBlouselessPrompt(promptMatch[1].trim());
   }
 
   // If tags are completely missing, fall back to returning whole text as reply
@@ -175,7 +276,7 @@ export function parseInitialSetupResponse(text: string): { dna: string; visualPr
     dna = dnaMatch[1].trim();
   }
   if (promptMatch && promptMatch[1]) {
-    visualPrompt = promptMatch[1].trim();
+    visualPrompt = enrichBlouselessPrompt(promptMatch[1].trim());
   }
 
   // Fallback if tags are completely missing or malformed
@@ -183,7 +284,7 @@ export function parseInitialSetupResponse(text: string): { dna: string; visualPr
     const parts = text.split(/PART 2|INITIAL VISUAL PROMPT|\[INITIAL_VISUAL_PROMPT\]/i);
     if (parts.length >= 2) {
       dna = parts[0].replace(/\[\/?CHARACTER_DNA\]/gi, "").trim();
-      visualPrompt = parts[1].replace(/\[\/?INITIAL_VISUAL_PROMPT\]/gi, "").trim();
+      visualPrompt = enrichBlouselessPrompt(parts[1].replace(/\[\/?INITIAL_VISUAL_PROMPT\]/gi, "").trim());
     } else {
       dna = text.trim();
       visualPrompt = "A cinematic over-the-shoulder shot capturing the atmosphere of the scenario.";
@@ -240,6 +341,12 @@ export async function generateInitialSetup(
   [Camera Shot & Subject Profile] + [Age, Appearance & Defined Persona Traits] + [Explicit Clothing, Fabric & Colors] + [Environment/Setting & Spatial Layout] + [Lighting & Time of Day Ambiance] + [Atmosphere & Mood] + [Photographic Medium & Lens Optics] + [Embedded Quality & Cleanliness Constraints].
 
   Rules for this prompt:
+  - CRITICAL ANATOMICAL DETAIL RULE FOR BLOOUSELESS / NO-BLOUSE ATTIRE:
+    Diffusion image models CANNOT correctly render negative phrasing like "no blouse", "without blouse", or "blouseless" (they mistakenly render a blouse or distort the clothing).
+    Whenever a character is blouseless or wearing a saree without a blouse:
+    * NEVER rely merely on "no blouse" or "blouseless" alone.
+    * You MUST provide explicit, positive descriptive anatomical and drapery detail text according to the scene context, such as: "bare torso, exposed side breast, bare midriff, bare shoulders and back draped solely with the single fabric layer of the saree pallu across the chest, unclad upper body, visible collarbones and natural skin contours".
+    * Vividly describe the exposed skin areas, curve of the torso/breast, and the way the fabric drapes across the bare skin so the image generator accurately renders the blouseless attire.
   - COMPOSITION & FIRST-PERSON POV: A close-up headshot or medium eye-level shot taken from a strict first-person point-of-view of the User character looking directly at the AI character. The User is completely invisible to the frame. The AI character looks directly into the camera lens with a natural, engaging expression.
   - SUBJECT WITH DEFINED FACE & BODY BLUEPRINT: Explicitly describe the AI character as an adult with their persona, weaving in their exact facial architecture (face shape, cheekbones, eye color/shape, lips, natural skin texture) and body build/shape from the Character DNA.
   - EXPLICIT ATTIRE SPECIFICATION: Fully define the starting outfit (specific garment type, exact color, fabric/weave, jewelry/accessories) from Character DNA. Translate intimate/bare states explicitly (e.g. "bare natural upper-body skin", "completely shirtless with realistic skin texture").
@@ -282,26 +389,26 @@ export async function generateInitialSetup(
       console.error("External Initial Setup Generation Error:", e);
     }
   } else {
-    const ai = getAI();
-
     try {
-      const response = await ai.models.generateContent({
-        model: MODEL,
-        contents: prompt,
-        config: {
-          temperature: 0.5,
-          safetySettings: [
-            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-          ]
-        }
+      const response = await executeWithRotatedKeys(async (ai) => {
+        return await ai.models.generateContent({
+          model: MODEL,
+          contents: prompt,
+          config: {
+            temperature: 0.5,
+            safetySettings: [
+              { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+              { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+              { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+              { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            ]
+          }
+        });
       });
       const text = response.text || "";
       return parseInitialSetupResponse(text);
     } catch (error) {
-      console.error("Initial Setup Generation Error:", error);
+      console.error("Initial Setup Generation Error across all rotated keys:", error);
     }
   }
 
@@ -372,21 +479,21 @@ export async function generateCharacterDNA(
       console.error("External DNA Generation Error:", e);
     }
   } else {
-    const ai = getAI();
-
     try {
-      const response = await ai.models.generateContent({
-        model: MODEL,
-        contents: prompt,
-        config: {
-          temperature: 0.5,
-          safetySettings: [
-            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-          ]
-        }
+      const response = await executeWithRotatedKeys(async (ai) => {
+        return await ai.models.generateContent({
+          model: MODEL,
+          contents: prompt,
+          config: {
+            temperature: 0.5,
+            safetySettings: [
+              { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+              { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+              { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+              { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            ]
+          }
+        });
       });
       const text = response.text || "";
       const dnaPart = text.trim();
@@ -395,7 +502,7 @@ export async function generateCharacterDNA(
         dna: dnaPart || responseData.dna
       };
     } catch (error) {
-      console.error("DNA Generation Error:", error);
+      console.error("DNA Generation Error across all rotated keys:", error);
     }
   }
 
@@ -478,17 +585,25 @@ export async function getChatResponse(
      - React authentically to the current local time (${timeContext}). Adjust fatigue levels, lighting references, voice volume, and daily routines naturally.
 
   ================================================================================
+  MANDATORY ENGLISH REQUIREMENT FOR PSYCHOLOGICAL & INTERNAL STATE (CRITICAL):
+  ================================================================================
+  - The [THOUGHTS] block (character's inner monologue) MUST ALWAYS be in ENGLISH.
+  - The [EMOTIONS] block variables (Mood, Somatic Cue, Relational Tension, Speech Drive, Active Task) MUST ALWAYS be in ENGLISH.
+  - The [MEMORIES] block (Dynamic memory bank) and [VISUAL_PROMPT] MUST ALWAYS be in ENGLISH.
+  - IMPORTANT: Even if the user communicates in another language (e.g., Bengali, Hindi, Spanish, etc.) or the character's spoken dialogue in [REPLY] matches that language, the inner monologue in [THOUGHTS] and ALL dynamic state variables in [EMOTIONS] (Mood, Somatic Cue, Relational Tension, Speech Drive, Active Task) MUST NEVER BE TRANSLATED and MUST REMAIN 100% IN ENGLISH.
+
+  ================================================================================
   RESPONSE GENERATION REQUIREMENTS (MUST OUTPUT ALL FIVE TAGGED BLOCKS)
   ================================================================================
   1. [THOUGHTS] block:
-     Write the character's rich, private internal monologue following the Cognitive-Somatic Chain:
+     Write the character's rich, private internal monologue in ENGLISH following the Cognitive-Somatic Chain:
      * Somatic micro-reflex (breath, pulse, muscle tension, involuntary reflex)
      * Evaluation of social stakes, age dynamics, personal boundaries, or hidden desires
      * Conscious calculation of whether to speak or remain quiet, and what to conceal
 
   2. [EMOTIONS] block:
-     Output structured dynamic metrics:
-     Mood: <Current mood> | Somatic Cue: <Physical sensation/reflex> | Relational Tension: <e.g. Flustered (7/10) / Guarded / Playful> | Conversational Interest: <Low (Non-verbal) / Moderate / High / Aloof> | Active Task: <What you were doing>
+     Output structured dynamic metrics in ENGLISH:
+     Mood: <Current mood in English> | Somatic Cue: <Involuntary physical sensation/reflex in English> | Relational Tension: <e.g. Flustered (7/10) / Guarded / Playful in English> | Speech Drive: <Low (Non-verbal) / Moderate / High / Aloof in English> | Active Task: <What you were doing in English>
 
   3. [REPLY] block:
      Write the AI character's response. If interested in speaking, include dialogue in quotes and physical actions in asterisks. If NOT interested in speaking, output ONLY physical behavior and actions in asterisks without quotes.
@@ -507,6 +622,12 @@ export async function getChatResponse(
      Follow the Z-IMAGE TURBO PROMPT SCAFFOLD strictly:
      [Camera Shot & Subject Profile] + [Age, Appearance & Defined Persona Traits] + [Micro-Expression & Somatic Posture] + [Explicit Clothing, Fabric & Colors] + [Environment/Setting & Spatial Layout] + [Lighting & Time of Day Ambiance] + [Atmosphere & Mood] + [Photographic Medium & Lens Optics] + [Embedded Quality & Cleanliness Constraints].
 
+     - CRITICAL ANATOMICAL DETAIL RULE FOR BLOOUSELESS / NO-BLOUSE ATTIRE:
+       Diffusion image models CANNOT correctly render negative phrasing like "no blouse", "without blouse", or "blouseless" (they mistakenly render a blouse or distort the clothing).
+       Whenever a character is blouseless or wearing a saree without a blouse:
+       * NEVER rely merely on "no blouse" or "blouseless" alone.
+       * You MUST provide explicit, positive descriptive anatomical and drapery detail text according to the scene context, such as: "bare torso, exposed side breast, bare midriff, bare shoulders and back draped solely with the single fabric layer of the [color/pattern] saree pallu across the chest, unclad upper body, visible collarbones and natural skin contours".
+       * Vividly describe the exposed skin areas, curve of the torso/breast, and the way the fabric drapes across the bare skin so the image generator accurately renders the blouseless attire.
      - COMPOSITION & FIRST-PERSON POV: A close-up headshot or medium eye-level shot taken from a strict first-person point-of-view of the User character looking directly at the AI character. The User is completely invisible to the frame.
      - MICRO-EXPRESSIONS & SOMATIC POSTURE: Capture the exact facial micro-expression (e.g. self-conscious flush across cheekbones, averted eyes, playful half-smile, intense gaze) and physical posture (e.g. hand adjusting garment, pausing over kitchen counter, standing half-turned).
      - SUBJECT FACE & BODY SHAPE (MAXIMUM FIDELITY): Explicitly describe the AI character embedding their exact facial architecture (face shape, cheekbones, jawline, eye color & shape, nose, lips, natural skin pores and micro-texture) and body build/shape (height, somatotype, curves/musculature, torso/waist proportions) from Character DNA.
@@ -520,10 +641,10 @@ export async function getChatResponse(
   FORMAT REQUIREMENT:
   Your output MUST look exactly like this:
   [THOUGHTS]
-  <Cognitive-somatic inner monologue / private thoughts here>
+  <Cognitive-somatic inner monologue / private thoughts in English>
   [/THOUGHTS]
   [EMOTIONS]
-  Mood: ... | Somatic Cue: ... | Relational Tension: ... | Conversational Interest: ... | Active Task: ...
+  Mood: ... | Somatic Cue: ... | Relational Tension: ... | Speech Drive: ... | Active Task: ...
   [/EMOTIONS]
   [REPLY]
   <AI reply text and actions here>
@@ -536,7 +657,7 @@ export async function getChatResponse(
   - <Other key facts>
   [/MEMORIES]
   [VISUAL_PROMPT]
-  <Visual prompt paragraph text here>
+  <Visual prompt paragraph text in English here>
   [/VISUAL_PROMPT]`;
 
   if (externalApiConfig?.apiBaseUrl) {
@@ -573,35 +694,35 @@ export async function getChatResponse(
     }
   }
 
-  const ai = getAI();
-
   try {
     // Slice history to the last 14 messages (approx. 7 back-and-forth turns) to control cost and latency.
     // The details from prior chat turns are preserved/updated in the DYNAMIC MEMORY BANK.
     const recentHistory = history.slice(-14);
 
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents: [
-        ...recentHistory.map(m => ({
-          role: m.role as "user" | "model",
-          parts: [{ text: m.text }]
-        })),
-        {
-          role: "user",
-          parts: [{ text: userInput }]
+    const response = await executeWithRotatedKeys(async (ai) => {
+      return await ai.models.generateContent({
+        model: MODEL,
+        contents: [
+          ...recentHistory.map(m => ({
+            role: m.role as "user" | "model",
+            parts: [{ text: m.text }]
+          })),
+          {
+            role: "user",
+            parts: [{ text: userInput }]
+          }
+        ],
+        config: {
+          systemInstruction,
+          temperature: 1.0,
+          safetySettings: [
+            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          ]
         }
-      ],
-      config: {
-        systemInstruction,
-        temperature: 1.0,
-        safetySettings: [
-          { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-          { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-          { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-          { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-        ]
-      }
+      });
     });
 
     const parsed = parseChatResponse(response.text || "", memoryBank || "", lastVisualPrompt);
@@ -614,7 +735,7 @@ export async function getChatResponse(
       actionDecision: parsed.actionDecision
     };
   } catch (error) {
-    console.error("Gemini API Error:", error);
+    console.error("Gemini API Error across all rotated keys:", error);
     return { reply: "The connection seems to have flickered. Let's try that again.", error: true };
   }
 }
@@ -652,6 +773,14 @@ export async function getAutonomousCharacterAction(
   ${lastVisualPrompt?.trim() ? lastVisualPrompt : "None yet."}
 
   ================================================================================
+  MANDATORY ENGLISH REQUIREMENT FOR PSYCHOLOGICAL & INTERNAL STATE (CRITICAL):
+  ================================================================================
+  - The [THOUGHTS] block (character's inner monologue) MUST ALWAYS be in ENGLISH.
+  - The [EMOTIONS] block variables (Mood, Somatic Cue, Relational Tension, Speech Drive, Active Task) MUST ALWAYS be in ENGLISH.
+  - The [MEMORIES] block and [VISUAL_PROMPT] block MUST ALWAYS be in ENGLISH.
+  - IMPORTANT: All internal thoughts, somatic cues, emotional states, and visual prompts must strictly be written in English at all times.
+
+  ================================================================================
   AUTONOMOUS BACKGROUND LIVING TICK DIRECTIVE (LIVING HUMAN SIMULATION)
   ================================================================================
   1. INDEPENDENT ONGOING LIFE & DYNAMIC TASK PROGRESSION:
@@ -675,24 +804,30 @@ export async function getAutonomousCharacterAction(
      - If you choose SILENT_TASK, do NOT include spoken quotes.
 
   3. THREE-STEP COGNITIVE-SOMATIC MONOLOGUE ([THOUGHTS]):
-     - Involuntary somatic cues (pulse, breath, temperature, micro-reflexes).
-     - Internal monologue (what you are thinking about your task, the time of day, the User's quiet presence, your inner feelings).
-     - Conscious choice of whether to interact or stay quiet.
+     - Involuntary somatic cues (pulse, breath, temperature, micro-reflexes) in ENGLISH.
+     - Internal monologue (what you are thinking about your task, the time of day, the User's quiet presence, your inner feelings) in ENGLISH.
+     - Conscious choice of whether to interact or stay quiet in ENGLISH.
 
   4. STRUCTURED STATUS METRICS ([EMOTIONS]):
-     Mood: <Current mood> | Somatic Cue: <Involuntary physical sensation/reflex> | Relational Tension: <e.g. Flustered (6/10) / Comfortable / Guarded> | Conversational Interest: <Low (Non-verbal) / Moderate / High / Aloof> | Active Task: <Specific ongoing activity>
+     Mood: <Current mood in English> | Somatic Cue: <Involuntary physical sensation/reflex in English> | Relational Tension: <e.g. Flustered (6/10) / Comfortable / Guarded in English> | Speech Drive: <Low (Non-verbal) / Moderate / High / Aloof in English> | Active Task: <Specific ongoing activity in English>
 
   5. MANDATORY FACE & BODY SHAPE REPLICATION & DYNAMIC ATTIRE SCENE PROMPT ([VISUAL_PROMPT]):
+     - CRITICAL ANATOMICAL DETAIL RULE FOR BLOOUSELESS / NO-BLOUSE ATTIRE:
+       Diffusion image models CANNOT correctly render negative phrasing like "no blouse", "without blouse", or "blouseless" (they mistakenly render a blouse or distort the clothing).
+       Whenever a character is blouseless or wearing a saree without a blouse:
+       * NEVER rely merely on "no blouse" or "blouseless" alone.
+       * You MUST provide explicit, positive descriptive anatomical and drapery detail text according to the scene context, such as: "bare torso, exposed side breast, bare midriff, bare shoulders and back draped solely with the single fabric layer of the saree pallu across the chest, unclad upper body, visible collarbones and natural skin contours".
+       * Vividly describe the exposed skin areas, curve of the torso/breast, and the way the fabric drapes across the bare skin so the image generator accurately renders the blouseless attire.
      - You MUST faithfully carry over the AI character's exact facial architecture (face shape, jawline, eye color & shape, nose, lips, realistic skin texture) and body build/shape (height, somatotype, curves/frame, torso/waist proportions) from CHARACTER DNA.
      - DYNAMIC ATTIRE (OUTFIT CAN CHANGE): Describe current clothing based on the memory bank and your active background task. If your activity involves changing clothes, drying off in a towel, wearing an apron, or undressing, describe that new clothing state; otherwise carry forward the established attire.
      - Write a 140-200 word Z-Image Turbo compliant prompt capturing your updated posture, hands, and action in the scene right now under ${timeContext} HDR lighting.
 
   FORMAT REQUIREMENT:
   [THOUGHTS]
-  <Cognitive-somatic inner monologue / private thoughts here>
+  <Cognitive-somatic inner monologue / private thoughts in English>
   [/THOUGHTS]
   [EMOTIONS]
-  Mood: ... | Somatic Cue: ... | Relational Tension: ... | Conversational Interest: ... | Active Task: ...
+  Mood: ... | Somatic Cue: ... | Relational Tension: ... | Speech Drive: ... | Active Task: ...
   [/EMOTIONS]
   [ACTION_DECISION]
   SPEAK (or SILENT_TASK)
@@ -708,7 +843,7 @@ export async function getAutonomousCharacterAction(
   - <Other key facts>
   [/MEMORIES]
   [VISUAL_PROMPT]
-  <Visual prompt paragraph text here>
+  <Visual prompt paragraph text in English here>
   [/VISUAL_PROMPT]`;
 
   if (externalApiConfig?.apiBaseUrl) {
@@ -743,31 +878,32 @@ export async function getAutonomousCharacterAction(
     }
   }
 
-  const ai = getAI();
   try {
     const recentHistory = history.slice(-14);
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents: [
-        ...recentHistory.map(m => ({
-          role: m.role as "user" | "model",
-          parts: [{ text: m.text }]
-        })),
-        {
-          role: "user",
-          parts: [{ text: "[The User is quiet/observing in the room. Continue your background task, thoughts, and decide whether to speak or keep working.]" }]
+    const response = await executeWithRotatedKeys(async (ai) => {
+      return await ai.models.generateContent({
+        model: MODEL,
+        contents: [
+          ...recentHistory.map(m => ({
+            role: m.role as "user" | "model",
+            parts: [{ text: m.text }]
+          })),
+          {
+            role: "user",
+            parts: [{ text: "[The User is quiet/observing in the room. Continue your background task, thoughts, and decide whether to speak or keep working.]" }]
+          }
+        ],
+        config: {
+          systemInstruction,
+          temperature: 1.0,
+          safetySettings: [
+            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          ]
         }
-      ],
-      config: {
-        systemInstruction,
-        temperature: 1.0,
-        safetySettings: [
-          { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-          { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-          { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-          { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-        ]
-      }
+      });
     });
 
     const parsed = parseChatResponse(response.text || "", memoryBank || "", lastVisualPrompt);
@@ -780,7 +916,7 @@ export async function getAutonomousCharacterAction(
       actionDecision: parsed.actionDecision
     };
   } catch (error) {
-    console.error("Gemini Autonomous Living Tick Error:", error);
+    console.error("Gemini Autonomous Living Tick Error across all rotated keys:", error);
     return { reply: "", error: true };
   }
 }
@@ -850,6 +986,12 @@ export async function generateVisualPrompt(
      - The AI character's outfit must reflect the latest clothing state recorded in the DYNAMIC MEMORY BANK.
      - IMPORTANT: Outfit CAN and MUST change if the recent chat action explicitly depicts changing clothes, putting on an apron, taking off a jacket, undressing, wrapping in a bath towel, or wearing sleepwear. In that case, describe the new attire accurately.
      - If no clothing change occurred in recent actions, strictly carry over the exact attire, colors, fabrics, and jewelry from the previous visual prompt and memory bank.
+     - CRITICAL ANATOMICAL DETAIL RULE FOR BLOOUSELESS / NO-BLOUSE ATTIRE:
+       Diffusion image models CANNOT correctly render negative terms like "no blouse", "without blouse", or "blouseless" (they mistakenly render a blouse or distort the clothing).
+       Whenever a character is blouseless or wearing a saree without a blouse:
+       * NEVER rely merely on "no blouse" or "blouseless" alone.
+       * You MUST provide explicit, positive descriptive anatomical and drapery detail text according to the scene context, such as: "bare torso, exposed side breast, bare midriff, bare shoulders and back draped solely with the single fabric layer of the saree pallu across the chest, unclad upper body, visible collarbones and natural skin contours".
+       * Vividly describe the exposed skin areas, curve of the torso/breast, and exact fabric drape in positive descriptive terms so the image generator accurately renders the blouseless attire.
      - If intimate/bare states are present, explicitly describe them (e.g. "bare natural upper-body skin", "completely shirtless with realistic skin texture").
 
   5. UNCLUTTERED ENVIRONMENT: Describe a focused, uncluttered environment with clean background separation and realistic depth.
@@ -863,6 +1005,9 @@ export async function generateVisualPrompt(
   9. EMBEDDED QUALITY & CLEANLINESS CONSTRAINTS (MANDATORY FOR TURBO): Always bake the following positive constraints directly into the end of the prompt: "correct human anatomy, natural hands and fingers, sharp focus on the subject, clean detailed image, no motion blur, no extra limbs, simple uncluttered background, no text, no UI elements, no watermark, no branding, no logos".
   
   10. NO METAPHORS OR TRANSITIONAL ACTIONS: Only describe what is physically visible in the frozen frame. Do NOT use transitional verbs like "about to" or "just finished". Do NOT use pronouns "I, my, me".
+
+  11. LANGUAGE REQUIREMENT:
+      - The prompt MUST be written entirely in English.
 
   OUTPUT THE PROMPT ONLY. DO NOT write any introductory or concluding text. Do not write "Prompt:" or include quote marks.
   `;
@@ -882,40 +1027,40 @@ export async function generateVisualPrompt(
       });
       if (response.ok) {
         const text = await response.text();
-        return text || lastPrompt || "A hyper-realistic cinematic shot of the scene.";
+        return enrichBlouselessPrompt(text || lastPrompt || "A hyper-realistic cinematic shot of the scene.");
       }
     } catch (e) {
       console.error("External Visual Prompt Error:", e);
     }
   }
 
-  const ai = getAI();
-
   try {
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents: prompt,
-      config: {
-        temperature: 0.8,
-        safetySettings: [
-          { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-          { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-          { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-          { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-        ]
-      }
+    const response = await executeWithRotatedKeys(async (ai) => {
+      return await ai.models.generateContent({
+        model: MODEL,
+        contents: prompt,
+        config: {
+          temperature: 0.8,
+          safetySettings: [
+            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          ]
+        }
+      });
     });
     
     const generatedText = response.text;
     if (!generatedText) {
       console.warn("Visual prompt generation returned empty response. Check safety filters or model refusal.");
-      return lastPrompt || "A hyper-realistic cinematic shot of the scene.";
+      return enrichBlouselessPrompt(lastPrompt || "A hyper-realistic cinematic shot of the scene.");
     }
     
-    return generatedText;
+    return enrichBlouselessPrompt(generatedText);
   } catch (error) {
-    console.error("Visual Prompt Generation Error:", error);
-    return lastPrompt || "A hyper-realistic cinematic shot of the scene.";
+    console.error("Visual Prompt Generation Error across all rotated keys:", error);
+    return enrichBlouselessPrompt(lastPrompt || "A hyper-realistic cinematic shot of the scene.");
   }
 }
 
@@ -945,7 +1090,7 @@ export async function generateImage(
       }
     }
     
-    let processedPrompt = visualPrompt?.trim() || "";
+    let processedPrompt = enrichBlouselessPrompt(visualPrompt?.trim() || "");
     if (enableLora && (loraName === "famegrid_spicy.safetensors" || loraName?.toLowerCase().includes("famegrid"))) {
       const isFamegridPrefixed = /^famegrid\b/i.test(processedPrompt);
       if (!isFamegridPrefixed) {
@@ -1090,20 +1235,21 @@ export async function getUserAutomatedReply(
     }
   }
 
-  const ai = getAI();
   try {
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents: prompt,
-      config: {
-        temperature: 0.9,
-        safetySettings: [
-          { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-          { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-          { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-          { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-        ]
-      }
+    const response = await executeWithRotatedKeys(async (ai) => {
+      return await ai.models.generateContent({
+        model: MODEL,
+        contents: prompt,
+        config: {
+          temperature: 0.9,
+          safetySettings: [
+            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          ]
+        }
+      });
     });
 
     let cleaned = (response.text || "").trim();
@@ -1111,7 +1257,7 @@ export async function getUserAutomatedReply(
     cleaned = cleaned.replace(/^AI:\s*/i, "").trim();
     return cleaned || "*steps forward, waiting for you to speak*";
   } catch (error) {
-    console.error("Gemini User Auto-Reply Error:", error);
+    console.error("Gemini User Auto-Reply Error across all rotated keys:", error);
     return "*waits in quiet anticipation*";
   }
 }
