@@ -107,20 +107,22 @@ export default function ChatInterface({
     initialSession?.imageModelUrl || initialImageModelUrl || KREA2_URL
   );
   const [customImageModelUrl, setCustomImageModelUrl] = useState<string>(() => {
-    if (initialSession?.imageModelUrl && initialSession.imageModelUrl !== KREA2_URL && initialSession.imageModelUrl !== ZIT_URL) {
+    if (initialSession?.imageModelUrl && initialSession.imageModelUrl !== KREA2_URL && initialSession.imageModelUrl !== ZIT_URL && initialSession.imageModelUrl !== 'disabled') {
       return initialSession.imageModelUrl;
     }
-    if (initialImageModelUrl && initialImageModelUrl !== KREA2_URL && initialImageModelUrl !== ZIT_URL) {
+    if (initialImageModelUrl && initialImageModelUrl !== KREA2_URL && initialImageModelUrl !== ZIT_URL && initialImageModelUrl !== 'disabled') {
       return initialImageModelUrl;
     }
     return initialSession?.apiBaseUrl || initialApiBaseUrl || 'https://odorful-hsiu-unmaledictory.ngrok-free.dev/generate';
   });
 
-  const currentImageModelSelection = (imageModelUrl === KREA2_URL) 
-    ? KREA2_URL 
-    : (imageModelUrl === ZIT_URL) 
-      ? ZIT_URL 
-      : 'custom';
+  const currentImageModelSelection = (imageModelUrl === 'disabled') 
+    ? 'disabled'
+    : (imageModelUrl === KREA2_URL) 
+      ? KREA2_URL 
+      : (imageModelUrl === ZIT_URL) 
+        ? ZIT_URL 
+        : 'custom';
   const [imageWidthInput, setImageWidthInput] = useState<string>(String(initialSession?.imageWidth || 720));
   const [imageHeightInput, setImageHeightInput] = useState<string>(String(initialSession?.imageHeight || 1280));
   const [imageStepsInput, setImageStepsInput] = useState<string>(String(initialSession?.imageSteps || 8));
@@ -179,7 +181,7 @@ export default function ChatInterface({
   // Trigger background image generation smoothly without interrupting the chat UI
   const triggerBackgroundImage = useCallback(async (promptText?: string) => {
     const targetPrompt = promptText || currentVisualPrompt;
-    if (!targetPrompt || !imageModelUrl || isGeneratingImageRef.current) return;
+    if (!targetPrompt || !imageModelUrl || imageModelUrl === 'disabled' || isGeneratingImageRef.current) return;
 
     isGeneratingImageRef.current = true;
     setIsGeneratingImage(true);
@@ -338,7 +340,7 @@ export default function ChatInterface({
           // Update visual prompt & trigger background image right after thoughts
           if (result.lastVisualPrompt) {
             setCurrentVisualPrompt(result.lastVisualPrompt);
-            if (imageModelUrl) {
+            if (imageModelUrl && imageModelUrl !== 'disabled') {
               triggerBackgroundImage(result.lastVisualPrompt);
             }
           } else if (characterDNA) {
@@ -356,7 +358,7 @@ export default function ChatInterface({
             setCurrentVisualPrompt(nextPrompt);
             setIsGeneratingPrompt(false);
             setStatusBarMessage(null);
-            if (imageModelUrl) {
+            if (imageModelUrl && imageModelUrl !== 'disabled') {
               triggerBackgroundImage(nextPrompt);
             }
           }
@@ -418,7 +420,7 @@ export default function ChatInterface({
         // Update visual prompt & trigger background image right after thoughts/monologue generation
         if (result.lastVisualPrompt && result.lastVisualPrompt !== currentPrompt) {
           setCurrentVisualPrompt(result.lastVisualPrompt);
-          if (imageModelUrl) {
+          if (imageModelUrl && imageModelUrl !== 'disabled') {
             triggerBackgroundImage(result.lastVisualPrompt);
           }
         }
@@ -502,7 +504,7 @@ export default function ChatInterface({
         }
 
         // Render the scene image ONCE for the initial state
-        if (imageModelUrl && finalPrompt) {
+        if (imageModelUrl && imageModelUrl !== 'disabled' && finalPrompt) {
           triggerBackgroundImage(finalPrompt);
         }
       } catch (err) {
@@ -642,7 +644,7 @@ export default function ChatInterface({
     // Update visual prompt & trigger background image generation right after thoughts
     if (result.lastVisualPrompt) {
       setCurrentVisualPrompt(result.lastVisualPrompt);
-      if (imageModelUrl) {
+      if (imageModelUrl && imageModelUrl !== 'disabled') {
         triggerBackgroundImage(result.lastVisualPrompt);
       }
     } else if (characterDNA) {
@@ -660,7 +662,7 @@ export default function ChatInterface({
       setCurrentVisualPrompt(nextPrompt);
       setIsGeneratingPrompt(false);
       setStatusBarMessage(null);
-      if (imageModelUrl) {
+      if (imageModelUrl && imageModelUrl !== 'disabled') {
         triggerBackgroundImage(nextPrompt);
       }
     }
@@ -719,7 +721,7 @@ export default function ChatInterface({
     // Update visual prompt & trigger background image
     if (result.lastVisualPrompt) {
       setCurrentVisualPrompt(result.lastVisualPrompt);
-      if (imageModelUrl) {
+      if (imageModelUrl && imageModelUrl !== 'disabled') {
         triggerBackgroundImage(result.lastVisualPrompt);
       }
     } else if (characterDNA) {
@@ -737,7 +739,7 @@ export default function ChatInterface({
       setCurrentVisualPrompt(nextPrompt);
       setIsGeneratingPrompt(false);
       setStatusBarMessage(null);
-      if (imageModelUrl) {
+      if (imageModelUrl && imageModelUrl !== 'disabled') {
         triggerBackgroundImage(nextPrompt);
       }
     }
@@ -748,9 +750,9 @@ export default function ChatInterface({
   const handleGenerateImage = async () => {
     if (isGeneratingImage || !currentVisualPrompt) return;
     
-    if (!imageModelUrl) {
+    if (!imageModelUrl || imageModelUrl === 'disabled') {
       setShowSettings(true);
-      setError("Please select or configure an Image Generation Model.");
+      setError("Image generation is disabled. Select an image model in settings to enable.");
       return;
     }
 
@@ -1216,7 +1218,9 @@ export default function ChatInterface({
                       value={currentImageModelSelection}
                       onChange={(e) => {
                         const val = e.target.value;
-                        if (val === 'custom') {
+                        if (val === 'disabled') {
+                          setImageModelUrl('disabled');
+                        } else if (val === 'custom') {
                           const targetUrl = (customImageModelUrl && customImageModelUrl !== KREA2_URL && customImageModelUrl !== ZIT_URL)
                             ? customImageModelUrl
                             : (apiBaseUrl || 'https://odorful-hsiu-unmaledictory.ngrok-free.dev/generate');
@@ -1232,8 +1236,15 @@ export default function ChatInterface({
                       <option value={KREA2_URL} className="bg-neutral-900 text-white">Krea 2</option>
                       <option value={ZIT_URL} className="bg-neutral-900 text-white">Z-image turbo (ZiT)</option>
                       <option value="custom" className="bg-neutral-900 text-white">Custom</option>
+                      <option value="disabled" className="bg-neutral-900 text-white">Disable</option>
                     </select>
                   </div>
+
+                  {currentImageModelSelection === 'disabled' && (
+                    <p className="text-[10px] text-amber-400/80 bg-amber-500/10 border border-amber-500/20 px-3 py-2 rounded-xl italic">
+                      Image generation is disabled. Scene visualizations and background images will be skipped.
+                    </p>
+                  )}
 
                   {currentImageModelSelection === 'custom' && (
                     <div className="flex flex-col gap-2">
@@ -1257,135 +1268,139 @@ export default function ChatInterface({
                   )}
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Width</label>
-                    <input 
-                      type="text"
-                      inputMode="numeric"
-                      value={imageWidthInput}
-                      onChange={e => {
-                        const val = e.target.value;
-                        if (val === '' || /^[0-9]*$/.test(val)) {
-                          setImageWidthInput(val);
-                        }
-                      }}
-                      onBlur={() => {
-                        if (!imageWidthInput.trim() || parseInt(imageWidthInput) <= 0) {
-                          setImageWidthInput('720');
-                        }
-                      }}
-                      placeholder="720"
-                      className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Height</label>
-                    <input 
-                      type="text"
-                      inputMode="numeric"
-                      value={imageHeightInput}
-                      onChange={e => {
-                        const val = e.target.value;
-                        if (val === '' || /^[0-9]*$/.test(val)) {
-                          setImageHeightInput(val);
-                        }
-                      }}
-                      onBlur={() => {
-                        if (!imageHeightInput.trim() || parseInt(imageHeightInput) <= 0) {
-                          setImageHeightInput('1280');
-                        }
-                      }}
-                      placeholder="1280"
-                      className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Steps</label>
-                    <input 
-                      type="text"
-                      inputMode="numeric"
-                      value={imageStepsInput}
-                      onChange={e => {
-                        const val = e.target.value;
-                        if (val === '' || /^[0-9]*$/.test(val)) {
-                          setImageStepsInput(val);
-                        }
-                      }}
-                      onBlur={() => {
-                        if (!imageStepsInput.trim() || parseInt(imageStepsInput) <= 0) {
-                          setImageStepsInput('8');
-                        }
-                      }}
-                      placeholder="8"
-                      className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-3 p-3 bg-white/5 rounded-xl border border-white/10">
-                  <div className="flex items-center justify-between">
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input 
-                        type="checkbox"
-                        checked={enableLora}
-                        onChange={e => setEnableLora(e.target.checked)}
-                        className="rounded border-white/20 bg-black/40 text-accent focus:ring-accent w-4 h-4 cursor-pointer accent-accent"
-                      />
-                      <span className="text-xs font-bold uppercase tracking-wider text-white">Enable LoRA</span>
-                    </label>
-                  </div>
-
-                  <div className={`space-y-3 transition-opacity ${enableLora ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Lora</label>
-                      <select
-                        value={loraName}
-                        onChange={e => {
-                          const val = e.target.value;
-                          setLoraName(val);
-                          if (val === 'famegrid_spicy.safetensors' && currentVisualPrompt) {
-                            const trimmed = currentVisualPrompt.trim();
-                            if (!/^famegrid\b/i.test(trimmed)) {
-                              setCurrentVisualPrompt(trimmed ? `Famegrid, ${trimmed}` : 'Famegrid');
+                {currentImageModelSelection !== 'disabled' && (
+                  <>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Width</label>
+                        <input 
+                          type="text"
+                          inputMode="numeric"
+                          value={imageWidthInput}
+                          onChange={e => {
+                            const val = e.target.value;
+                            if (val === '' || /^[0-9]*$/.test(val)) {
+                              setImageWidthInput(val);
                             }
-                          }
-                        }}
-                        disabled={!enableLora}
-                        className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white cursor-pointer"
-                      >
-                        <option value="Krea2_HMNSFW_AIO.safetensors" className="bg-neutral-900">Krea2_HMNSFW_AIO.safetensors</option>
-                        <option value="Krea2-realism-V2.safetensors" className="bg-neutral-900">Krea2-realism-V2.safetensors</option>
-                        <option value="realism_engine_krea2_v3.1.safetensors" className="bg-neutral-900">realism_engine_krea2_v3.1.safetensors</option>
-                        <option value="famegrid_spicy.safetensors" className="bg-neutral-900">famegrid_spicy.safetensors</option>
-                      </select>
+                          }}
+                          onBlur={() => {
+                            if (!imageWidthInput.trim() || parseInt(imageWidthInput) <= 0) {
+                              setImageWidthInput('720');
+                            }
+                          }}
+                          placeholder="720"
+                          className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Height</label>
+                        <input 
+                          type="text"
+                          inputMode="numeric"
+                          value={imageHeightInput}
+                          onChange={e => {
+                            const val = e.target.value;
+                            if (val === '' || /^[0-9]*$/.test(val)) {
+                              setImageHeightInput(val);
+                            }
+                          }}
+                          onBlur={() => {
+                            if (!imageHeightInput.trim() || parseInt(imageHeightInput) <= 0) {
+                              setImageHeightInput('1280');
+                            }
+                          }}
+                          placeholder="1280"
+                          className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Steps</label>
+                        <input 
+                          type="text"
+                          inputMode="numeric"
+                          value={imageStepsInput}
+                          onChange={e => {
+                            const val = e.target.value;
+                            if (val === '' || /^[0-9]*$/.test(val)) {
+                              setImageStepsInput(val);
+                            }
+                          }}
+                          onBlur={() => {
+                            if (!imageStepsInput.trim() || parseInt(imageStepsInput) <= 0) {
+                              setImageStepsInput('8');
+                            }
+                          }}
+                          placeholder="8"
+                          className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white"
+                        />
+                      </div>
                     </div>
 
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">LoRA Strength</label>
-                      <input 
-                        type="text"
-                        inputMode="decimal"
-                        value={loraStrengthInput}
-                        onChange={e => {
-                          const val = e.target.value;
-                          // Allow empty string, numbers, leading dot, floating point numbers (e.g. .3, 0.3, 1, 1.5)
-                          if (val === '' || /^[0-9]*\.?[0-9]*$/.test(val)) {
-                            setLoraStrengthInput(val);
-                          }
-                        }}
-                        onBlur={() => {
-                          if (loraStrengthInput.trim() === '' || isNaN(parseFloat(loraStrengthInput))) {
-                            setLoraStrengthInput('1.0');
-                          }
-                        }}
-                        placeholder="e.g. 0.3 or 1.5"
-                        disabled={!enableLora}
-                        className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white disabled:opacity-50 font-mono"
-                      />
+                    <div className="flex flex-col gap-3 p-3 bg-white/5 rounded-xl border border-white/10">
+                      <div className="flex items-center justify-between">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input 
+                            type="checkbox"
+                            checked={enableLora}
+                            onChange={e => setEnableLora(e.target.checked)}
+                            className="rounded border-white/20 bg-black/40 text-accent focus:ring-accent w-4 h-4 cursor-pointer accent-accent"
+                          />
+                          <span className="text-xs font-bold uppercase tracking-wider text-white">Enable LoRA</span>
+                        </label>
+                      </div>
+
+                      <div className={`space-y-3 transition-opacity ${enableLora ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">Lora</label>
+                          <select
+                            value={loraName}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setLoraName(val);
+                              if (val === 'famegrid_spicy.safetensors' && currentVisualPrompt) {
+                                const trimmed = currentVisualPrompt.trim();
+                                if (!/^famegrid\b/i.test(trimmed)) {
+                                  setCurrentVisualPrompt(trimmed ? `Famegrid, ${trimmed}` : 'Famegrid');
+                                }
+                              }
+                            }}
+                            disabled={!enableLora}
+                            className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white cursor-pointer"
+                          >
+                            <option value="Krea2_HMNSFW_AIO.safetensors" className="bg-neutral-900">Krea2_HMNSFW_AIO.safetensors</option>
+                            <option value="Krea2-realism-V2.safetensors" className="bg-neutral-900">Krea2-realism-V2.safetensors</option>
+                            <option value="realism_engine_krea2_v3.1.safetensors" className="bg-neutral-900">realism_engine_krea2_v3.1.safetensors</option>
+                            <option value="famegrid_spicy.safetensors" className="bg-neutral-900">famegrid_spicy.safetensors</option>
+                          </select>
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] uppercase tracking-wider text-white/40 font-bold">LoRA Strength</label>
+                          <input 
+                            type="text"
+                            inputMode="decimal"
+                            value={loraStrengthInput}
+                            onChange={e => {
+                              const val = e.target.value;
+                              // Allow empty string, numbers, leading dot, floating point numbers (e.g. .3, 0.3, 1, 1.5)
+                              if (val === '' || /^[0-9]*\.?[0-9]*$/.test(val)) {
+                                setLoraStrengthInput(val);
+                              }
+                            }}
+                            onBlur={() => {
+                              if (loraStrengthInput.trim() === '' || isNaN(parseFloat(loraStrengthInput))) {
+                                setLoraStrengthInput('1.0');
+                              }
+                            }}
+                            placeholder="e.g. 0.3 or 1.5"
+                            disabled={!enableLora}
+                            className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white disabled:opacity-50 font-mono"
+                          />
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  </>
+                )}
 
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between">
@@ -1435,13 +1450,13 @@ export default function ChatInterface({
         <button 
           onClick={handleGenerateImage}
           disabled={isGeneratingImage || isGeneratingPrompt || !currentVisualPrompt}
-          className={`p-4 pl-6 bg-white/10 backdrop-blur-3xl border-y border-l border-white/20 rounded-l-full text-white hover:bg-white/20 transition-all shadow-2xl relative z-10 ${isGeneratingImage || isGeneratingPrompt ? 'bg-accent/30 border-accent/40 brightness-125' : ''}`}
-          title={isGeneratingImage ? "Visualizing..." : isGeneratingPrompt ? "Updating Prompt..." : "Visualize Scene"}
+          className={`p-4 pl-6 bg-white/10 backdrop-blur-3xl border-y border-l border-white/20 rounded-l-full text-white hover:bg-white/20 transition-all shadow-2xl relative z-10 ${isGeneratingImage || isGeneratingPrompt ? 'bg-accent/30 border-accent/40 brightness-125' : ''} ${currentImageModelSelection === 'disabled' ? 'opacity-50' : ''}`}
+          title={currentImageModelSelection === 'disabled' ? "Image generation is disabled (Click to configure in settings)" : isGeneratingImage ? "Visualizing..." : isGeneratingPrompt ? "Updating Prompt..." : "Visualize Scene"}
         >
           {isGeneratingImage || isGeneratingPrompt ? (
             <Loader2 size={22} className="animate-spin text-accent" />
           ) : (
-            <ImageIcon size={22} />
+            <ImageIcon size={22} className={currentImageModelSelection === 'disabled' ? 'text-white/40' : 'text-white'} />
           )}
         </button>
         <button 
