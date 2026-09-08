@@ -28,11 +28,13 @@ export default function CharacterSetup({
     initialApiBaseUrl || 'https://odorful-hsiu-unmaledictory.ngrok-free.dev/generate'
   );
 
-  const currentImageModelSelection = (imageModelUrl === KREA2_URL)
-    ? KREA2_URL
-    : (imageModelUrl === ZIT_URL)
-      ? ZIT_URL
-      : 'custom';
+  const currentImageModelSelection = (imageModelUrl === 'disabled')
+    ? 'disabled'
+    : (imageModelUrl === KREA2_URL)
+      ? KREA2_URL
+      : (imageModelUrl === ZIT_URL)
+        ? ZIT_URL
+        : 'custom';
 
   useEffect(() => {
     setSessions(getSessions());
@@ -135,7 +137,9 @@ export default function CharacterSetup({
                   value={currentImageModelSelection}
                   onChange={(e) => {
                     const val = e.target.value;
-                    if (val === 'custom') {
+                    if (val === 'disabled') {
+                      setImageModelUrl('disabled');
+                    } else if (val === 'custom') {
                       const targetUrl = (customImageModelUrl && customImageModelUrl !== KREA2_URL && customImageModelUrl !== ZIT_URL)
                         ? customImageModelUrl
                         : (apiBaseUrl || 'https://odorful-hsiu-unmaledictory.ngrok-free.dev/generate');
@@ -151,8 +155,15 @@ export default function CharacterSetup({
                   <option value={KREA2_URL} className="bg-neutral-900 text-white">Krea 2</option>
                   <option value={ZIT_URL} className="bg-neutral-900 text-white">Z-image turbo (ZiT)</option>
                   <option value="custom" className="bg-neutral-900 text-white">Custom</option>
+                  <option value="disabled" className="bg-neutral-900 text-white">Disable</option>
                 </select>
               </div>
+
+              {currentImageModelSelection === 'disabled' && (
+                <p className="text-[10px] text-amber-400/80 bg-amber-500/10 border border-amber-500/20 px-3 py-2 rounded-xl italic">
+                  Image generation is disabled. The story will proceed with text dialogues and thoughts without generating scene images.
+                </p>
+              )}
 
               {currentImageModelSelection === 'custom' && (
                 <div className="flex flex-col gap-2 pt-2 border-t border-white/5">
@@ -189,7 +200,7 @@ export default function CharacterSetup({
             onClick={() => {
               const isCustom = selectedModel === 'custom';
               const finalApiUrl = isCustom ? apiBaseUrl.trim() : (currentImageModelSelection === 'custom' ? customImageModelUrl.trim() : apiBaseUrl);
-              const finalImageUrl = currentImageModelSelection === 'custom' ? customImageModelUrl.trim() : imageModelUrl;
+              const finalImageUrl = currentImageModelSelection === 'disabled' ? 'disabled' : (currentImageModelSelection === 'custom' ? customImageModelUrl.trim() : imageModelUrl);
               onStart(scenario, !isCustom, finalApiUrl, selectedModel, finalImageUrl);
             }}
             className="w-full bg-accent text-white py-5 rounded-2xl font-bold text-lg hover:bg-accent/90 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg shadow-accent/20 flex items-center justify-center gap-3 group"
