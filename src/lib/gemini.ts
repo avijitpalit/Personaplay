@@ -48,7 +48,7 @@ export async function callOpenRouterGemma(
       "X-Title": "PersonaPlay AI"
     },
     body: JSON.stringify({
-      model: "google/gemma-4-31b-it",
+      model: "google/gemini-3.8-flash",
       messages,
       reasoning: { enabled: true }
     })
