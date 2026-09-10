@@ -9,8 +9,9 @@ export default defineConfig(({mode}) => {
     // base: '/Personaplay/',
     plugins: [react(), tailwindcss()],
     define: {
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.XAI_API_KEY': JSON.stringify(env.XAI_API_KEY),
+      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.CUSTOM_GEMINI_API_KEY || ''),
+      'process.env.OPENROUTER_API_KEY': JSON.stringify(env.OPENROUTER_API_KEY || ''),
+      'process.env.XAI_API_KEY': JSON.stringify(env.XAI_API_KEY || ''),
     },
     resolve: {
       alias: {

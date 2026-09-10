@@ -19,65 +19,49 @@ export interface Message {
   emotions?: string;
 }
 
-// Rotating Gemini API Keys configuration
-// Key 1: Existing key from environment
-// Key 2 & 3: Additional keys provided for round-robin rotation & fallback
-const ROTATING_API_KEYS: string[] = [
-  process.env.GEMINI_API_KEY || "",
-  "AQ.Ab8RN6IVRVR50-vLsWAvlFUN9AyPOaswplOa1m0KMoMwbpn98w",
-  "AIzaSyCKk3ISEMo-zwAI2zwt_e9u_C9iwvpJ0-g",
-];
-
-let currentApiKeyIndex = 0;
-
-export function getAvailableApiKeys(): string[] {
-  return ROTATING_API_KEYS.filter((k): k is string => typeof k === "string" && k.trim().length > 0);
-}
-
-export function getNextApiKey(): string {
-  const keys = getAvailableApiKeys();
-  if (keys.length === 0) return "";
-  const key = keys[currentApiKeyIndex % keys.length];
-  currentApiKeyIndex = (currentApiKeyIndex + 1) % keys.length;
-  return key;
-}
+export const OPENROUTER_GEMMA_MODEL = "openrouter-gemma-4-31b";
 
 export const getAI = (apiKey?: string) => {
-  const key = apiKey || getNextApiKey();
+  const key = apiKey || process.env.GEMINI_API_KEY || "";
   return new GoogleGenAI({ apiKey: key });
 };
 
-export async function executeWithRotatedKeys<T>(
-  fn: (ai: GoogleGenAI, apiKey: string, keyIndex: number) => Promise<T>
-): Promise<T> {
-  const keys = getAvailableApiKeys();
-  if (keys.length === 0) {
-    const ai = new GoogleGenAI({ apiKey: "" });
-    return fn(ai, "", 0);
+export async function callOpenRouterGemma(
+  messages: Array<{ role: string; content: string }>
+): Promise<string> {
+  const apiKey = (
+    process.env.OPENROUTER_API_KEY ||
+    (import.meta as any).env?.VITE_OPENROUTER_API_KEY ||
+    ""
+  ).trim();
+
+  if (!apiKey) {
+    throw new Error("OPENROUTER_API_KEY is not defined in environment variables.");
   }
 
-  const startIndex = currentApiKeyIndex;
-  let lastError: any = null;
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://ai.studio",
+      "X-Title": "PersonaPlay AI"
+    },
+    body: JSON.stringify({
+      model: "google/gemma-4-31b-it",
+      messages,
+      reasoning: { enabled: true }
+    })
+  });
 
-  for (let attempt = 0; attempt < keys.length; attempt++) {
-    const activeIndex = (startIndex + attempt) % keys.length;
-    const key = keys[activeIndex];
-    try {
-      console.log(`[API Key Rotation] Generating with Key #${activeIndex + 1} of ${keys.length} (ends with ...${key.slice(-4)})`);
-      const ai = new GoogleGenAI({ apiKey: key });
-      const result = await fn(ai, key, activeIndex);
-      // Advance rotation counter for the next chat reply
-      currentApiKeyIndex = (activeIndex + 1) % keys.length;
-      return result;
-    } catch (err: any) {
-      lastError = err;
-      console.warn(`[API Key Rotation] Key #${activeIndex + 1} (${key.slice(0, 8)}...${key.slice(-4)}) encountered error, rotating to next key...`, err?.message || err);
-    }
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenRouter API error (${response.status}): ${errorText}`);
   }
 
-  // If all attempts failed, advance pointer so next request tries the next key
-  currentApiKeyIndex = (startIndex + 1) % keys.length;
-  throw lastError;
+  const result = await response.json();
+  const content = result.choices?.[0]?.message?.content || "";
+  return content;
 }
 
 export interface CharacterLivingState {
@@ -388,27 +372,33 @@ export async function generateInitialSetup(
     } catch (e) {
       console.error("External Initial Setup Generation Error:", e);
     }
+  } else if (MODEL === OPENROUTER_GEMMA_MODEL) {
+    try {
+      const text = await callOpenRouterGemma([{ role: "user", content: prompt }]);
+      return parseInitialSetupResponse(text || "");
+    } catch (error) {
+      console.error("OpenRouter Initial Setup Error:", error);
+    }
   } else {
     try {
-      const response = await executeWithRotatedKeys(async (ai) => {
-        return await ai.models.generateContent({
-          model: MODEL,
-          contents: prompt,
-          config: {
-            temperature: 0.5,
-            safetySettings: [
-              { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-              { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-              { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-              { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            ]
-          }
-        });
+      const ai = getAI();
+      const response = await ai.models.generateContent({
+        model: MODEL,
+        contents: prompt,
+        config: {
+          temperature: 0.5,
+          safetySettings: [
+            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          ]
+        }
       });
       const text = response.text || "";
       return parseInitialSetupResponse(text);
     } catch (error) {
-      console.error("Initial Setup Generation Error across all rotated keys:", error);
+      console.error("Initial Setup Generation Error:", error);
     }
   }
 
@@ -478,22 +468,31 @@ export async function generateCharacterDNA(
     } catch (e) {
       console.error("External DNA Generation Error:", e);
     }
+  } else if (MODEL === OPENROUTER_GEMMA_MODEL) {
+    try {
+      const text = await callOpenRouterGemma([{ role: "user", content: prompt }]);
+      const dnaPart = (text || "").trim();
+      responseData = {
+        dna: dnaPart || responseData.dna
+      };
+    } catch (error) {
+      console.error("OpenRouter DNA Generation Error:", error);
+    }
   } else {
     try {
-      const response = await executeWithRotatedKeys(async (ai) => {
-        return await ai.models.generateContent({
-          model: MODEL,
-          contents: prompt,
-          config: {
-            temperature: 0.5,
-            safetySettings: [
-              { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-              { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-              { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-              { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            ]
-          }
-        });
+      const ai = getAI();
+      const response = await ai.models.generateContent({
+        model: MODEL,
+        contents: prompt,
+        config: {
+          temperature: 0.5,
+          safetySettings: [
+            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          ]
+        }
       });
       const text = response.text || "";
       const dnaPart = text.trim();
@@ -502,7 +501,7 @@ export async function generateCharacterDNA(
         dna: dnaPart || responseData.dna
       };
     } catch (error) {
-      console.error("DNA Generation Error across all rotated keys:", error);
+      console.error("DNA Generation Error:", error);
     }
   }
 
@@ -694,35 +693,62 @@ export async function getChatResponse(
     }
   }
 
+  if (MODEL === OPENROUTER_GEMMA_MODEL) {
+    try {
+      const recentHistory = history.slice(-14);
+      const messages = [
+        { role: "system", content: systemInstruction },
+        ...recentHistory.map(m => ({
+          role: m.role === "user" ? "user" : "assistant",
+          content: m.text
+        })),
+        { role: "user", content: userInput }
+      ];
+
+      const content = await callOpenRouterGemma(messages);
+      const parsed = parseChatResponse(content || "", memoryBank || "", lastVisualPrompt);
+      return { 
+        reply: parsed.reply || "I'm lost in the moment... what were you saying?",
+        thoughts: parsed.thoughts,
+        emotions: parsed.emotions,
+        updatedMemories: parsed.updatedMemories,
+        lastVisualPrompt: parsed.lastVisualPrompt,
+        actionDecision: parsed.actionDecision
+      };
+    } catch (error) {
+      console.error("OpenRouter Chat Error:", error);
+      return { reply: "The connection seems to have flickered. Let's try that again.", error: true };
+    }
+  }
+
   try {
     // Slice history to the last 14 messages (approx. 7 back-and-forth turns) to control cost and latency.
     // The details from prior chat turns are preserved/updated in the DYNAMIC MEMORY BANK.
     const recentHistory = history.slice(-14);
+    const ai = getAI();
 
-    const response = await executeWithRotatedKeys(async (ai) => {
-      return await ai.models.generateContent({
-        model: MODEL,
-        contents: [
-          ...recentHistory.map(m => ({
-            role: m.role as "user" | "model",
-            parts: [{ text: m.text }]
-          })),
-          {
-            role: "user",
-            parts: [{ text: userInput }]
-          }
-        ],
-        config: {
-          systemInstruction,
-          temperature: 1.0,
-          safetySettings: [
-            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-          ]
+    const response = await ai.models.generateContent({
+      model: MODEL,
+      contents: [
+        ...recentHistory.map(m => ({
+          role: m.role as "user" | "model",
+          parts: [{ text: m.text }]
+        })),
+        {
+          role: "user",
+          parts: [{ text: userInput }]
         }
-      });
+      ],
+      config: {
+        systemInstruction,
+        temperature: 1.0,
+        safetySettings: [
+          { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        ]
+      }
     });
 
     const parsed = parseChatResponse(response.text || "", memoryBank || "", lastVisualPrompt);
@@ -735,7 +761,7 @@ export async function getChatResponse(
       actionDecision: parsed.actionDecision
     };
   } catch (error) {
-    console.error("Gemini API Error across all rotated keys:", error);
+    console.error("Gemini API Error:", error);
     return { reply: "The connection seems to have flickered. Let's try that again.", error: true };
   }
 }
@@ -878,32 +904,62 @@ export async function getAutonomousCharacterAction(
     }
   }
 
+  if (MODEL === OPENROUTER_GEMMA_MODEL) {
+    try {
+      const recentHistory = history.slice(-14);
+      const messages = [
+        { role: "system", content: systemInstruction },
+        ...recentHistory.map(m => ({
+          role: m.role === "user" ? "user" : "assistant",
+          content: m.text
+        })),
+        {
+          role: "user",
+          content: "[The User is quiet/observing in the room. Continue your background task, thoughts, and decide whether to speak or keep working.]"
+        }
+      ];
+
+      const content = await callOpenRouterGemma(messages);
+      const parsed = parseChatResponse(content || "", memoryBank || "", lastVisualPrompt);
+      return {
+        reply: parsed.reply,
+        thoughts: parsed.thoughts,
+        emotions: parsed.emotions,
+        updatedMemories: parsed.updatedMemories,
+        lastVisualPrompt: parsed.lastVisualPrompt,
+        actionDecision: parsed.actionDecision
+      };
+    } catch (error) {
+      console.error("OpenRouter Autonomous Living Tick Error:", error);
+      return { reply: "", error: true };
+    }
+  }
+
   try {
     const recentHistory = history.slice(-14);
-    const response = await executeWithRotatedKeys(async (ai) => {
-      return await ai.models.generateContent({
-        model: MODEL,
-        contents: [
-          ...recentHistory.map(m => ({
-            role: m.role as "user" | "model",
-            parts: [{ text: m.text }]
-          })),
-          {
-            role: "user",
-            parts: [{ text: "[The User is quiet/observing in the room. Continue your background task, thoughts, and decide whether to speak or keep working.]" }]
-          }
-        ],
-        config: {
-          systemInstruction,
-          temperature: 1.0,
-          safetySettings: [
-            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-          ]
+    const ai = getAI();
+    const response = await ai.models.generateContent({
+      model: MODEL,
+      contents: [
+        ...recentHistory.map(m => ({
+          role: m.role as "user" | "model",
+          parts: [{ text: m.text }]
+        })),
+        {
+          role: "user",
+          parts: [{ text: "[The User is quiet/observing in the room. Continue your background task, thoughts, and decide whether to speak or keep working.]" }]
         }
-      });
+      ],
+      config: {
+        systemInstruction,
+        temperature: 1.0,
+        safetySettings: [
+          { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        ]
+      }
     });
 
     const parsed = parseChatResponse(response.text || "", memoryBank || "", lastVisualPrompt);
@@ -916,7 +972,7 @@ export async function getAutonomousCharacterAction(
       actionDecision: parsed.actionDecision
     };
   } catch (error) {
-    console.error("Gemini Autonomous Living Tick Error across all rotated keys:", error);
+    console.error("Gemini Autonomous Living Tick Error:", error);
     return { reply: "", error: true };
   }
 }
@@ -1032,23 +1088,30 @@ export async function generateVisualPrompt(
     } catch (e) {
       console.error("External Visual Prompt Error:", e);
     }
+  } else if (MODEL === OPENROUTER_GEMMA_MODEL) {
+    try {
+      const text = await callOpenRouterGemma([{ role: "user", content: prompt }]);
+      return enrichBlouselessPrompt(text || lastPrompt || "A hyper-realistic cinematic shot of the scene.");
+    } catch (e) {
+      console.error("OpenRouter Visual Prompt Error:", e);
+      return enrichBlouselessPrompt(lastPrompt || "A hyper-realistic cinematic shot of the scene.");
+    }
   }
 
   try {
-    const response = await executeWithRotatedKeys(async (ai) => {
-      return await ai.models.generateContent({
-        model: MODEL,
-        contents: prompt,
-        config: {
-          temperature: 0.8,
-          safetySettings: [
-            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-          ]
-        }
-      });
+    const ai = getAI();
+    const response = await ai.models.generateContent({
+      model: MODEL,
+      contents: prompt,
+      config: {
+        temperature: 0.8,
+        safetySettings: [
+          { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        ]
+      }
     });
     
     const generatedText = response.text;
@@ -1059,7 +1122,7 @@ export async function generateVisualPrompt(
     
     return enrichBlouselessPrompt(generatedText);
   } catch (error) {
-    console.error("Visual Prompt Generation Error across all rotated keys:", error);
+    console.error("Visual Prompt Generation Error:", error);
     return enrichBlouselessPrompt(lastPrompt || "A hyper-realistic cinematic shot of the scene.");
   }
 }
@@ -1235,21 +1298,33 @@ export async function getUserAutomatedReply(
     }
   }
 
+  if (MODEL === OPENROUTER_GEMMA_MODEL) {
+    try {
+      const text = await callOpenRouterGemma([{ role: "user", content: prompt }]);
+      let cleaned = (text || "").trim();
+      cleaned = cleaned.replace(/^User:\s*/i, "").trim();
+      cleaned = cleaned.replace(/^AI:\s*/i, "").trim();
+      return cleaned || "*steps forward, waiting for you to speak*";
+    } catch (error) {
+      console.error("OpenRouter User Auto-Reply Error:", error);
+      return "*waits in quiet anticipation*";
+    }
+  }
+
   try {
-    const response = await executeWithRotatedKeys(async (ai) => {
-      return await ai.models.generateContent({
-        model: MODEL,
-        contents: prompt,
-        config: {
-          temperature: 0.9,
-          safetySettings: [
-            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-          ]
-        }
-      });
+    const ai = getAI();
+    const response = await ai.models.generateContent({
+      model: MODEL,
+      contents: prompt,
+      config: {
+        temperature: 0.9,
+        safetySettings: [
+          { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        ]
+      }
     });
 
     let cleaned = (response.text || "").trim();
@@ -1257,7 +1332,7 @@ export async function getUserAutomatedReply(
     cleaned = cleaned.replace(/^AI:\s*/i, "").trim();
     return cleaned || "*steps forward, waiting for you to speak*";
   } catch (error) {
-    console.error("Gemini User Auto-Reply Error across all rotated keys:", error);
+    console.error("Gemini User Auto-Reply Error:", error);
     return "*waits in quiet anticipation*";
   }
 }
