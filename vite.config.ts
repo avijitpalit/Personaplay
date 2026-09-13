@@ -12,6 +12,10 @@ export default defineConfig(({mode}) => {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.CUSTOM_GEMINI_API_KEY || ''),
       'process.env.OPENROUTER_API_KEY': JSON.stringify(env.OPENROUTER_API_KEY || ''),
       'process.env.XAI_API_KEY': JSON.stringify(env.XAI_API_KEY || ''),
+      'process.env.RUNPOD_API_KEY': JSON.stringify(env.RUNPOD_API_KEY || ''),
+      'process.env.RUNPOD_ENDPOINT_ID': JSON.stringify(env.RUNPOD_ENDPOINT_ID || ''),
+      'import.meta.env.RUNPOD_API_KEY': JSON.stringify(env.RUNPOD_API_KEY || ''),
+      'import.meta.env.RUNPOD_ENDPOINT_ID': JSON.stringify(env.RUNPOD_ENDPOINT_ID || ''),
     },
     resolve: {
       alias: {

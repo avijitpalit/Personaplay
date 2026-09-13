@@ -47,6 +47,7 @@ import PwaInstallButton from './PwaInstallButton';
 
 const KREA2_URL = 'https://avijitpalit3--krea2-inference-krea2service-fastapi-app.modal.run/generate';
 const ZIT_URL = 'https://avijitpalit3--z-image-turbo-zimageservice-fastapi-app.modal.run/generate';
+const ZIT_RUNPOD_URL = 'zit-runpod';
 
 interface ChatInterfaceProps {
   scenario: string;
@@ -107,10 +108,10 @@ export default function ChatInterface({
     initialSession?.imageModelUrl || initialImageModelUrl || KREA2_URL
   );
   const [customImageModelUrl, setCustomImageModelUrl] = useState<string>(() => {
-    if (initialSession?.imageModelUrl && initialSession.imageModelUrl !== KREA2_URL && initialSession.imageModelUrl !== ZIT_URL && initialSession.imageModelUrl !== 'disabled') {
+    if (initialSession?.imageModelUrl && initialSession.imageModelUrl !== KREA2_URL && initialSession.imageModelUrl !== ZIT_URL && initialSession.imageModelUrl !== ZIT_RUNPOD_URL && initialSession.imageModelUrl !== 'disabled') {
       return initialSession.imageModelUrl;
     }
-    if (initialImageModelUrl && initialImageModelUrl !== KREA2_URL && initialImageModelUrl !== ZIT_URL && initialImageModelUrl !== 'disabled') {
+    if (initialImageModelUrl && initialImageModelUrl !== KREA2_URL && initialImageModelUrl !== ZIT_URL && initialImageModelUrl !== ZIT_RUNPOD_URL && initialImageModelUrl !== 'disabled') {
       return initialImageModelUrl;
     }
     return initialSession?.apiBaseUrl || initialApiBaseUrl || 'https://odorful-hsiu-unmaledictory.ngrok-free.dev/generate';
@@ -118,11 +119,13 @@ export default function ChatInterface({
 
   const currentImageModelSelection = (imageModelUrl === 'disabled') 
     ? 'disabled'
-    : (imageModelUrl === KREA2_URL) 
-      ? KREA2_URL 
-      : (imageModelUrl === ZIT_URL) 
-        ? ZIT_URL 
-        : 'custom';
+    : (imageModelUrl === ZIT_RUNPOD_URL)
+      ? ZIT_RUNPOD_URL
+      : (imageModelUrl === KREA2_URL) 
+        ? KREA2_URL 
+        : (imageModelUrl === ZIT_URL) 
+          ? ZIT_URL 
+          : 'custom';
   const [imageWidthInput, setImageWidthInput] = useState<string>(String(initialSession?.imageWidth || 720));
   const [imageHeightInput, setImageHeightInput] = useState<string>(String(initialSession?.imageHeight || 1280));
   const [imageStepsInput, setImageStepsInput] = useState<string>(String(initialSession?.imageSteps || 8));
@@ -1221,8 +1224,10 @@ export default function ChatInterface({
                         const val = e.target.value;
                         if (val === 'disabled') {
                           setImageModelUrl('disabled');
+                        } else if (val === ZIT_RUNPOD_URL) {
+                          setImageModelUrl(ZIT_RUNPOD_URL);
                         } else if (val === 'custom') {
-                          const targetUrl = (customImageModelUrl && customImageModelUrl !== KREA2_URL && customImageModelUrl !== ZIT_URL)
+                          const targetUrl = (customImageModelUrl && customImageModelUrl !== KREA2_URL && customImageModelUrl !== ZIT_URL && customImageModelUrl !== ZIT_RUNPOD_URL)
                             ? customImageModelUrl
                             : (apiBaseUrl || 'https://odorful-hsiu-unmaledictory.ngrok-free.dev/generate');
                           setImageModelUrl(targetUrl);
@@ -1237,6 +1242,7 @@ export default function ChatInterface({
                       <option value={KREA2_URL} className="bg-neutral-900 text-white">Krea 2</option>
                       <option value={ZIT_URL} className="bg-neutral-900 text-white">Z-image turbo (ZiT)</option>
                       <option value="custom" className="bg-neutral-900 text-white">Custom</option>
+                      <option value={ZIT_RUNPOD_URL} className="bg-neutral-900 text-white">ZiT - Runpod</option>
                       <option value="disabled" className="bg-neutral-900 text-white">Disable</option>
                     </select>
                   </div>

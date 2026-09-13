@@ -6,6 +6,7 @@ import PwaInstallButton from './PwaInstallButton';
 
 const KREA2_URL = 'https://avijitpalit3--krea2-inference-krea2service-fastapi-app.modal.run/generate';
 const ZIT_URL = 'https://avijitpalit3--z-image-turbo-zimageservice-fastapi-app.modal.run/generate';
+const ZIT_RUNPOD_URL = 'zit-runpod';
 
 interface CharacterSetupProps {
   onStart: (scenario: string, useInternalApi: boolean, apiBaseUrl: string, selectedModel: string, imageModelUrl?: string) => void;
@@ -30,11 +31,13 @@ export default function CharacterSetup({
 
   const currentImageModelSelection = (imageModelUrl === 'disabled')
     ? 'disabled'
-    : (imageModelUrl === KREA2_URL)
-      ? KREA2_URL
-      : (imageModelUrl === ZIT_URL)
-        ? ZIT_URL
-        : 'custom';
+    : (imageModelUrl === ZIT_RUNPOD_URL)
+      ? ZIT_RUNPOD_URL
+      : (imageModelUrl === KREA2_URL)
+        ? KREA2_URL
+        : (imageModelUrl === ZIT_URL)
+          ? ZIT_URL
+          : 'custom';
 
   useEffect(() => {
     setSessions(getSessions());
@@ -140,8 +143,10 @@ export default function CharacterSetup({
                     const val = e.target.value;
                     if (val === 'disabled') {
                       setImageModelUrl('disabled');
+                    } else if (val === ZIT_RUNPOD_URL) {
+                      setImageModelUrl(ZIT_RUNPOD_URL);
                     } else if (val === 'custom') {
-                      const targetUrl = (customImageModelUrl && customImageModelUrl !== KREA2_URL && customImageModelUrl !== ZIT_URL)
+                      const targetUrl = (customImageModelUrl && customImageModelUrl !== KREA2_URL && customImageModelUrl !== ZIT_URL && customImageModelUrl !== ZIT_RUNPOD_URL)
                         ? customImageModelUrl
                         : (apiBaseUrl || 'https://odorful-hsiu-unmaledictory.ngrok-free.dev/generate');
                       setImageModelUrl(targetUrl);
@@ -156,6 +161,7 @@ export default function CharacterSetup({
                   <option value={KREA2_URL} className="bg-neutral-900 text-white">Krea 2</option>
                   <option value={ZIT_URL} className="bg-neutral-900 text-white">Z-image turbo (ZiT)</option>
                   <option value="custom" className="bg-neutral-900 text-white">Custom</option>
+                  <option value={ZIT_RUNPOD_URL} className="bg-neutral-900 text-white">ZiT - Runpod</option>
                   <option value="disabled" className="bg-neutral-900 text-white">Disable</option>
                 </select>
               </div>

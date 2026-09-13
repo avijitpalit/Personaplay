@@ -1,4 +1,9 @@
 import { GoogleGenAI, GenerateContentResponse, HarmCategory, HarmBlockThreshold } from "@google/genai";
+import { zImageWorkflow } from "../ZiT_api_workflow.js";
+
+export const KREA2_URL = 'https://avijitpalit3--krea2-inference-krea2service-fastapi-app.modal.run/generate';
+export const ZIT_URL = 'https://avijitpalit3--z-image-turbo-zimageservice-fastapi-app.modal.run/generate';
+export const ZIT_RUNPOD_URL = 'zit-runpod';
 
 export let MODEL = "gemma-4-31b-it";
 
@@ -1127,6 +1132,107 @@ export async function generateVisualPrompt(
   }
 }
 
+export async function generateRunpodImage(
+  prompt: string,
+  width: number = 1024,
+  height: number = 1024,
+  steps: number = 8
+): Promise<{ url: string }> {
+  const ENDPOINT_ID = (
+    (typeof process !== 'undefined' && process.env?.RUNPOD_ENDPOINT_ID) ||
+    (import.meta as any).env?.RUNPOD_ENDPOINT_ID ||
+    (import.meta as any).env?.VITE_RUNPOD_ENDPOINT_ID ||
+    ''
+  ).trim();
+
+  const API_KEY = (
+    (typeof process !== 'undefined' && process.env?.RUNPOD_API_KEY) ||
+    (import.meta as any).env?.RUNPOD_API_KEY ||
+    (import.meta as any).env?.VITE_RUNPOD_API_KEY ||
+    ''
+  ).trim();
+
+  if (!ENDPOINT_ID || !API_KEY) {
+    throw new Error("RUNPOD_API_KEY or RUNPOD_ENDPOINT_ID is not configured in environment variables.");
+  }
+
+  const workflow = JSON.parse(JSON.stringify(zImageWorkflow));
+  if (workflow["67"]?.inputs) {
+    workflow["67"].inputs.text = prompt;
+  }
+  if (workflow["68"]?.inputs) {
+    workflow["68"].inputs.width = width;
+    workflow["68"].inputs.height = height;
+  }
+  if (workflow["70"]?.inputs) {
+    workflow["70"].inputs.steps = steps;
+    workflow["70"].inputs.seed = Math.floor(Math.random() * 1e9);
+  }
+
+  const headers = {
+    'Authorization': `Bearer ${API_KEY}`,
+    'Content-Type': 'application/json',
+  };
+
+  const startResp = await fetch(`https://api.runpod.ai/v2/${ENDPOINT_ID}/run`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ input: { workflow } }),
+  });
+
+  if (!startResp.ok) {
+    const errorText = await startResp.text();
+    throw new Error(`RunPod API error (${startResp.status}): ${errorText}`);
+  }
+
+  const { id: jobId } = await startResp.json();
+  if (!jobId) {
+    throw new Error("RunPod did not return a valid job ID.");
+  }
+
+  const maxAttempts = 120; // 6 minutes timeout (polling every 3s)
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    await new Promise(r => setTimeout(r, 3000));
+    const statusResp = await fetch(
+      `https://api.runpod.ai/v2/${ENDPOINT_ID}/status/${jobId}`,
+      { headers }
+    );
+    if (!statusResp.ok) {
+      continue;
+    }
+    const data = await statusResp.json();
+
+    if (data.status === 'COMPLETED') {
+      let imageSrc: string | null = null;
+      if (data.output?.images?.[0]?.data) {
+        imageSrc = `data:image/png;base64,${data.output.images[0].data}`;
+      } else if (data.output?.images?.[0] && typeof data.output.images[0] === 'string') {
+        imageSrc = data.output.images[0].startsWith('http') || data.output.images[0].startsWith('data:')
+          ? data.output.images[0]
+          : `data:image/png;base64,${data.output.images[0]}`;
+      } else if (data.output?.image) {
+        imageSrc = data.output.image.startsWith('http') || data.output.image.startsWith('data:')
+          ? data.output.image
+          : `data:image/png;base64,${data.output.image}`;
+      } else if (data.output?.images?.[0]?.image) {
+        imageSrc = `data:image/png;base64,${data.output.images[0].image}`;
+      }
+
+      if (!imageSrc) {
+        throw new Error(`RunPod job completed but could not find image in output: ${JSON.stringify(data.output)}`);
+      }
+
+      return { url: imageSrc };
+    }
+
+    if (data.status === 'FAILED' || data.status === 'CANCELLED' || data.status === 'TIMED_OUT') {
+      throw new Error(`RunPod job ${data.status}: ${data.error || JSON.stringify(data.output || data)}`);
+    }
+  }
+
+  throw new Error("RunPod generation timed out after 6 minutes.");
+}
+
 export async function generateImage(
   imageApiUrl: string,
   visualPrompt: string,
@@ -1138,6 +1244,12 @@ export async function generateImage(
   loraName: string = "Krea2_HMNSFW_AIO.safetensors"
 ): Promise<{ url: string } | null> {
   try {
+    let processedPrompt = enrichBlouselessPrompt(visualPrompt?.trim() || "");
+
+    if (imageApiUrl === ZIT_RUNPOD_URL || imageApiUrl === 'zit-runpod') {
+      return await generateRunpodImage(processedPrompt, width, height, steps);
+    }
+
     let url = (imageApiUrl || 'https://avijitpalit3--krea2-inference-krea2service-fastapi-app.modal.run/generate').trim();
 
     // Auto-resolve base URLs (e.g. ngrok root or modal base without /generate)
@@ -1153,7 +1265,6 @@ export async function generateImage(
       }
     }
     
-    let processedPrompt = enrichBlouselessPrompt(visualPrompt?.trim() || "");
     if (enableLora && (loraName === "famegrid_spicy.safetensors" || loraName?.toLowerCase().includes("famegrid"))) {
       const isFamegridPrefixed = /^famegrid\b/i.test(processedPrompt);
       if (!isFamegridPrefixed) {
