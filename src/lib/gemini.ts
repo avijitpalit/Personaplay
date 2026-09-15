@@ -35,20 +35,76 @@ export function cleanApiKey(key?: string): string {
   return k.replace(/^['"]|['"]$/g, '').trim();
 }
 
+async function callDirectGeminiViaRest(
+  params: {
+    model: string;
+    contents: any;
+    config?: any;
+  },
+  apiKey: string
+): Promise<{ text: string }> {
+  const model = params.model || "gemini-3.8-flash";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+  let reqContents = params.contents;
+  if (typeof reqContents === 'string') {
+    reqContents = [{ role: 'user', parts: [{ text: reqContents }] }];
+  } else if (Array.isArray(reqContents)) {
+    reqContents = reqContents.map((item: any) => {
+      if (typeof item === 'string') {
+        return { role: 'user', parts: [{ text: item }] };
+      }
+      return item;
+    });
+  }
+
+  const payload: any = { contents: reqContents };
+  if (params.config?.systemInstruction) {
+    payload.systemInstruction = typeof params.config.systemInstruction === 'string'
+      ? { parts: [{ text: params.config.systemInstruction }] }
+      : params.config.systemInstruction;
+  }
+  if (params.config?.generationConfig) {
+    payload.generationConfig = params.config.generationConfig;
+  }
+  if (params.config?.safetySettings) {
+    payload.safetySettings = params.config.safetySettings;
+  }
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Direct Gemini API call failed (${res.status}): ${errText}`);
+  }
+
+  const data = await res.json();
+  const text = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') || '';
+  return { text };
+}
+
 export async function callGeminiGenerate(params: {
   model: string;
   contents: any;
   config?: any;
 }): Promise<{ text: string }> {
-  const response = await fetch('/api/gemini/generate', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(params),
-  });
+  try {
+    const response = await fetch('/api/gemini/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(params),
+    });
 
-  if (!response.ok) {
+    if (response.ok) {
+      return await response.json();
+    }
+
     let errorMsg = `Gemini API error (${response.status})`;
     try {
       const data = await response.json();
@@ -59,10 +115,39 @@ export async function callGeminiGenerate(params: {
         if (text) errorMsg = text;
       } catch (__) {}
     }
-    throw new Error(errorMsg);
-  }
 
-  return await response.json();
+    // Check if client has a fallback key available when server returns 404 (e.g. on static hosts or pending Vercel function deployment)
+    const clientKey = cleanApiKey(
+      (import.meta as any).env?.VITE_GEMINI_API_KEY ||
+      (typeof process !== 'undefined' && (process.env as any)?.GEMINI_API_KEY) ||
+      (typeof window !== 'undefined' && (window as any).__GEMINI_API_KEY__) ||
+      ""
+    );
+
+    if (response.status === 404 && clientKey) {
+      console.warn("Server endpoint /api/gemini/generate returned 404. Falling back to direct Gemini API call with client key.");
+      return await callDirectGeminiViaRest(params, clientKey);
+    }
+
+    if (response.status === 404) {
+      throw new Error(
+        "API endpoint '/api/gemini/generate' returned 404 Not Found. " +
+        "On Vercel, please deploy the 'api/gemini/generate.ts' serverless function and set 'GEMINI_API_KEY' in your Vercel Project Settings > Environment Variables."
+      );
+    }
+
+    throw new Error(errorMsg);
+  } catch (err: any) {
+    const clientKey = cleanApiKey(
+      (import.meta as any).env?.VITE_GEMINI_API_KEY ||
+      (typeof process !== 'undefined' && (process.env as any)?.GEMINI_API_KEY) ||
+      ""
+    );
+    if (clientKey && (err.message?.includes('404') || err.message?.includes('Failed to fetch'))) {
+      return await callDirectGeminiViaRest(params, clientKey);
+    }
+    throw err;
+  }
 }
 
 export const getAI = (_apiKey?: string) => {
