@@ -10,7 +10,8 @@ import {
   setGlobalModel,
   getAutonomousCharacterAction,
   parseCharacterEmotions,
-  CharacterLivingState
+  CharacterLivingState,
+  cleanDisplayMessage
 } from '../lib/gemini';
 import { 
   Send, 
@@ -1582,7 +1583,7 @@ export default function ChatInterface({
                   <div className={`flex items-center gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     {msg.role === 'user' && (
                       <button
-                        onClick={() => handleCopyMessage(msg.text, i)}
+                        onClick={() => handleCopyMessage(cleanDisplayMessage(msg.text), i)}
                         className={`p-2 rounded-xl border transition-all cursor-pointer flex-shrink-0 flex items-center justify-center ${
                           copiedIndex === i
                             ? 'bg-green-500/20 text-green-400 border-green-500/40'
@@ -1620,7 +1621,7 @@ export default function ChatInterface({
                         : 'glass-panel text-white/90'
                     }`}>
                       <div className="markdown-body text-sm md:text-base leading-snug md:leading-relaxed">
-                        <Markdown>{msg.text}</Markdown>
+                        <Markdown>{cleanDisplayMessage(msg.text)}</Markdown>
                       </div>
                     </div>
                   </div>

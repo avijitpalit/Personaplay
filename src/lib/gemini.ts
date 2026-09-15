@@ -317,69 +317,151 @@ export function enrichBlouselessPrompt(promptText?: string): string {
   return updated;
 }
 
+export function cleanDisplayMessage(text: string): string {
+  if (!text || typeof text !== 'string') return "";
+  let clean = text;
+
+  // 1. Strip all bracketed tag tokens
+  clean = clean.replace(/\[\/?(?:REPLY|THOUGHTS|EMOTIONS|MEMORIES|VISUAL_PROMPT|ACTION_DECISION|SCENE_PROMPT)\]/gi, "");
+
+  // 2. Strip any leaked memory blocks: "Current Attire: ...", "Permanent Visual Anchors: ...", etc.
+  const memoryPatterns = [
+    /(?:^|\n)\s*(?:[-*]\s*)?Current Attire\s*:[\s\S]*$/im,
+    /(?:^|\n)\s*(?:[-*]\s*)?Permanent Visual Anchors\s*:[\s\S]*$/im,
+    /(?:^|\n)\s*(?:[-*]\s*)?Interpersonal Dynamic(?:\s*&\s*Tension)?\s*:[\s\S]*$/im,
+    /(?:^|\n)\s*(?:[-*]\s*)?Ongoing Task(?:\s*&\s*Setting State)?\s*:[\s\S]*$/im,
+    /(?:^|\n)\s*(?:[-*]\s*)?Visual Prompt\s*:[\s\S]*$/im,
+  ];
+
+  for (const pat of memoryPatterns) {
+    clean = clean.replace(pat, "");
+  }
+
+  return clean.trim();
+}
+
 export function parseChatResponse(
   text: string, 
   currentMemory: string = "", 
   lastVisualPrompt?: string
 ): { reply: string; thoughts?: string; emotions?: string; updatedMemories: string; lastVisualPrompt?: string; actionDecision?: 'SPEAK' | 'SILENT_TASK' } {
-  let reply = text.trim();
+  const raw = (text || "").trim();
+  let reply = "";
   let thoughts = "";
   let emotions = "";
   let updatedMemories = currentMemory;
   let visualPrompt = lastVisualPrompt ? enrichBlouselessPrompt(lastVisualPrompt) : lastVisualPrompt;
   let actionDecision: 'SPEAK' | 'SILENT_TASK' | undefined = undefined;
 
-  const replyRegex = /\[REPLY\]([\s\S]*?)(\[\/REPLY\]|\[THOUGHTS\]|\[EMOTIONS\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|\[ACTION_DECISION\]|$)/i;
-  const thoughtsRegex = /\[THOUGHTS\]([\s\S]*?)(\[\/THOUGHTS\]|\[REPLY\]|\[EMOTIONS\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|\[ACTION_DECISION\]|$)/i;
+  // 1. Regexes for standard tagged blocks
+  const thoughtsRegex = /\[THOUGHTS\]([\s\S]*?)(\[\/THOUGHTS\]|\[EMOTIONS\]|\[REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|\[ACTION_DECISION\]|$)/i;
   const emotionsRegex = /\[EMOTIONS\]([\s\S]*?)(\[\/EMOTIONS\]|\[THOUGHTS\]|\[REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|\[ACTION_DECISION\]|$)/i;
-  const memoryRegex = /\[MEMORIES\]([\s\S]*?)(\[\/MEMORIES\]|\[THOUGHTS\]|\[EMOTIONS\]|\[REPLY\]|\[VISUAL_PROMPT\]|\[ACTION_DECISION\]|$)/i;
-  const promptRegex = /\[VISUAL_PROMPT\]([\s\S]*?)(\[\/VISUAL_PROMPT\]|\[THOUGHTS\]|\[EMOTIONS\]|\[REPLY\]|\[MEMORIES\]|\[ACTION_DECISION\]|$)/i;
   const actionRegex = /\[ACTION_DECISION\]([\s\S]*?)(\[\/ACTION_DECISION\]|\[THOUGHTS\]|\[EMOTIONS\]|\[REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|$)/i;
+  const replyRegex = /\[REPLY\]([\s\S]*?)(\[\/REPLY\]|\[MEMORIES\]|\[VISUAL_PROMPT\]|\[THOUGHTS\]|\[EMOTIONS\]|$)/i;
+  const memoryRegex = /\[MEMORIES\]([\s\S]*?)(\[\/MEMORIES\]|\[VISUAL_PROMPT\]|$)/i;
+  const promptRegex = /\[VISUAL_PROMPT\]([\s\S]*?)(\[\/VISUAL_PROMPT\]|$)/i;
 
-  const replyMatch = text.match(replyRegex);
-  const thoughtsMatch = text.match(thoughtsRegex);
-  const emotionsMatch = text.match(emotionsRegex);
-  const memoryMatch = text.match(memoryRegex);
-  const promptMatch = text.match(promptRegex);
-  const actionMatch = text.match(actionRegex);
+  const thoughtsMatch = raw.match(thoughtsRegex);
+  const emotionsMatch = raw.match(emotionsRegex);
+  const actionMatch = raw.match(actionRegex);
+  const replyMatch = raw.match(replyRegex);
+  const memoryMatch = raw.match(memoryRegex);
+  const promptMatch = raw.match(promptRegex);
 
-  if (replyMatch && replyMatch[1]) {
-    reply = replyMatch[1].trim();
-  }
-  if (thoughtsMatch && thoughtsMatch[1]) {
+  if (thoughtsMatch && thoughtsMatch[1]?.trim()) {
     thoughts = thoughtsMatch[1].trim();
   }
-  if (emotionsMatch && emotionsMatch[1]) {
+  if (emotionsMatch && emotionsMatch[1]?.trim()) {
     emotions = emotionsMatch[1].trim();
   }
-  if (actionMatch && actionMatch[1]) {
+  if (actionMatch && actionMatch[1]?.trim()) {
     const actStr = actionMatch[1].trim().toUpperCase();
     actionDecision = actStr.includes('SPEAK') ? 'SPEAK' : 'SILENT_TASK';
   }
-  if (memoryMatch && memoryMatch[1]) {
-    updatedMemories = memoryMatch[1].trim();
-    // Strip empty lines or helper text from model if any
-    updatedMemories = updatedMemories.split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0 && (line.startsWith('-') || line.startsWith('*') || line.match(/^\d+\./) || line.includes(':')))
-      .join('\n');
-  }
-  if (promptMatch && promptMatch[1]) {
+  if (promptMatch && promptMatch[1]?.trim()) {
     visualPrompt = enrichBlouselessPrompt(promptMatch[1].trim());
   }
 
-  // If tags are completely missing, fall back to returning whole text as reply
-  if (!replyMatch && !memoryMatch && !promptMatch && !thoughtsMatch && !emotionsMatch) {
-    const cleanText = text
-      .replace(/\[\/?THOUGHTS\]/gi, '')
-      .replace(/\[\/?EMOTIONS\]/gi, '')
-      .replace(/\[\/?REPLY\]/gi, '')
-      .replace(/\[\/?MEMORIES\]/gi, '')
-      .replace(/\[\/?VISUAL_PROMPT\]/gi, '')
-      .replace(/\[\/?ACTION_DECISION\]/gi, '')
-      .trim();
-    reply = cleanText;
+  // 2. Extract Memories (from tagged block or loose/untagged memory list)
+  let rawMemoryText = "";
+  if (memoryMatch && memoryMatch[1]?.trim()) {
+    rawMemoryText = memoryMatch[1].trim();
+  } else {
+    // Check for untagged memory list starting with Current Attire or - Current Attire
+    const looseMemMatch = raw.match(/(?:(?:^|\n)\s*[-*]?\s*Current Attire\s*:[\s\S]*?)(?=\[VISUAL_PROMPT\]|\[\/?MEMORIES\]|$)/i);
+    if (looseMemMatch) {
+      rawMemoryText = looseMemMatch[0].trim();
+    }
   }
+
+  if (rawMemoryText) {
+    const lines = rawMemoryText
+      .replace(/\[\/?(?:MEMORIES|VISUAL_PROMPT|REPLY|THOUGHTS|EMOTIONS)\]/gi, "")
+      .split("\n")
+      .map(l => l.trim())
+      .filter(l => l.length > 0 && (l.startsWith("-") || l.startsWith("*") || l.includes(":")));
+    
+    if (lines.length > 0) {
+      updatedMemories = lines
+        .map(l => (l.startsWith("- ") || l.startsWith("* ")) ? l : "- " + l.replace(/^[-*]\s*/, ""))
+        .join("\n");
+    }
+  }
+
+  // 3. Fallbacks for emotions and thoughts if model skipped tags in non-English dialogue
+  if (!emotions && updatedMemories) {
+    const tensionMatch = updatedMemories.match(/Interpersonal Dynamic(?:\s*&\s*Tension)?\s*:\s*([^\n]+)/i);
+    const taskMatch = updatedMemories.match(/Ongoing Task(?:\s*&\s*Setting State)?\s*:\s*([^\n]+)/i);
+    const moodVal = tensionMatch ? tensionMatch[1].split(".")[0].trim() : "Responsive & Engaged";
+    const taskVal = taskMatch ? taskMatch[1].split(",")[0].trim() : "Active in scene";
+    const tensionVal = tensionMatch ? tensionMatch[1].trim() : "Moderate Tension (5/10)";
+    emotions = `Mood: ${moodVal} | Somatic Cue: Breath caught, physical awareness heightened | Relational Tension: ${tensionVal} | Speech Drive: High | Active Task: ${taskVal}`;
+  }
+
+  if (!thoughts && updatedMemories) {
+    const tensionMatch = updatedMemories.match(/Interpersonal Dynamic(?:\s*&\s*Tension)?\s*:\s*([^\n]+)/i);
+    thoughts = tensionMatch 
+      ? `(Private thought: ${tensionMatch[1].trim()})`
+      : "Caught off guard by the interaction, trying to keep composure while reacting authentically.";
+  }
+
+  // 4. Synthesize visual prompt if omitted but attire or task updated
+  if (!promptMatch && updatedMemories) {
+    const attireMatch = updatedMemories.match(/Current Attire\s*:\s*([^\n]+)/i);
+    const anchorsMatch = updatedMemories.match(/Permanent Visual Anchors\s*:\s*([^\n]+)/i);
+    const taskMatch = updatedMemories.match(/Ongoing Task(?:\s*&\s*Setting State)?\s*:\s*([^\n]+)/i);
+
+    const attireDesc = attireMatch ? attireMatch[1].trim() : "";
+    const anchorsDesc = anchorsMatch ? anchorsMatch[1].trim() : "";
+    const taskDesc = taskMatch ? taskMatch[1].trim() : "";
+
+    if (attireDesc || taskDesc) {
+      const baseDNA = anchorsDesc ? `${anchorsDesc}.` : "";
+      const baseAttire = attireDesc ? `She is wearing ${attireDesc}.` : "";
+      const baseTask = taskDesc ? `She is ${taskDesc}.` : "";
+      visualPrompt = enrichBlouselessPrompt(
+        `A close-up cinematic eye-level first-person point-of-view shot. ${baseDNA} ${baseAttire} ${baseTask} Authentic HDR cinematic lighting, lifelike skin texture and pores, 35mm film, 85mm f/1.4 lens, shallow depth of field, sharp focus on subject, natural hands and fingers, clean detailed image, no watermark, no text.`
+      );
+    }
+  }
+
+  // 5. Extract Reply Text
+  if (replyMatch && replyMatch[1]?.trim()) {
+    reply = replyMatch[1].trim();
+  } else {
+    // If [REPLY] tag is omitted, remove all other detected blocks
+    let stripped = raw;
+    if (thoughtsMatch) stripped = stripped.replace(thoughtsMatch[0], "");
+    if (emotionsMatch) stripped = stripped.replace(emotionsMatch[0], "");
+    if (actionMatch) stripped = stripped.replace(actionMatch[0], "");
+    if (promptMatch) stripped = stripped.replace(promptMatch[0], "");
+    if (memoryMatch) stripped = stripped.replace(memoryMatch[0], "");
+    stripped = stripped.replace(/(?:(?:^|\n)\s*[-*]?\s*Current Attire\s*:[\s\S]*?)(?=\[VISUAL_PROMPT\]|\[\/?MEMORIES\]|$)/gi, "");
+    reply = stripped;
+  }
+
+  // 6. Comprehensive sanitization of reply to prevent any memory or tag leaks
+  reply = cleanDisplayMessage(reply);
 
   return { reply, thoughts, emotions, updatedMemories, lastVisualPrompt: visualPrompt, actionDecision };
 }
@@ -812,7 +894,15 @@ export async function getChatResponse(
      - EMBEDDED QUALITY & CLEANLINESS CONSTRAINTS (MANDATORY FOR TURBO): Always bake the following positive constraints directly into the end of the prompt: "correct human anatomy, natural hands and fingers, sharp focus on the subject, clean detailed image, no motion blur, no extra limbs, simple uncluttered background, no text, no UI elements, no watermark, no branding, no logos".
      - NATURAL COHESIVE PROSE: Write exactly one continuous, flowing descriptive paragraph without bullet points, without prefix "Prompt:", and without pronouns "I, my, me".
 
-  FORMAT REQUIREMENT:
+  FORMAT REQUIREMENT (CRITICAL - NEVER OMIT TAGS):
+  Even if the user or conversation is in Bengali, Hindi, or any other non-English language:
+  - You MUST ALWAYS begin your response directly with the [THOUGHTS] tag in English.
+  - You MUST output the [EMOTIONS] tag with the metrics in English.
+  - You MUST output [REPLY] containing the AI character's dialogue and physical actions (using Bengali or matching language for speech).
+  - You MUST output [MEMORIES] containing the updated memory bank in English.
+  - You MUST output [VISUAL_PROMPT] containing the visual scene prompt in English.
+  - NEVER place memory variables, attire lines, or closing tags inside [REPLY].
+
   Your output MUST look exactly like this:
   [THOUGHTS]
   <Cognitive-somatic inner monologue / private thoughts in English>
@@ -1022,7 +1112,15 @@ export async function getAutonomousCharacterAction(
      - DYNAMIC ATTIRE (OUTFIT CAN CHANGE): Describe current clothing based on the memory bank and your active background task. If your activity involves changing clothes, drying off in a towel, wearing an apron, or undressing, describe that new clothing state; otherwise carry forward the established attire.
      - Write a 140-200 word Z-Image Turbo compliant prompt capturing your updated posture, hands, and action in the scene right now under ${timeContext} HDR lighting.
 
-  FORMAT REQUIREMENT:
+  FORMAT REQUIREMENT (CRITICAL - NEVER OMIT TAGS):
+  - ALWAYS begin directly with [THOUGHTS] in English.
+  - Follow with [EMOTIONS] in English.
+  - Follow with [ACTION_DECISION] (SPEAK or SILENT_TASK).
+  - Follow with [REPLY] (dialogue/actions).
+  - Follow with [MEMORIES] in English.
+  - Follow with [VISUAL_PROMPT] in English.
+  - NEVER place memory variables or tags inside [REPLY].
+
   [THOUGHTS]
   <Cognitive-somatic inner monologue / private thoughts in English>
   [/THOUGHTS]
