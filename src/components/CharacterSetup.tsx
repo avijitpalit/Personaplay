@@ -109,6 +109,9 @@ export default function CharacterSetup({
                 >
                   <option value="gemma-4-31b-it" className="bg-neutral-900">gemma 31b</option>
                   <option value="gemma-4-26b-a4b-it" className="bg-neutral-900">gemma 24b a4b</option>
+                  <option value="gemini-3.8-flash" className="bg-neutral-900">Gemini 3.8 Flash</option>
+                  <option value="gemini-3.6-flash" className="bg-neutral-900">Gemini 3.6 Flash</option>
+                  <option value="gemini-3.5-flash" className="bg-neutral-900">Gemini 3.5 Flash</option>
                   <option value="openrouter-gemma-4-31b" className="bg-neutral-900">Openrouter Gemma 4 31b</option>
                   <option value="custom" className="bg-neutral-900">Custom</option>
                 </select>
