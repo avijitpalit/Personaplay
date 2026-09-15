@@ -77,7 +77,7 @@ export default function ChatInterface({
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
   const [isLivingThinking, setIsLivingThinking] = useState(false);
-  const [isLivingEngineActive, setIsLivingEngineActive] = useState(true);
+  const [isLivingEngineActive, setIsLivingEngineActive] = useState(false);
   const [showActivityPanel, setShowActivityPanel] = useState(false);
 
   const [bgImage, setBgImage] = useState<string | null>(initialSession?.bgImage || null);
@@ -99,10 +99,11 @@ export default function ChatInterface({
   });
   const [currentSelectedModel, setCurrentSelectedModel] = useState<string>(() => {
     const sModel = initialSession?.selectedModel || selectedModel;
-    if (initialSession?.useInternalApi === false || !initialUseInternalApi || sModel === 'custom') {
-      return 'custom';
-    }
-    return sModel || 'gemma-4-31b-it';
+    const resolved = (initialSession?.useInternalApi === false || !initialUseInternalApi || sModel === 'custom')
+      ? 'custom'
+      : (sModel || 'gemma-4-31b-it');
+    setGlobalModel(resolved);
+    return resolved;
   });
   const [imageModelUrl, setImageModelUrl] = useState<string>(
     initialSession?.imageModelUrl || initialImageModelUrl || KREA2_URL
@@ -265,7 +266,9 @@ export default function ChatInterface({
         characterDNA || "",
         currentMessages,
         memoryBank,
-        useInternalApi ? undefined : { apiBaseUrl }
+        useInternalApi ? undefined : { apiBaseUrl },
+        undefined,
+        currentSelectedModel
       );
 
       if (userReplyText) {
@@ -311,7 +314,8 @@ export default function ChatInterface({
             },
             currentVisualPrompt,
             undefined,
-            talkativenessModeRef.current
+            talkativenessModeRef.current,
+            currentSelectedModel
           );
 
           if (result.error) {
@@ -356,7 +360,9 @@ export default function ChatInterface({
               currentVisualPrompt, 
               useInternalApi ? undefined : { apiBaseUrl }, 
               undefined,
-              result.updatedMemories || memoryBank
+              result.updatedMemories || memoryBank,
+              undefined,
+              currentSelectedModel
             );
             setCurrentVisualPrompt(nextPrompt);
             setIsGeneratingPrompt(false);
@@ -409,7 +415,8 @@ export default function ChatInterface({
         },
         currentPrompt,
         undefined,
-        talkativenessModeRef.current
+        talkativenessModeRef.current,
+        currentSelectedModel
       );
 
       if (!result.error) {
@@ -465,8 +472,28 @@ export default function ChatInterface({
       setIsGeneratingPrompt(true);
 
       try {
-        const setup = await generateInitialSetup(scenario, useInternalApi ? undefined : { apiBaseUrl });
-        setCharacterDNA(setup.dna);
+        const setup = await generateInitialSetup(
+          scenario, 
+          useInternalApi ? undefined : { apiBaseUrl },
+          undefined,
+          currentSelectedModel
+        );
+        let finalDna = setup.dna;
+        if (!finalDna || finalDna === "No character DNA created." || finalDna === "A mysterious character.") {
+          try {
+            const standaloneDna = await generateCharacterDNA(
+              scenario,
+              useInternalApi ? undefined : { apiBaseUrl },
+              currentSelectedModel
+            );
+            if (standaloneDna.dna && standaloneDna.dna !== "A mysterious character." && standaloneDna.dna !== "No character DNA created.") {
+              finalDna = standaloneDna.dna;
+            }
+          } catch (fallbackErr) {
+            console.error("Standalone DNA generation fallback error:", fallbackErr);
+          }
+        }
+        setCharacterDNA(finalDna);
         let finalPrompt = setup.visualPrompt;
         setCurrentVisualPrompt(setup.visualPrompt);
         setIsGeneratingPrompt(false);
@@ -475,11 +502,14 @@ export default function ChatInterface({
         setStatusBarMessage("Character is starting active routine in background...");
         const firstLivingAction = await getAutonomousCharacterAction(
           scenario,
-          setup.dna,
+          finalDna,
           [],
           "",
           useInternalApi ? undefined : { apiBaseUrl },
-          setup.visualPrompt
+          setup.visualPrompt,
+          undefined,
+          talkativenessMode,
+          currentSelectedModel
         );
 
         if (!firstLivingAction.error) {
@@ -614,7 +644,8 @@ export default function ChatInterface({
       },
       currentVisualPrompt,
       undefined,
-      talkativenessMode
+      talkativenessMode,
+      currentSelectedModel
     );
 
     if (result.error) {
@@ -660,7 +691,9 @@ export default function ChatInterface({
         currentVisualPrompt, 
         useInternalApi ? undefined : { apiBaseUrl }, 
         undefined,
-        result.updatedMemories || memoryBank
+        result.updatedMemories || memoryBank,
+        undefined,
+        currentSelectedModel
       );
       setCurrentVisualPrompt(nextPrompt);
       setIsGeneratingPrompt(false);
@@ -693,7 +726,10 @@ export default function ChatInterface({
         dna: characterDNA || undefined,
         lastVisualPrompt: currentVisualPrompt
       },
-      currentVisualPrompt
+      currentVisualPrompt,
+      undefined,
+      talkativenessMode,
+      currentSelectedModel
     );
 
     if (result.error) {
@@ -737,7 +773,9 @@ export default function ChatInterface({
         currentVisualPrompt, 
         useInternalApi ? undefined : { apiBaseUrl }, 
         undefined,
-        result.updatedMemories || memoryBank
+        result.updatedMemories || memoryBank,
+        undefined,
+        currentSelectedModel
       );
       setCurrentVisualPrompt(nextPrompt);
       setIsGeneratingPrompt(false);
@@ -1440,41 +1478,76 @@ export default function ChatInterface({
         </AnimatePresence>
       </header>
 
-      {/* Floating Action Buttons - Water Drop Style */}
-      <div className="fixed bottom-[30%] right-0 z-30 flex flex-col gap-2">
+      {/* Floating Action Buttons - Water Drop Style (4 compact buttons) */}
+      <div className="fixed bottom-[26%] right-0 z-30 flex flex-col gap-1.5">
+        {/* 1. Auto-Reply Loop Button */}
         <button 
+          id="btn-auto-reply"
           onClick={() => setIsAutoReplyEnabled(!isAutoReplyEnabled)}
-          className={`p-4 pl-6 bg-white/10 backdrop-blur-3xl border-y border-l border-white/20 rounded-l-full text-white hover:bg-white/20 transition-all shadow-2xl relative z-10 ${
+          className={`p-2.5 pl-4 bg-white/10 backdrop-blur-3xl border-y border-l border-white/20 rounded-l-full text-white hover:bg-white/20 transition-all shadow-xl relative z-10 ${
             isAutoReplyEnabled ? 'bg-green-500/20 border-green-500/30' : ''
           }`}
           title={isAutoReplyEnabled ? "Pause Auto-Reply Loop" : "Play Auto-Reply Loop"}
         >
           {isGeneratingAutoReply ? (
-            <Loader2 size={22} className="animate-spin text-green-400" />
+            <Loader2 size={18} className="animate-spin text-green-400" />
           ) : isAutoReplyEnabled ? (
-            <Pause size={22} className="text-green-400 fill-green-400/20 animate-pulse" />
+            <Pause size={18} className="text-green-400 fill-green-400/20 animate-pulse" />
           ) : (
-            <Play size={22} className="text-white fill-white/15" />
+            <Play size={18} className="text-white fill-white/15" />
           )}
         </button>
+
+        {/* 2. Live Tick Trigger Button */}
         <button 
+          id="btn-live-tick"
+          onClick={() => executeAutonomousLivingTick()}
+          disabled={isLivingThinking || isLoading}
+          className={`p-2.5 pl-4 bg-white/10 backdrop-blur-3xl border-y border-l border-white/20 rounded-l-full text-white hover:bg-white/20 transition-all shadow-xl relative z-10 disabled:opacity-50 cursor-pointer ${
+            isLivingThinking
+              ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+              : isLivingEngineActive
+              ? 'bg-emerald-500/20 border-emerald-500/35 text-emerald-300'
+              : ''
+          }`}
+          title={
+            isLivingThinking
+              ? "Character is currently thinking & acting..."
+              : isLivingEngineActive
+              ? "Live Tick Now (Live Engine is Active)"
+              : "Live Tick: Trigger character routine & thoughts"
+          }
+        >
+          {isLivingThinking ? (
+            <Loader2 size={18} className="animate-spin text-amber-400" />
+          ) : (
+            <Sparkles size={18} className={isLivingEngineActive ? "text-emerald-400" : "text-white/80"} />
+          )}
+        </button>
+
+        {/* 3. Image Generate / Visualize Scene Button */}
+        <button 
+          id="btn-generate-image"
           onClick={handleGenerateImage}
           disabled={isGeneratingImage || isGeneratingPrompt || !currentVisualPrompt}
-          className={`p-4 pl-6 bg-white/10 backdrop-blur-3xl border-y border-l border-white/20 rounded-l-full text-white hover:bg-white/20 transition-all shadow-2xl relative z-10 ${isGeneratingImage || isGeneratingPrompt ? 'bg-accent/30 border-accent/40 brightness-125' : ''} ${currentImageModelSelection === 'disabled' ? 'opacity-50' : ''}`}
+          className={`p-2.5 pl-4 bg-white/10 backdrop-blur-3xl border-y border-l border-white/20 rounded-l-full text-white hover:bg-white/20 transition-all shadow-xl relative z-10 ${isGeneratingImage || isGeneratingPrompt ? 'bg-accent/30 border-accent/40 brightness-125' : ''} ${currentImageModelSelection === 'disabled' ? 'opacity-50' : ''}`}
           title={currentImageModelSelection === 'disabled' ? "Image generation is disabled (Click to configure in settings)" : isGeneratingImage ? "Visualizing..." : isGeneratingPrompt ? "Updating Prompt..." : "Visualize Scene"}
         >
           {isGeneratingImage || isGeneratingPrompt ? (
-            <Loader2 size={22} className="animate-spin text-accent" />
+            <Loader2 size={18} className="animate-spin text-accent" />
           ) : (
-            <ImageIcon size={22} className={currentImageModelSelection === 'disabled' ? 'text-white/40' : 'text-white'} />
+            <ImageIcon size={18} className={currentImageModelSelection === 'disabled' ? 'text-white/40' : 'text-white'} />
           )}
         </button>
+
+        {/* 4. Show / Hide Image & Chat Button */}
         <button 
+          id="btn-toggle-chat"
           onClick={() => setShowChat(!showChat)}
-          className={`p-4 pl-6 bg-white/10 backdrop-blur-3xl border-y border-l border-white/20 rounded-l-full text-white hover:bg-white/20 transition-all shadow-2xl ${!showChat ? 'bg-accent/30 border-accent/40' : ''}`}
+          className={`p-2.5 pl-4 bg-white/10 backdrop-blur-3xl border-y border-l border-white/20 rounded-l-full text-white hover:bg-white/20 transition-all shadow-xl ${!showChat ? 'bg-accent/30 border-accent/40' : ''}`}
           title={showChat ? "Show Image (Hide Chat)" : "Show Chat"}
         >
-          {showChat ? <EyeOff size={22} /> : <Eye size={22} />}
+          {showChat ? <EyeOff size={18} /> : <Eye size={18} />}
         </button>
       </div>
 

@@ -1,4 +1,4 @@
-import { GoogleGenAI, GenerateContentResponse, HarmCategory, HarmBlockThreshold } from "@google/genai";
+import { HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { zImageWorkflow } from "../ZiT_api_workflow.js";
 
 export const KREA2_URL = 'https://avijitpalit3--krea2-inference-krea2service-fastapi-app.modal.run/generate';
@@ -26,19 +26,67 @@ export interface Message {
 
 export const OPENROUTER_GEMMA_MODEL = "openrouter-gemma-4-31b";
 
-export const getAI = (apiKey?: string) => {
-  const key = apiKey || process.env.GEMINI_API_KEY || "";
-  return new GoogleGenAI({ apiKey: key });
+export function cleanApiKey(key?: string): string {
+  if (!key) return '';
+  let k = key.trim();
+  if (k.includes('=')) {
+    k = k.split('=').slice(1).join('=').trim();
+  }
+  return k.replace(/^['"]|['"]$/g, '').trim();
+}
+
+export async function callGeminiGenerate(params: {
+  model: string;
+  contents: any;
+  config?: any;
+}): Promise<{ text: string }> {
+  const response = await fetch('/api/gemini/generate', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(params),
+  });
+
+  if (!response.ok) {
+    let errorMsg = `Gemini API error (${response.status})`;
+    try {
+      const data = await response.json();
+      if (data?.error) errorMsg = data.error;
+    } catch (_) {
+      try {
+        const text = await response.text();
+        if (text) errorMsg = text;
+      } catch (__) {}
+    }
+    throw new Error(errorMsg);
+  }
+
+  return await response.json();
+}
+
+export const getAI = (_apiKey?: string) => {
+  return {
+    models: {
+      generateContent: async (params: { model: string; contents: any; config?: any }) => {
+        const res = await callGeminiGenerate(params);
+        return {
+          text: res.text,
+        };
+      },
+    },
+  };
 };
 
 export async function callOpenRouterGemma(
   messages: Array<{ role: string; content: string }>
 ): Promise<string> {
-  const apiKey = (
+  const rawApiKey = (
     process.env.OPENROUTER_API_KEY ||
     (import.meta as any).env?.VITE_OPENROUTER_API_KEY ||
     ""
   ).trim();
+  const apiKey = cleanApiKey(rawApiKey);
 
   if (!apiKey) {
     throw new Error("OPENROUTER_API_KEY is not defined in environment variables.");
@@ -255,26 +303,40 @@ export function parseInitialSetupResponse(text: string): { dna: string; visualPr
   let dna = "";
   let visualPrompt = "";
 
-  const dnaRegex = /\[CHARACTER_DNA\]([\s\S]*?)(\[\/CHARACTER_DNA\]|\[INITIAL_VISUAL_PROMPT\]|$)/i;
-  const promptRegex = /\[INITIAL_VISUAL_PROMPT\]([\s\S]*?)(\[\/INITIAL_VISUAL_PROMPT\]|\[CHARACTER_DNA\]|$)/i;
+  const dnaRegex = /(?:\[|\*\*\[?|#+\s*)CHARACTER_DNA(?:\]|\*+\s*\]|[:\s]*\]?)([\s\S]*?)(?:\[|\*\*\[?|#+\s*)\/?(?:CHARACTER_DNA|INITIAL_VISUAL_PROMPT|$)/i;
+  const promptRegex = /(?:\[|\*\*\[?|#+\s*)INITIAL_VISUAL_PROMPT(?:\]|\*+\s*\]|[:\s]*\]?)([\s\S]*?)(?:\[|\*\*\[?|#+\s*)\/?(?:INITIAL_VISUAL_PROMPT|CHARACTER_DNA|$)/i;
 
   const dnaMatch = text.match(dnaRegex);
   const promptMatch = text.match(promptRegex);
 
   if (dnaMatch && dnaMatch[1]) {
-    dna = dnaMatch[1].trim();
+    dna = dnaMatch[1].replace(/^[\]:\s*-]+/, '').replace(/\]\*\*?$/i, '').trim();
   }
   if (promptMatch && promptMatch[1]) {
-    visualPrompt = enrichBlouselessPrompt(promptMatch[1].trim());
+    visualPrompt = enrichBlouselessPrompt(promptMatch[1].replace(/^[\]:\s*-]+/, '').replace(/\]\*\*?$/i, '').trim());
   }
 
-  // Fallback if tags are completely missing or malformed
+  // Fallback if tags are partially missing or formatted as headings
+  if (!dna) {
+    const dnaAltMatch = text.match(/(?:###|\*\*|#)?\s*(?:PART 1:?\s*)?(?:CHARACTER DNA|CHARACTER BLUEPRINT|CHARACTER VISUAL BLUEPRINT)[^\n]*\n([\s\S]*?)(?=(?:###|\*\*|#)?\s*(?:PART 2|INITIAL VISUAL PROMPT|\[INITIAL_VISUAL_PROMPT\]|$))/i);
+    if (dnaAltMatch && dnaAltMatch[1]) {
+      dna = dnaAltMatch[1].replace(/^[\]:\s*-]+/, '').trim();
+    }
+  }
+  if (!visualPrompt) {
+    const promptAltMatch = text.match(/(?:###|\*\*|#)?\s*(?:PART 2:?\s*)?(?:INITIAL VISUAL PROMPT|VISUAL SCENE PROMPT)[^\n]*\n([\s\S]*?)(?=(?:###|\*\*|#)?\s*(?:PART 1|CHARACTER DNA|\[CHARACTER_DNA\]|$))/i);
+    if (promptAltMatch && promptAltMatch[1]) {
+      visualPrompt = enrichBlouselessPrompt(promptAltMatch[1].replace(/^[\]:\s*-]+/, '').trim());
+    }
+  }
+
+  // Fallback if tags are completely missing
   if (!dna && !visualPrompt) {
     const parts = text.split(/PART 2|INITIAL VISUAL PROMPT|\[INITIAL_VISUAL_PROMPT\]/i);
     if (parts.length >= 2) {
-      dna = parts[0].replace(/\[\/?CHARACTER_DNA\]/gi, "").trim();
-      visualPrompt = enrichBlouselessPrompt(parts[1].replace(/\[\/?INITIAL_VISUAL_PROMPT\]/gi, "").trim());
-    } else {
+      dna = parts[0].replace(/\[\/?CHARACTER_DNA\]/gi, "").replace(/^[\]:\s*-]+/, '').trim();
+      visualPrompt = enrichBlouselessPrompt(parts[1].replace(/\[\/?INITIAL_VISUAL_PROMPT\]/gi, "").replace(/^[\]:\s*-]+/, '').trim());
+    } else if (text.trim().length > 30) {
       dna = text.trim();
       visualPrompt = "A cinematic over-the-shoulder shot capturing the atmosphere of the scenario.";
     }
@@ -289,8 +351,10 @@ export function parseInitialSetupResponse(text: string): { dna: string; visualPr
 export async function generateInitialSetup(
   scenario: string,
   externalApiConfig?: { apiBaseUrl: string },
-  timeOfDay?: string
+  timeOfDay?: string,
+  modelName?: string
 ): Promise<{ dna: string; visualPrompt: string }> {
+  const activeModel = modelName || MODEL;
   const timeContext = getTimeOfDayContext(timeOfDay);
   const prompt = `You are a professional artist, master character designer, and expert image prompt engineer.
   Based on this initial story setting, you need to set up BOTH the Character DNA visual blueprints AND generate the very first visual scene prompt.
@@ -330,15 +394,12 @@ export async function generateInitialSetup(
   [Camera Shot & Subject Profile] + [Age, Appearance & Defined Persona Traits] + [Explicit Clothing, Fabric & Colors] + [Environment/Setting & Spatial Layout] + [Lighting & Time of Day Ambiance] + [Atmosphere & Mood] + [Photographic Medium & Lens Optics] + [Embedded Quality & Cleanliness Constraints].
 
   Rules for this prompt:
-  - CRITICAL ANATOMICAL DETAIL RULE FOR BLOOUSELESS / NO-BLOUSE ATTIRE:
-    Diffusion image models CANNOT correctly render negative phrasing like "no blouse", "without blouse", or "blouseless" (they mistakenly render a blouse or distort the clothing).
-    Whenever a character is blouseless or wearing a saree without a blouse:
-    * NEVER rely merely on "no blouse" or "blouseless" alone.
-    * You MUST provide explicit, positive descriptive anatomical and drapery detail text according to the scene context, such as: "bare torso, exposed side breast, bare midriff, bare shoulders and back draped solely with the single fabric layer of the saree pallu across the chest, unclad upper body, visible collarbones and natural skin contours".
-    * Vividly describe the exposed skin areas, curve of the torso/breast, and the way the fabric drapes across the bare skin so the image generator accurately renders the blouseless attire.
+  - ATTIRE RENDERING FOR TRADITIONAL OR SPECIALIZED DRAPERY:
+    Diffusion image models respond best to positive descriptions rather than negative phrasing (such as avoiding words like "no blouse" or "without blouse" which confuse image synthesizers).
+    Whenever rendering traditional draped attire (such as a saree with pallu draped directly over the torso and shoulder), describe the visible fabric texture, drape, collarbones, midriff, and neckline positively and naturally to reflect the scene context faithfully.
   - COMPOSITION & FIRST-PERSON POV: A close-up headshot or medium eye-level shot taken from a strict first-person point-of-view of the User character looking directly at the AI character. The User is completely invisible to the frame. The AI character looks directly into the camera lens with a natural, engaging expression.
   - SUBJECT WITH DEFINED FACE & BODY BLUEPRINT: Explicitly describe the AI character as an adult with their persona, weaving in their exact facial architecture (face shape, cheekbones, eye color/shape, lips, natural skin texture) and body build/shape from the Character DNA.
-  - EXPLICIT ATTIRE SPECIFICATION: Fully define the starting outfit (specific garment type, exact color, fabric/weave, jewelry/accessories) from Character DNA. Translate intimate/bare states explicitly (e.g. "bare natural upper-body skin", "completely shirtless with realistic skin texture").
+  - EXPLICIT ATTIRE SPECIFICATION: Fully define the starting outfit (specific garment type, exact color, fabric/weave, jewelry/accessories) from Character DNA.
   - UNCLUTTERED ENVIRONMENT: Describe a focused, uncluttered environment with clean background separation and realistic depth.
   - HDR LIGHTING & TIME OF DAY: Lighting MUST reflect the current time of day (${timeContext}) with authentic High Dynamic Range (HDR) photographic lighting: balanced exposure preserving highlights and deep natural shadows, soft directional key lighting, gentle ambient bounce fill, delicate rim light outlining hair and shoulders, and natural specular highlights with subtle subsurface scattering on skin.
   - PHOTOGRAPHIC MEDIUM & OPTICS: "Shot on 35mm film, 85mm f/1.4 lens, shallow depth of field, natural bokeh, lifelike skin pores and texture, realistic volumetric lighting".
@@ -372,15 +433,21 @@ export async function generateInitialSetup(
       });
       if (response.ok) {
         const text = await response.text();
-        return parseInitialSetupResponse(text || "");
+        const parsed = parseInitialSetupResponse(text || "");
+        if (parsed.dna && parsed.dna !== "No character DNA created." && parsed.dna !== "A mysterious character.") {
+          return parsed;
+        }
       }
     } catch (e) {
       console.error("External Initial Setup Generation Error:", e);
     }
-  } else if (MODEL === OPENROUTER_GEMMA_MODEL) {
+  } else if (activeModel === OPENROUTER_GEMMA_MODEL) {
     try {
       const text = await callOpenRouterGemma([{ role: "user", content: prompt }]);
-      return parseInitialSetupResponse(text || "");
+      const parsed = parseInitialSetupResponse(text || "");
+      if (parsed.dna && parsed.dna !== "No character DNA created." && parsed.dna !== "A mysterious character.") {
+        return parsed;
+      }
     } catch (error) {
       console.error("OpenRouter Initial Setup Error:", error);
     }
@@ -388,7 +455,7 @@ export async function generateInitialSetup(
     try {
       const ai = getAI();
       const response = await ai.models.generateContent({
-        model: MODEL,
+        model: activeModel,
         contents: prompt,
         config: {
           temperature: 0.5,
@@ -401,10 +468,27 @@ export async function generateInitialSetup(
         }
       });
       const text = response.text || "";
-      return parseInitialSetupResponse(text);
+      const parsed = parseInitialSetupResponse(text);
+      if (parsed.dna && parsed.dna !== "No character DNA created." && parsed.dna !== "A mysterious character.") {
+        return parsed;
+      }
+      responseData.visualPrompt = parsed.visualPrompt || responseData.visualPrompt;
     } catch (error) {
       console.error("Initial Setup Generation Error:", error);
     }
+  }
+
+  // Guaranteed fallback: If combined generation did not yield DNA, run targeted DNA generation
+  try {
+    const fallbackDna = await generateCharacterDNA(scenario, externalApiConfig, activeModel);
+    if (fallbackDna.dna && fallbackDna.dna !== "No character DNA created." && fallbackDna.dna !== "A mysterious character.") {
+      return {
+        dna: fallbackDna.dna,
+        visualPrompt: responseData.visualPrompt
+      };
+    }
+  } catch (fbErr) {
+    console.error("Fallback DNA creation failed:", fbErr);
   }
 
   return responseData;
@@ -412,8 +496,10 @@ export async function generateInitialSetup(
 
 export async function generateCharacterDNA(
   scenario: string, 
-  externalApiConfig?: { apiBaseUrl: string }
+  externalApiConfig?: { apiBaseUrl: string },
+  modelName?: string
 ): Promise<{ dna: string }> {
+  const activeModel = modelName || MODEL;
   const prompt = `You are a professional artist and master character designer setting up precise character blueprints (DNA) for photorealistic image engines.
   Based on this initial story setting, identify the central AI characters and generate a highly detailed visual consistency configuration for EACH AI character.
 
@@ -473,7 +559,7 @@ export async function generateCharacterDNA(
     } catch (e) {
       console.error("External DNA Generation Error:", e);
     }
-  } else if (MODEL === OPENROUTER_GEMMA_MODEL) {
+  } else if (activeModel === OPENROUTER_GEMMA_MODEL) {
     try {
       const text = await callOpenRouterGemma([{ role: "user", content: prompt }]);
       const dnaPart = (text || "").trim();
@@ -487,7 +573,7 @@ export async function generateCharacterDNA(
     try {
       const ai = getAI();
       const response = await ai.models.generateContent({
-        model: MODEL,
+        model: activeModel,
         contents: prompt,
         config: {
           temperature: 0.5,
@@ -526,8 +612,10 @@ export async function getChatResponse(
   },
   lastVisualPrompt?: string,
   timeOfDay?: string,
-  talkativenessMode?: 'auto' | 'quiet' | 'balanced' | 'chatty'
+  talkativenessMode?: 'auto' | 'quiet' | 'balanced' | 'chatty',
+  modelName?: string
 ): Promise<ChatResult> {
+  const activeModel = modelName || MODEL;
   const timeContext = getTimeOfDayContext(timeOfDay);
   const systemInstruction = `You are an expert interactive roleplayer, psychological behavior specialist, and master image prompt engineer.
   
@@ -626,12 +714,9 @@ export async function getChatResponse(
      Follow the Z-IMAGE TURBO PROMPT SCAFFOLD strictly:
      [Camera Shot & Subject Profile] + [Age, Appearance & Defined Persona Traits] + [Micro-Expression & Somatic Posture] + [Explicit Clothing, Fabric & Colors] + [Environment/Setting & Spatial Layout] + [Lighting & Time of Day Ambiance] + [Atmosphere & Mood] + [Photographic Medium & Lens Optics] + [Embedded Quality & Cleanliness Constraints].
 
-     - CRITICAL ANATOMICAL DETAIL RULE FOR BLOOUSELESS / NO-BLOUSE ATTIRE:
-       Diffusion image models CANNOT correctly render negative phrasing like "no blouse", "without blouse", or "blouseless" (they mistakenly render a blouse or distort the clothing).
-       Whenever a character is blouseless or wearing a saree without a blouse:
-       * NEVER rely merely on "no blouse" or "blouseless" alone.
-       * You MUST provide explicit, positive descriptive anatomical and drapery detail text according to the scene context, such as: "bare torso, exposed side breast, bare midriff, bare shoulders and back draped solely with the single fabric layer of the [color/pattern] saree pallu across the chest, unclad upper body, visible collarbones and natural skin contours".
-       * Vividly describe the exposed skin areas, curve of the torso/breast, and the way the fabric drapes across the bare skin so the image generator accurately renders the blouseless attire.
+     - ATTIRE RENDERING FOR TRADITIONAL OR SPECIALIZED DRAPERY:
+       Diffusion image models respond best to positive descriptions rather than negative phrasing (such as avoiding words like "no blouse" or "without blouse" which confuse image synthesizers).
+       Whenever rendering traditional draped attire (such as a saree with pallu draped directly over the torso and shoulder), describe the visible fabric texture, drape, collarbones, midriff, and neckline positively and naturally to reflect the scene context faithfully.
      - COMPOSITION & FIRST-PERSON POV: A close-up headshot or medium eye-level shot taken from a strict first-person point-of-view of the User character looking directly at the AI character. The User is completely invisible to the frame.
      - MICRO-EXPRESSIONS & SOMATIC POSTURE: Capture the exact facial micro-expression (e.g. self-conscious flush across cheekbones, averted eyes, playful half-smile, intense gaze) and physical posture (e.g. hand adjusting garment, pausing over kitchen counter, standing half-turned).
      - SUBJECT FACE & BODY SHAPE (MAXIMUM FIDELITY): Explicitly describe the AI character embedding their exact facial architecture (face shape, cheekbones, jawline, eye color & shape, nose, lips, natural skin pores and micro-texture) and body build/shape (height, somatotype, curves/musculature, torso/waist proportions) from Character DNA.
@@ -698,7 +783,7 @@ export async function getChatResponse(
     }
   }
 
-  if (MODEL === OPENROUTER_GEMMA_MODEL) {
+  if (activeModel === OPENROUTER_GEMMA_MODEL) {
     try {
       const recentHistory = history.slice(-14);
       const messages = [
@@ -733,7 +818,7 @@ export async function getChatResponse(
     const ai = getAI();
 
     const response = await ai.models.generateContent({
-      model: MODEL,
+      model: activeModel,
       contents: [
         ...recentHistory.map(m => ({
           role: m.role as "user" | "model",
@@ -783,8 +868,10 @@ export async function getAutonomousCharacterAction(
   },
   lastVisualPrompt?: string,
   timeOfDay?: string,
-  talkativenessMode?: 'auto' | 'quiet' | 'balanced' | 'chatty'
+  talkativenessMode?: 'auto' | 'quiet' | 'balanced' | 'chatty',
+  modelName?: string
 ): Promise<ChatResult> {
+  const activeModel = modelName || MODEL;
   const timeContext = getTimeOfDayContext(timeOfDay);
   const systemInstruction = `You are an expert interactive roleplayer, psychological behavior specialist, and master image prompt engineer.
   
@@ -843,12 +930,9 @@ export async function getAutonomousCharacterAction(
      Mood: <Current mood in English> | Somatic Cue: <Involuntary physical sensation/reflex in English> | Relational Tension: <e.g. Flustered (6/10) / Comfortable / Guarded in English> | Speech Drive: <Low (Non-verbal) / Moderate / High / Aloof in English> | Active Task: <Specific ongoing activity in English>
 
   5. MANDATORY FACE & BODY SHAPE REPLICATION & DYNAMIC ATTIRE SCENE PROMPT ([VISUAL_PROMPT]):
-     - CRITICAL ANATOMICAL DETAIL RULE FOR BLOOUSELESS / NO-BLOUSE ATTIRE:
-       Diffusion image models CANNOT correctly render negative phrasing like "no blouse", "without blouse", or "blouseless" (they mistakenly render a blouse or distort the clothing).
-       Whenever a character is blouseless or wearing a saree without a blouse:
-       * NEVER rely merely on "no blouse" or "blouseless" alone.
-       * You MUST provide explicit, positive descriptive anatomical and drapery detail text according to the scene context, such as: "bare torso, exposed side breast, bare midriff, bare shoulders and back draped solely with the single fabric layer of the saree pallu across the chest, unclad upper body, visible collarbones and natural skin contours".
-       * Vividly describe the exposed skin areas, curve of the torso/breast, and the way the fabric drapes across the bare skin so the image generator accurately renders the blouseless attire.
+     - ATTIRE RENDERING FOR TRADITIONAL OR SPECIALIZED DRAPERY:
+       Diffusion image models respond best to positive descriptions rather than negative phrasing (such as avoiding words like "no blouse" or "without blouse" which confuse image synthesizers).
+       Whenever rendering traditional draped attire (such as a saree with pallu draped directly over the torso and shoulder), describe the visible fabric texture, drape, collarbones, midriff, and neckline positively and naturally to reflect the scene context faithfully.
      - You MUST faithfully carry over the AI character's exact facial architecture (face shape, jawline, eye color & shape, nose, lips, realistic skin texture) and body build/shape (height, somatotype, curves/frame, torso/waist proportions) from CHARACTER DNA.
      - DYNAMIC ATTIRE (OUTFIT CAN CHANGE): Describe current clothing based on the memory bank and your active background task. If your activity involves changing clothes, drying off in a towel, wearing an apron, or undressing, describe that new clothing state; otherwise carry forward the established attire.
      - Write a 140-200 word Z-Image Turbo compliant prompt capturing your updated posture, hands, and action in the scene right now under ${timeContext} HDR lighting.
@@ -909,7 +993,7 @@ export async function getAutonomousCharacterAction(
     }
   }
 
-  if (MODEL === OPENROUTER_GEMMA_MODEL) {
+  if (activeModel === OPENROUTER_GEMMA_MODEL) {
     try {
       const recentHistory = history.slice(-14);
       const messages = [
@@ -944,7 +1028,7 @@ export async function getAutonomousCharacterAction(
     const recentHistory = history.slice(-14);
     const ai = getAI();
     const response = await ai.models.generateContent({
-      model: MODEL,
+      model: activeModel,
       contents: [
         ...recentHistory.map(m => ({
           role: m.role as "user" | "model",
@@ -990,8 +1074,10 @@ export async function generateVisualPrompt(
   externalApiConfig?: { apiBaseUrl: string },
   masterStory?: string,
   memoryBank?: string,
-  timeOfDay?: string
+  timeOfDay?: string,
+  modelName?: string
 ): Promise<string> {
+  const activeModel = modelName || MODEL;
   const isFirst = history.length === 0;
   const historyWindow = history.slice(-6);
   const immediateContext = history.slice(-2);
@@ -1047,12 +1133,9 @@ export async function generateVisualPrompt(
      - The AI character's outfit must reflect the latest clothing state recorded in the DYNAMIC MEMORY BANK.
      - IMPORTANT: Outfit CAN and MUST change if the recent chat action explicitly depicts changing clothes, putting on an apron, taking off a jacket, undressing, wrapping in a bath towel, or wearing sleepwear. In that case, describe the new attire accurately.
      - If no clothing change occurred in recent actions, strictly carry over the exact attire, colors, fabrics, and jewelry from the previous visual prompt and memory bank.
-     - CRITICAL ANATOMICAL DETAIL RULE FOR BLOOUSELESS / NO-BLOUSE ATTIRE:
-       Diffusion image models CANNOT correctly render negative terms like "no blouse", "without blouse", or "blouseless" (they mistakenly render a blouse or distort the clothing).
-       Whenever a character is blouseless or wearing a saree without a blouse:
-       * NEVER rely merely on "no blouse" or "blouseless" alone.
-       * You MUST provide explicit, positive descriptive anatomical and drapery detail text according to the scene context, such as: "bare torso, exposed side breast, bare midriff, bare shoulders and back draped solely with the single fabric layer of the saree pallu across the chest, unclad upper body, visible collarbones and natural skin contours".
-       * Vividly describe the exposed skin areas, curve of the torso/breast, and exact fabric drape in positive descriptive terms so the image generator accurately renders the blouseless attire.
+     - ATTIRE RENDERING FOR TRADITIONAL OR SPECIALIZED DRAPERY:
+       Diffusion image models respond best to positive descriptions rather than negative phrasing (such as avoiding words like "no blouse" or "without blouse" which confuse image synthesizers).
+       Whenever rendering traditional draped attire (such as a saree with pallu draped directly over the torso and shoulder), describe the visible fabric texture, drape, collarbones, midriff, and neckline positively and naturally to reflect the scene context faithfully.
      - If intimate/bare states are present, explicitly describe them (e.g. "bare natural upper-body skin", "completely shirtless with realistic skin texture").
 
   5. UNCLUTTERED ENVIRONMENT: Describe a focused, uncluttered environment with clean background separation and realistic depth.
@@ -1093,7 +1176,7 @@ export async function generateVisualPrompt(
     } catch (e) {
       console.error("External Visual Prompt Error:", e);
     }
-  } else if (MODEL === OPENROUTER_GEMMA_MODEL) {
+  } else if (activeModel === OPENROUTER_GEMMA_MODEL) {
     try {
       const text = await callOpenRouterGemma([{ role: "user", content: prompt }]);
       return enrichBlouselessPrompt(text || lastPrompt || "A hyper-realistic cinematic shot of the scene.");
@@ -1106,7 +1189,7 @@ export async function generateVisualPrompt(
   try {
     const ai = getAI();
     const response = await ai.models.generateContent({
-      model: MODEL,
+      model: activeModel,
       contents: prompt,
       config: {
         temperature: 0.8,
@@ -1351,8 +1434,10 @@ export async function getUserAutomatedReply(
   history: Message[],
   memoryBank?: string,
   externalApiConfig?: { apiBaseUrl: string },
-  timeOfDay?: string
+  timeOfDay?: string,
+  modelName?: string
 ): Promise<string> {
+  const activeModel = modelName || MODEL;
   const historyText = history.slice(-14).map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.text}`).join('\n');
   const timeContext = getTimeOfDayContext(timeOfDay);
 
@@ -1409,7 +1494,7 @@ export async function getUserAutomatedReply(
     }
   }
 
-  if (MODEL === OPENROUTER_GEMMA_MODEL) {
+  if (activeModel === OPENROUTER_GEMMA_MODEL) {
     try {
       const text = await callOpenRouterGemma([{ role: "user", content: prompt }]);
       let cleaned = (text || "").trim();
@@ -1425,7 +1510,7 @@ export async function getUserAutomatedReply(
   try {
     const ai = getAI();
     const response = await ai.models.generateContent({
-      model: MODEL,
+      model: activeModel,
       contents: prompt,
       config: {
         temperature: 0.9,
