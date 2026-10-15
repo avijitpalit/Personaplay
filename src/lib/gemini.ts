@@ -562,7 +562,7 @@ export async function generateInitialSetup(
 
   RULES:
   - POSITIVE PHRASING ONLY: Z-Image Turbo has no negative prompt support. Never write "no blouse", "without blouse", "no watermark", "no text". Describe what IS visible positively (e.g. "saree draped across a bare torso, exposed collarbones and midriff, unclad upper body").
-  - FIRST-PERSON POV: Close-up headshot or medium eye-level shot from the User's strict first-person view. The User is completely invisible to frame. The AI character looks directly into the camera lens.
+  - FIRST-PERSON POV: Close-up headshot or medium eye-level shot from the User's strict first-person view. The User is completely invisible to frame. The AI Character's gaze should be natural, for example, if he/she doing some task, the gaze should be on the task.
   - FACE & BODY FIDELITY: Weave in the exact facial architecture (face shape, cheekbones, jawline, eye color/shape, lips, pores) and body build from the Character DNA.
   - EXPLICIT ATTIRE: Fully define starting outfit (garment type, exact color, fabric/weave, jewelry).
   - UNCLUTTERED ENVIRONMENT: Focused setting with clean background separation and realistic depth.
@@ -1318,7 +1318,7 @@ export async function generateVisualPrompt(
     2. COMPOSITION & FIRST-PERSON POV (MANDATORY):
       - Strict first-person point-of-view of the User character, at eye-level looking directly at the AI character.
       - The User is completely invisible to frame (no User body parts in-frame).
-      - The AI character interacts toward or looks into the camera lens with natural engagement.
+      - The AI character's gaze should be natural, for example, if he/she doing some task, the gaze should be on the task.
 
     3. FACE ARCHITECTURE & BODY SHAPE (MAXIMUM FIDELITY):
       Explicitly describe the AI character as an adult with their persona, faithfully specifying exact facial architecture (face shape, cheekbones, jawline, eye color & shape, nose, lips, lifelike skin pores and texture) and body build/shape (height, somatotype, curves/musculature, waist proportions) from CHARACTER DNA.
