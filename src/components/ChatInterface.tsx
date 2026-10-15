@@ -130,7 +130,7 @@ export default function ChatInterface({
           : 'custom';
   const [imageWidthInput, setImageWidthInput] = useState<string>(String(initialSession?.imageWidth || 720));
   const [imageHeightInput, setImageHeightInput] = useState<string>(String(initialSession?.imageHeight || 1280));
-  const [imageStepsInput, setImageStepsInput] = useState<string>(String(initialSession?.imageSteps || 8));
+  const [imageStepsInput, setImageStepsInput] = useState<string>(String(initialSession?.imageSteps || 9));
   const [enableLora, setEnableLora] = useState<boolean>(initialSession?.enableLora ?? true);
   const [loraName, setLoraName] = useState<string>(initialSession?.loraName || 'Krea2_HMNSFW_AIO.safetensors');
   const [loraStrengthInput, setLoraStrengthInput] = useState<string>(
@@ -139,7 +139,7 @@ export default function ChatInterface({
 
   const imageWidth = parseInt(imageWidthInput) || 720;
   const imageHeight = parseInt(imageHeightInput) || 1280;
-  const imageSteps = parseInt(imageStepsInput) || 8;
+  const imageSteps = parseInt(imageStepsInput) || 9;
   const parsedLoraStrength = parseFloat(loraStrengthInput);
   const loraStrength = isNaN(parsedLoraStrength) ? 1.0 : parsedLoraStrength;
 
@@ -1376,10 +1376,10 @@ export default function ChatInterface({
                           }}
                           onBlur={() => {
                             if (!imageStepsInput.trim() || parseInt(imageStepsInput) <= 0) {
-                              setImageStepsInput('8');
+                              setImageStepsInput('9');
                             }
                           }}
-                          placeholder="8"
+                          placeholder="9"
                           className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent/50 text-white"
                         />
                       </div>

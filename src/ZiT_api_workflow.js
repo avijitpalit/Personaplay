@@ -8,6 +8,6 @@ export const zImageWorkflow = {
   "67": { "inputs": { "text": "prompt here", "clip": ["62", 0] }, "class_type": "CLIPTextEncode" },
   "68": { "inputs": { "width": 1024, "height": 1024, "batch_size": 1 }, "class_type": "EmptySD3LatentImage" },
   "69": { "inputs": { "shift": 3, "model": ["66", 0] }, "class_type": "ModelSamplingAuraFlow" },
-  "70": { "inputs": { "seed": 42, "steps": 8, "cfg": 1, "sampler_name": "res_multistep", "scheduler": "simple", "denoise": 1, "model": ["69", 0], "positive": ["67", 0], "negative": ["71", 0], "latent_image": ["68", 0] }, "class_type": "KSampler" },
+  "70": { "inputs": { "seed": 42, "steps": 9, "cfg": 1, "sampler_name": "res_multistep", "scheduler": "simple", "denoise": 1, "model": ["69", 0], "positive": ["67", 0], "negative": ["71", 0], "latent_image": ["68", 0] }, "class_type": "KSampler" },
   "71": { "inputs": { "text": "low quality, bad anatomy, extra digits, missing digits, extra limbs, missing limbs", "clip": ["62", 0] }, "class_type": "CLIPTextEncode" }
 };

@@ -308,10 +308,11 @@ export function enrichBlouselessPrompt(promptText?: string): string {
     }
   }
 
-  // 4. Clean up any duplicated punctuation or excessive spacing
+  // 4. Clean up any duplicated punctuation or excessive spacing while preserving section line breaks
   updated = updated
     .replace(/,\s*,+/g, ',')
-    .replace(/\s{2,}/g, ' ')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 
   return updated;
@@ -331,6 +332,12 @@ export function cleanDisplayMessage(text: string): string {
     /(?:^|\n)\s*(?:[-*]\s*)?Interpersonal Dynamic(?:\s*&\s*Tension)?\s*:[\s\S]*$/im,
     /(?:^|\n)\s*(?:[-*]\s*)?Ongoing Task(?:\s*&\s*Setting State)?\s*:[\s\S]*$/im,
     /(?:^|\n)\s*(?:[-*]\s*)?Visual Prompt\s*:[\s\S]*$/im,
+    /(?:^|\n)\s*(?:[-*]\s*)?Subject\s*:[\s\S]*$/im,
+    /(?:^|\n)\s*(?:[-*]\s*)?Attire\s*&\s*Pose\s*:[\s\S]*$/im,
+    /(?:^|\n)\s*(?:[-*]\s*)?Environment\s*&\s*Setting\s*:[\s\S]*$/im,
+    /(?:^|\n)\s*(?:[-*]\s*)?Lighting\s*&\s*Mood\s*:[\s\S]*$/im,
+    /(?:^|\n)\s*(?:[-*]\s*)?Camera\s*&\s*Style\s*:[\s\S]*$/im,
+    /(?:^|\n)\s*(?:[-*]\s*)?Negative Prompt(?:\s*\/\s*Exclusions)?\s*:[\s\S]*$/im,
   ];
 
   for (const pat of memoryPatterns) {
@@ -380,6 +387,12 @@ export function parseChatResponse(
   }
   if (promptMatch && promptMatch[1]?.trim()) {
     visualPrompt = enrichBlouselessPrompt(promptMatch[1].trim());
+  } else {
+    // Check for untagged structured prompt starting with Subject:
+    const loosePromptMatch = raw.match(/(?:^|\n)\s*(Subject\s*:[\s\S]*?)(?=\[\/?(?:MEMORIES|REPLY|THOUGHTS|EMOTIONS)\]|$)/i);
+    if (loosePromptMatch && loosePromptMatch[1]?.trim()) {
+      visualPrompt = enrichBlouselessPrompt(loosePromptMatch[1].trim());
+    }
   }
 
   // 2. Extract Memories (from tagged block or loose/untagged memory list)
@@ -426,7 +439,7 @@ export function parseChatResponse(
   }
 
   // 4. Synthesize visual prompt if omitted but attire or task updated
-  if (!promptMatch && updatedMemories) {
+  if (!promptMatch && !visualPrompt && updatedMemories) {
     const attireMatch = updatedMemories.match(/Current Attire\s*:\s*([^\n]+)/i);
     const anchorsMatch = updatedMemories.match(/Permanent Visual Anchors\s*:\s*([^\n]+)/i);
     const taskMatch = updatedMemories.match(/Ongoing Task(?:\s*&\s*Setting State)?\s*:\s*([^\n]+)/i);
@@ -437,10 +450,20 @@ export function parseChatResponse(
 
     if (attireDesc || taskDesc) {
       const baseDNA = anchorsDesc ? `${anchorsDesc}.` : "";
-      const baseAttire = attireDesc ? `She is wearing ${attireDesc}.` : "";
-      const baseTask = taskDesc ? `She is ${taskDesc}.` : "";
+      const baseAttire = attireDesc ? `Wearing ${attireDesc}.` : "";
+      const baseTask = taskDesc ? `Engaged in ${taskDesc}.` : "";
       visualPrompt = enrichBlouselessPrompt(
-        `A close-up cinematic eye-level first-person point-of-view shot. ${baseDNA} ${baseAttire} ${baseTask} Authentic HDR cinematic lighting, lifelike skin texture and pores, 35mm film, 85mm f/1.4 lens, shallow depth of field, sharp focus on subject, natural hands and fingers, clean detailed image, no watermark, no text.`
+`Subject: Eye-level realistic portrait of the character from the User's first-person point-of-view, looking naturally in the scene. ${baseDNA}
+
+Attire & Pose: ${baseAttire} ${baseTask} Relaxed authentic somatic posture.
+
+Environment & Setting: Ambient room setting with clean background separation and realistic depth of field.
+
+Lighting & Mood: Authentic natural HDR photographic lighting, balanced exposure preserving delicate highlights and deep natural shadows, soft directional key light, gentle ambient bounce fill, delicate rim light outlining hair and shoulders, natural specular highlights with subtle subsurface scattering on skin, tranquil and atmospheric mood.
+
+Camera & Style: Eye-level realistic portrait photo, crisp focus on the subject, authentic skin and fabric textures, shot on 35mm film, 85mm f/1.4 lens, shallow depth of field, natural bokeh, 8k resolution, raw organic photography aesthetic.
+
+Negative Prompt / Exclusions: (No extra fingers, distorted hands, blurry face, oversaturated colors, harsh direct sunlight, heavy filters, studio background, deformed limbs, floating elements, plastic skin, cartoon, watermark, signature, text).`
       );
     }
   }
@@ -457,6 +480,7 @@ export function parseChatResponse(
     if (promptMatch) stripped = stripped.replace(promptMatch[0], "");
     if (memoryMatch) stripped = stripped.replace(memoryMatch[0], "");
     stripped = stripped.replace(/(?:(?:^|\n)\s*[-*]?\s*Current Attire\s*:[\s\S]*?)(?=\[VISUAL_PROMPT\]|\[\/?MEMORIES\]|$)/gi, "");
+    stripped = stripped.replace(/(?:(?:^|\n)\s*Subject\s*:[\s\S]*$)/gi, "");
     reply = stripped;
   }
 
@@ -555,21 +579,29 @@ export async function generateInitialSetup(
   Keep extremely simple: gender, hair color/length, shoulder build, neutral baseline attire. No facial details.
 
   PART 2: INITIAL VISUAL PROMPT (Z-IMAGE TURBO COMPLIANT)
-  Write ONE continuous paragraph (140-200 words) in English describing the starting scene.
+  Write the initial scene prompt strictly following this 6-part scaffold with section labels:
 
-  PROMPT SCAFFOLD (follow strictly, in this order):
-  [Camera Shot & Subject Profile] + [Age, Appearance & Persona Traits] + [Explicit Clothing, Fabric & Colors] + [Environment & Spatial Layout] + [Lighting & Time of Day] + [Atmosphere & Mood] + [Photographic Medium & Lens Optics] + [Embedded Quality Constraints].
+  Subject: [Camera shot type (eye-level realistic portrait from User's strict first-person POV, User invisible), character age, ethnicity, facial architecture (face shape, cheekbones, jawline, eye color & shape, lips, nose, lifelike skin pores) and body build from Character DNA, hair texture and style, initial micro-expression, natural gaze]
+
+  Attire & Pose: [Starting somatic posture, hands, explicit baseline outfit from Character DNA (garments, colors, fabric textures, jewelry), or positive description of bare skin/torso if applicable]
+
+  Environment & Setting: [Starting setting, room or outdoor environment, spatial layout, clean backdrop separation]
+
+  Lighting & Mood: [Authentic natural HDR photographic lighting matching ${timeContext}: balanced exposure preserving highlights and deep natural shadows, soft directional key light, gentle ambient bounce fill, delicate rim light outlining hair and shoulders, natural specular highlights with subtle subsurface scattering on skin, atmospheric mood]
+
+  Camera & Style: [Eye-level realistic portrait photo, crisp focus on the subject, authentic skin and fabric textures, shot on 35mm film, 85mm f/1.4 lens, shallow depth of field, natural bokeh, 8k resolution, raw organic photography aesthetic]
+
+  Negative Prompt / Exclusions: (No extra fingers, distorted hands, blurry face, oversaturated colors, harsh direct sunlight, heavy filters, studio background, deformed limbs, floating elements, plastic skin, cartoon, watermark, signature, text).
 
   RULES:
-  - POSITIVE PHRASING ONLY: Z-Image Turbo has no negative prompt support. Never write "no blouse", "without blouse", "no watermark", "no text". Describe what IS visible positively (e.g. "saree draped across a bare torso, exposed collarbones and midriff, unclad upper body").
-  - FIRST-PERSON POV: Close-up headshot or medium eye-level shot from the User's strict first-person view. The User is completely invisible to frame. The AI Character's gaze should be natural, for example, if he/she doing some task, the gaze should be on the task.
+  - POSITIVE PHRASING ONLY in positive sections: Never write "no blouse", "without blouse" in the description. Describe what IS visible positively (e.g. "saree draped across a bare torso, exposed collarbones and midriff, unclad upper body").
+  - FIRST-PERSON POV: Close-up headshot or medium eye-level shot from the User's strict first-person view. The User is completely invisible to frame. The AI Character's gaze should be natural, for example, if doing a task, gaze should be on the task.
   - FACE & BODY FIDELITY: Weave in the exact facial architecture (face shape, cheekbones, jawline, eye color/shape, lips, pores) and body build from the Character DNA.
   - EXPLICIT ATTIRE: Fully define starting outfit (garment type, exact color, fabric/weave, jewelry).
   - UNCLUTTERED ENVIRONMENT: Focused setting with clean background separation and realistic depth.
   - LIGHTING (HDR, NATURAL): Lighting MUST match ${timeContext}. Follow authentic natural High Dynamic Range photographic lighting: balanced exposure preserving highlights and deep natural shadows, soft directional key light, gentle ambient bounce fill, delicate rim light outlining hair and shoulders, natural specular highlights with subtle subsurface scattering on skin.
   - OPTICS: "Shot on 35mm film, 85mm f/1.4 lens, shallow depth of field, natural bokeh, lifelike skin pores and texture, realistic volumetric lighting".
-  - QUALITY TAIL (append at end, positive phrasing only): "correct human anatomy, natural hands and fingers, sharp focus on the subject, clean detailed image, crisp sharp details, simple uncluttered background, plain clean backdrop".
-  - STYLE: One flowing paragraph. No bullet points. No prefix "Prompt:". No pronouns "I, my, me".
+  - NO PRONOUNS: Do not use pronouns "I, my, me".
 
   FORMAT REQUIREMENT:
   Output EXACTLY two tagged blocks:
@@ -577,7 +609,7 @@ export async function generateInitialSetup(
   <detailed character DNA list & profiles here>
   [/CHARACTER_DNA]
   [INITIAL_VISUAL_PROMPT]
-  <single highly-detailed visual prompt paragraph here>
+  <formatted visual prompt with the 6 labeled sections here>
   [/INITIAL_VISUAL_PROMPT]`;
 
   let responseData = { 
@@ -878,22 +910,29 @@ export async function getChatResponse(
      - Ongoing Task & Setting State: [active physical task, posture, distance]
      - <Other story facts & milestones>
 
-  5. [VISUAL_PROMPT] — one continuous paragraph (140-200 words) in ENGLISH describing the frozen moment right after [REPLY].
+  5. [VISUAL_PROMPT] — formatted in ENGLISH strictly using this 6-part scaffold with labels:
+     Subject: [Camera shot type (eye-level realistic portrait from User's strict first-person POV, User invisible), character age, ethnicity, facial architecture (face shape, cheekbones, jawline, eye color/shape, nose, lips, realistic skin pores) and body build from CHARACTER DNA, hair texture/style, micro-expression reacting to [REPLY], natural eye gaze direction]
 
-     SCAFFOLD (follow strictly, in this order):
-     [Camera Shot & Subject Profile] + [Age, Appearance & Persona Traits] + [Micro-Expression & Somatic Posture] + [Explicit Clothing, Fabric & Colors] + [Environment & Spatial Layout] + [Lighting & Time of Day] + [Atmosphere & Mood] + [Photographic Medium & Lens Optics] + [Embedded Quality Constraints].
+     Attire & Pose: [Somatic posture, hand placement/gesture, current attire reflecting latest state from [MEMORIES] (garment style, fabrics, colors, jewelry, or positive phrasing of bare torso/skin if applicable)]
+
+     Environment & Setting: [Setting, spatial layout, clean background separation, realistic depth]
+
+     Lighting & Mood: [Authentic natural HDR photographic lighting matching ${timeContext}: balanced exposure preserving highlights and deep natural shadows, soft directional key light, gentle ambient bounce fill, delicate rim light outlining hair and shoulders, natural specular highlights with subtle subsurface scattering on skin, atmospheric mood]
+
+     Camera & Style: [Eye-level realistic portrait photo, crisp focus on the subject, authentic skin and fabric textures, shot on 35mm film, 85mm f/1.4 lens, shallow depth of field, natural bokeh, 8k resolution, raw organic photography aesthetic]
+
+     Negative Prompt / Exclusions: (No extra fingers, distorted hands, blurry face, oversaturated colors, harsh direct sunlight, heavy filters, studio background, deformed limbs, floating elements, plastic skin, cartoon, watermark, signature, text).
 
      RULES:
-     - POSITIVE PHRASING ONLY: Z-Image Turbo has no negative prompt support. Never write "no blouse", "without blouse", "no watermark", "no text", "no motion blur". Describe what IS visible positively (e.g. "saree draped across a bare torso, exposed collarbones and midriff, unclad upper body", "crisp sharp details", "plain clean backdrop").
+     - POSITIVE PHRASING ONLY in positive sections: Never write "no blouse", "without blouse" in the description. Describe what IS visible positively (e.g. "saree draped across a bare torso, exposed collarbones and midriff, unclad upper body").
      - FIRST-PERSON POV: Close-up headshot or medium eye-level shot from the User's strict first-person view. User is completely invisible to frame.
-     - MICRO-EXPRESSION & POSTURE: Capture the exact facial micro-expression (self-conscious flush, averted gaze, playful half-smile, intense gaze) and physical posture (hand adjusting garment, pausing over kitchen counter, standing half-turned).
+     - MICRO-EXPRESSION & POSTURE: Capture the exact facial micro-expression (self-conscious flush, averted gaze, playful half-smile, intense gaze) and physical posture (hand adjusting garment, pausing over work, sitting defensively).
      - FACE & BODY FIDELITY: Weave in exact facial architecture (face shape, cheekbones, jawline, eye color/shape, nose, lips, skin pores) and body build/shape from CHARACTER DNA.
      - DYNAMIC ATTIRE: Describe current clothing based on the memory bank. If recent actions show a clothing change, describe the NEW state accurately. Otherwise, carry forward established attire.
      - UNCLUTTERED ENVIRONMENT: Focused setting with clean background separation and realistic depth.
      - LIGHTING (HDR, NATURAL): Lighting MUST match ${timeContext}. Follow authentic natural High Dynamic Range photographic lighting: balanced exposure preserving highlights and deep natural shadows, soft directional key light, gentle ambient bounce fill, delicate rim light outlining hair and shoulders, natural specular highlights with subtle subsurface scattering on skin.
      - OPTICS: "Shot on 35mm film, 85mm f/1.4 lens, shallow depth of field, natural bokeh, lifelike skin pores and texture, realistic volumetric lighting".
-     - QUALITY TAIL (append at end, positive phrasing only): "correct human anatomy, natural hands and fingers, sharp focus on the subject, clean detailed image, crisp sharp details, simple uncluttered background, plain clean backdrop".
-     - STYLE: One flowing paragraph. No bullets. No prefix "Prompt:". No pronouns "I, my, me".
+     - NO PRONOUNS: Do not use pronouns "I, my, me".
 
   ================================================================================
   FORMAT REQUIREMENT (CRITICAL — NEVER OMIT TAGS)
@@ -923,7 +962,12 @@ export async function getChatResponse(
   - <Other key facts>
   [/MEMORIES]
   [VISUAL_PROMPT]
-  <Visual prompt paragraph in English here>
+  Subject: ...
+  Attire & Pose: ...
+  Environment & Setting: ...
+  Lighting & Mood: ...
+  Camera & Style: ...
+  Negative Prompt / Exclusions: ...
   [/VISUAL_PROMPT]`;
 
   if (externalApiConfig?.apiBaseUrl) {
@@ -1106,19 +1150,27 @@ export async function getAutonomousCharacterAction(
       Mood: <English> | Somatic Cue: <English> | Relational Tension: <e.g. Flustered (6/10) / Comfortable / Guarded> | Speech Drive: <Low (Non-verbal) / Moderate / High / Aloof> | Active Task: <specific ongoing activity in English>
 
     5. FACE & BODY FIDELITY & DYNAMIC ATTIRE SCENE PROMPT ([VISUAL_PROMPT]):
-      - FACE & BODY: Faithfully carry over the AI character's exact facial architecture (face shape, jawline, eye color & shape, nose, lips, realistic skin pores) and body build/shape (height, somatotype, curves/frame, waist proportions) from CHARACTER DNA.
-      - DYNAMIC ATTIRE: Describe current clothing based on the memory bank and your active background task. If your activity involves changing clothes, drying off in a towel, wearing an apron, or undressing, describe that NEW clothing state. Otherwise carry forward the established attire.
-      - POSITIVE PHRASING ONLY: Z-Image Turbo has no negative prompt support. Never write "no blouse", "without blouse", "no watermark", "no text", "no motion blur". Describe what IS visible positively (e.g. "saree draped across a bare torso, exposed collarbones and midriff, unclad upper body", "crisp sharp details", "plain clean backdrop").
-      - SCAFFOLD (follow strictly, in this order):
-        [Camera Shot & Subject Profile] + [Age, Appearance & Persona Traits] + [Micro-Expression & Somatic Posture] + [Explicit Clothing, Fabric & Colors] + [Environment & Spatial Layout] + [Lighting & Time of Day] + [Atmosphere & Mood] + [Photographic Medium & Lens Optics] + [Embedded Quality Constraints].
+      Write the visual prompt in ENGLISH strictly using this 6-part scaffold with labels:
+      Subject: [Camera shot type (eye-level realistic portrait from User's strict first-person POV, User invisible), character age, ethnicity, facial architecture (face shape, jawline, eye color & shape, nose, lips, realistic skin pores) and body build/shape (height, somatotype, curves/frame, waist proportions) from CHARACTER DNA, hair texture and style, micro-expression (focused concentration, subtle warmth, averted glance), natural eye gaze direction (toward active task or glanced toward User)]
+
+      Attire & Pose: [Somatic posture, hands occupied with ongoing task, current clothing reflecting latest state from [MEMORIES] (garment style, fabrics, colors, jewelry, or positive phrasing of bare torso/skin if applicable)]
+
+      Environment & Setting: [Setting, spatial layout, clean background separation, realistic depth]
+
+      Lighting & Mood: [Authentic natural HDR photographic lighting matching ${timeContext}: balanced exposure preserving highlights and deep natural shadows, soft directional key light, gentle ambient bounce fill, delicate rim light outlining hair and shoulders, natural specular highlights with subtle subsurface scattering on skin, atmospheric mood]
+
+      Camera & Style: [Eye-level realistic portrait photo, crisp focus on the subject, authentic skin and fabric textures, shot on 35mm film, 85mm f/1.4 lens, shallow depth of field, natural bokeh, 8k resolution, raw organic photography aesthetic]
+
+      Negative Prompt / Exclusions: (No extra fingers, distorted hands, blurry face, oversaturated colors, harsh direct sunlight, heavy filters, studio background, deformed limbs, floating elements, plastic skin, cartoon, watermark, signature, text).
+
+      RULES:
+      - POSITIVE PHRASING ONLY in positive sections: Never write "no blouse", "without blouse" in the description. Describe what IS visible positively (e.g. "saree draped across a bare torso, exposed collarbones and midriff, unclad upper body").
       - FIRST-PERSON POV: Close-up headshot or medium eye-level shot from the User's strict first-person view. User is completely invisible to frame.
-      - MICRO-EXPRESSION & POSTURE: Capture the exact facial micro-expression (self-conscious flush, averted gaze, focused concentration, subtle warmth) and physical posture (hands occupied with a task, pausing mid-motion, leaning against a counter).
+      - MICRO-EXPRESSION & POSTURE: Capture exact micro-expression and somatic posture matching your ongoing task.
       - UNCLUTTERED ENVIRONMENT: Focused setting with clean background separation and realistic depth.
       - LIGHTING (HDR, NATURAL): Lighting MUST match ${timeContext}. Follow authentic natural High Dynamic Range photographic lighting: balanced exposure preserving highlights and deep natural shadows, soft directional key light, gentle ambient bounce fill, delicate rim light outlining hair and shoulders, natural specular highlights with subtle subsurface scattering on skin.
       - OPTICS: "Shot on 35mm film, 85mm f/1.4 lens, shallow depth of field, natural bokeh, lifelike skin pores and texture, realistic volumetric lighting".
-      - QUALITY TAIL (append at end, positive phrasing only): "correct human anatomy, natural hands and fingers, sharp focus on the subject, clean detailed image, crisp sharp details, simple uncluttered background, plain clean backdrop".
-      - STYLE: One flowing paragraph (140-200 words). No bullets. No prefix "Prompt:". No pronouns "I, my, me".
-      - Write 140-200 words capturing your updated posture, hands, and action in the scene right now under ${timeContext} lighting.
+      - NO PRONOUNS: Do not use pronouns "I, my, me".
 
     ================================================================================
     FORMAT REQUIREMENT (CRITICAL — NEVER OMIT TAGS)
@@ -1151,7 +1203,12 @@ export async function getAutonomousCharacterAction(
     - <Other key facts>
     [/MEMORIES]
     [VISUAL_PROMPT]
-    <Visual prompt paragraph in English here>
+    Subject: ...
+    Attire & Pose: ...
+    Environment & Setting: ...
+    Lighting & Mood: ...
+    Camera & Style: ...
+    Negative Prompt / Exclusions: ...
     [/VISUAL_PROMPT]`;
 
   if (externalApiConfig?.apiBaseUrl) {
@@ -1305,55 +1362,41 @@ export async function generateVisualPrompt(
       ? `PREVIOUS VISUAL (use for visual consistency only — do NOT copy same pose): ${lastPrompt}` 
       : ""}
 
-    Write ONE continuous paragraph (140-200 words) in English describing the frozen moment.
+    PROMPT STRUCTURE REQUIREMENT (CRITICAL — STRICT Z-IMAGE TURBO SCAFFOLD):
+    Format the output prompt strictly with these 6 labeled sections separated by double line breaks:
 
-    SCAFFOLD (follow strictly, in this order):
-    [Camera Shot & Subject Profile] + [Age, Appearance & Persona Traits] + [Micro-Expression & Somatic Posture] + [Explicit Clothing, Fabric & Colors] + [Environment & Spatial Layout] + [Lighting & Time of Day] + [Atmosphere & Mood] + [Photographic Medium & Lens Optics] + [Embedded Quality Constraints].
+    Subject: [Camera shot type (eye-level realistic portrait from the User's strict first-person POV, User completely invisible), character age, ethnicity, facial architecture (face shape, cheekbones, jawline, eye color & shape, nose, lips, natural skin pores and micro-texture) and body build faithfully reflecting CHARACTER DNA, hair texture and style, micro-expression capturing the emotional reaction to recent action, and natural eye gaze direction (looking into camera lens if engaging with User, or focused on the active task)]
+
+    Attire & Pose: [Physical posture and somatic pose, hand placement or active manipulation of objects, explicit current clothing reflecting latest state from DYNAMIC MEMORY BANK (fabric type, weave, draping, exact colors, jewelry/accessories), or positive descriptions of exposed skin/bare areas (e.g. bare torso, exposed collarbones, bare midriff, unclad upper body) if applicable]
+
+    Environment & Setting: [Spatial setting, background separation with realistic depth of field, authentic room and environmental textures, clean backdrop separation]
+
+    Lighting & Mood: [Authentic natural HDR photographic lighting strictly matching ${timeContext}: balanced exposure preserving delicate highlights and deep natural shadows, soft directional key light, gentle ambient bounce fill, delicate rim light outlining hair and shoulders, natural specular highlights with subtle subsurface scattering on skin, tranquil and atmospheric mood]
+
+    Camera & Style: [Eye-level realistic portrait photo, crisp focus on the subject, authentic skin and fabric textures, shot on 35mm film, 85mm f/1.4 lens, shallow depth of field, natural bokeh, 8k resolution, raw organic photography aesthetic]
+
+    Negative Prompt / Exclusions: (No extra fingers, distorted hands, blurry face, oversaturated colors, harsh direct sunlight, heavy filters, studio background, deformed limbs, floating elements, plastic skin, cartoon, watermark, signature, text).
 
     RULES:
-
-    1. POSITIVE PHRASING ONLY (Z-Image Turbo):
-      Z-Image Turbo has no negative prompt support. Never write "no blouse", "without blouse", "no watermark", "no text", "no motion blur", "no extra limbs". Describe what IS visible positively (e.g. "saree draped across a bare torso, exposed collarbones and midriff, unclad upper body", "crisp sharp details", "plain clean backdrop").
-
+    1. POSITIVE PHRASING ONLY in positive sections: Never write "no blouse", "without blouse" in the description. Describe what IS visible positively (e.g. "saree draped across a bare torso, exposed collarbones and midriff, unclad upper body").
     2. COMPOSITION & FIRST-PERSON POV (MANDATORY):
-      - Strict first-person point-of-view of the User character, at eye-level looking directly at the AI character.
-      - The User is completely invisible to frame (no User body parts in-frame).
-      - The AI character's gaze should be natural, for example, if he/she doing some task, the gaze should be on the task.
-
+       - Strict first-person point-of-view of the User character, at eye-level looking directly at the AI character.
+       - The User is completely invisible to frame (no User body parts in-frame).
+       - The AI character's gaze should be natural (looking into camera lens when speaking to User, or gazing at task when busy).
     3. FACE ARCHITECTURE & BODY SHAPE (MAXIMUM FIDELITY):
-      Explicitly describe the AI character as an adult with their persona, faithfully specifying exact facial architecture (face shape, cheekbones, jawline, eye color & shape, nose, lips, lifelike skin pores and texture) and body build/shape (height, somatotype, curves/musculature, waist proportions) from CHARACTER DNA.
+       - Faithfully specify exact facial architecture and body build/shape from CHARACTER DNA.
+    4. DYNAMIC OUTFIT CONTINUITY:
+       - Outfit MUST reflect the latest clothing state in DYNAMIC MEMORY BANK.
+       - If recent chat explicitly depicts changing clothes, apron, removing a layer, undressing, bath towel, or sleepwear -> describe the NEW attire accurately.
+       - If no change occurred -> carry forward the exact attire, colors, fabrics, jewelry from the previous visual prompt and memory bank.
+    5. NATURAL HDR LIGHTING (CRITICAL):
+       - Lighting MUST strictly match ${timeContext} with natural High Dynamic Range (HDR) photographic lighting principles.
+    6. NO METAPHORS OR TRANSITIONAL ACTIONS:
+       - Only describe what is physically visible in the frozen frame. Do NOT use pronouns "I, my, me".
+    7. LANGUAGE:
+       - The prompt MUST be written entirely in English.
 
-    4. MICRO-EXPRESSION & SOMATIC POSTURE:
-      Capture the character's precise micro-expression (self-conscious flush, averted gaze, playful smirk, genuine warmth) and somatic posture (hand adjusting garment/saree, pausing active task, leaning against counter).
-
-    5. DYNAMIC OUTFIT CONTINUITY:
-      - Outfit MUST reflect the latest clothing state in DYNAMIC MEMORY BANK.
-      - If recent chat explicitly depicts changing clothes, apron, removing a layer, undressing, bath towel, or sleepwear -> describe the NEW attire accurately.
-      - If no change occurred -> carry forward the exact attire, colors, fabrics, jewelry from the previous visual prompt and memory bank.
-      - If intimate/bare states are present, explicitly describe them positively (e.g. "bare natural upper-body skin", "completely shirtless with realistic skin texture").
-
-    6. UNCLUTTERED ENVIRONMENT:
-      Focused setting with clean background separation and realistic depth.
-
-    7. TIME OF DAY & NATURAL HDR LIGHTING (CRITICAL):
-      Lighting, background colors, and ambiance MUST strictly match ${timeContext}. Follow authentic natural High Dynamic Range photographic lighting: balanced exposure preserving highlights and deep natural shadows, soft directional key light, gentle ambient bounce fill, delicate rim light outlining hair and shoulders, natural specular highlights with subtle subsurface scattering on skin.
-
-    8. DYNAMIC GAZE DIRECTION:
-      Gaze must match the current action logically. Interacting with the User -> look directly into the camera lens. Engaged in a task (cooking, reading) -> gaze focused naturally on that activity.
-
-    9. PHOTOGRAPHIC MEDIUM & OPTICS:
-      "Shot on 35mm film, 85mm f/1.4 lens, shallow depth of field, natural bokeh, lifelike skin pores and texture, realistic volumetric lighting".
-
-    10. QUALITY TAIL (append at end, positive phrasing only):
-        "correct human anatomy, natural hands and fingers, sharp focus on the subject, clean detailed image, crisp sharp details, simple uncluttered background, plain clean backdrop".
-
-    11. NO METAPHORS OR TRANSITIONAL ACTIONS:
-        Only describe what is physically visible in the frozen frame. Do NOT use transitional verbs like "about to" or "just finished". Do NOT use pronouns "I, my, me".
-
-    12. LANGUAGE:
-        The prompt MUST be written entirely in English.
-
-    OUTPUT THE PROMPT ONLY. No introductory or concluding text. No "Prompt:" prefix. No quote marks.
+    OUTPUT THE PROMPT ONLY. Output the 6 labeled sections directly. No introductory or concluding text. No "Prompt:" prefix. No quote marks.
     `;
 
   // console.log('generateVisualPrompt', prompt);
@@ -1419,7 +1462,7 @@ export async function generateRunpodImage(
   prompt: string,
   width: number = 1024,
   height: number = 1024,
-  steps: number = 8
+  steps: number = 9
 ): Promise<{ url: string }> {
   const ENDPOINT_ID = (
     (typeof process !== 'undefined' && process.env?.RUNPOD_ENDPOINT_ID) ||
@@ -1521,7 +1564,7 @@ export async function generateImage(
   visualPrompt: string,
   width: number = 720,
   height: number = 1280,
-  steps: number = 8,
+  steps: number = 9,
   loraStrength: number = 1.5,
   enableLora: boolean = true,
   loraName: string = "Krea2_HMNSFW_AIO.safetensors"
